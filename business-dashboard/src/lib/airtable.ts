@@ -409,6 +409,21 @@ export const getOpenTasks = (
 export const getIdeas = (opts?: Airtable.SelectOptions<Airtable.FieldSet>) =>
   fetchAll("Ideas", IdeaSchema, opts);
 
+// ─── Single-record reads (by id) ───────────────────────────────────────────────
+// Used by the in-app automations, which operate on one chosen record.
+
+export async function getLead(id: string): Promise<Lead | null> {
+  return parseRecord("Leads", await getBase()("Leads").find(id), LeadSchema);
+}
+
+export async function getProject(id: string): Promise<Project | null> {
+  return parseRecord("Projects", await getBase()("Projects").find(id), ProjectSchema);
+}
+
+export async function getClientById(id: string): Promise<Client | null> {
+  return parseRecord("Clients", await getBase()("Clients").find(id), ClientSchema);
+}
+
 // ─── Write helpers ────────────────────────────────────────────────────────────
 //
 // Validate input first. Return the raw record (id + fields) without re-parsing

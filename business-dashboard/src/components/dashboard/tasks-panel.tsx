@@ -1,9 +1,18 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useOptimistic } from "react";
 import { toast } from "sonner";
-import { createTaskAction } from "@/app/actions";
+import { createTaskAction, updateTaskAction } from "@/app/actions";
 import type { Task, Project } from "@/lib/airtable";
+
+// Every status a task can hold, in flow order. Mirrors the Airtable enum in
+// `@/lib/airtable` (TaskSchema.Status) and drives the per-card status select.
+const TASK_STATUSES: NonNullable<Task["Status"]>[] = [
+  "Pending",
+  "In Progress",
+  "Blocked",
+  "Done",
+];
 
 // Kind / Assigned-To option lists mirror the Airtable enums in `@/lib/airtable`.
 const KIND_OPTIONS: NonNullable<Task["Kind"]>[] = [
@@ -50,7 +59,18 @@ const selectCls = inputCls + " cursor-pointer";
 
 type AssignedFilter = "Any" | "You" | "Partner";
 
-function TaskCard({ task, projectName }: { task: Task; projectName?: string }) {
+function TaskCard({
+  task,
+  projectName,
+  pending,
+  onStatusChange,
+}: {
+  task: Task;
+  projectName?: string;
+  pending: boolean;
+  onStatusChange: (next: NonNullable<Task["Status"]>) => void;
+}) {
+  const current = task.Status ?? "Pending";
   return (
     <div className="bg-[#0b0d10] border border-[#2a2e34] rounded-xl p-3 flex flex-col gap-2 hover:border-zinc-600 transition-colors">
       <div className="flex items-start justify-between gap-2">
@@ -71,12 +91,24 @@ function TaskCard({ task, projectName }: { task: Task; projectName?: string }) {
           <span className="text-[10px] text-zinc-600 ml-auto">{task["Assigned To"]}</span>
         )}
       </div>
-      {task.Status === "Blocked" && (
-        <span className="text-[10px] text-[#ff4d8b]">Blocked</span>
-      )}
       {task["Picked Up By"] && task.Status === "In Progress" && (
         <span className="text-[10px] text-zinc-600 font-mono">@ {task["Picked Up By"]}</span>
       )}
+      <select
+        value={current}
+        disabled={pending}
+        onChange={(e) => {
+          const next = e.target.value as NonNullable<Task["Status"]>;
+          if (next !== current) onStatusChange(next);
+        }}
+        className={`mt-0.5 w-full text-xs px-2 py-1 rounded-lg border border-[#2a2e34] bg-[#14181d] font-medium cursor-pointer disabled:opacity-40 focus:outline-none focus:border-zinc-500 transition-colors ${COLUMN_ACCENT[current] ?? "text-zinc-400"}`}
+      >
+        {TASK_STATUSES.map((s) => (
+          <option key={s} value={s} className="bg-[#14181d] text-white">
+            {s}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -239,14 +271,37 @@ export function TasksPanel({
 }) {
   const [assignedFilter, setAssignedFilter] = useState<AssignedFilter>("Any");
   const [showNew, setShowNew] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  // Optimistic status moves; resets to the latest server prop after revalidate.
+  const [optimisticTasks, applyStatus] = useOptimistic<
+    Task[],
+    { id: string; status: NonNullable<Task["Status"]> }
+  >(tasks, (current, { id, status }) =>
+    current.map((t) => (t.id === id ? { ...t, Status: status } : t)),
+  );
+
+  function handleStatusChange(task: Task, next: NonNullable<Task["Status"]>) {
+    startTransition(async () => {
+      applyStatus({ id: task.id, status: next });
+      try {
+        await updateTaskAction(task.id, { Status: next });
+        toast.success(`Moved to ${next}`);
+      } catch {
+        // The transition tears down on throw; the next server render replaces
+        // the optimistic state with whatever is now in Airtable.
+        toast.error("Failed to update status");
+      }
+    });
+  }
 
   const projectName = new Map<string, string>();
   for (const p of projects) projectName.set(p.id, p.Name);
 
   const visible =
     assignedFilter === "Any"
-      ? tasks
-      : tasks.filter((t) => t["Assigned To"] === assignedFilter);
+      ? optimisticTasks
+      : optimisticTasks.filter((t) => t["Assigned To"] === assignedFilter);
 
   const filters: AssignedFilter[] = ["Any", "You", "Partner"];
 
@@ -297,7 +352,13 @@ export function TasksPanel({
                   <p className="text-xs text-zinc-700 italic px-1 py-4 text-center">Nothing here</p>
                 ) : (
                   colTasks.map((t) => (
-                    <TaskCard key={t.id} task={t} projectName={t.Project?.[0] ? projectName.get(t.Project[0]) : undefined} />
+                    <TaskCard
+                      key={t.id}
+                      task={t}
+                      projectName={t.Project?.[0] ? projectName.get(t.Project[0]) : undefined}
+                      pending={pending}
+                      onStatusChange={(next) => handleStatusChange(t, next)}
+                    />
                   ))
                 )}
               </div>

@@ -3,8 +3,14 @@
 import { useState, useTransition } from "react";
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { createTaskAction } from "@/app/actions";
-import type { Project } from "@/lib/airtable";
+import {
+  createTaskAction,
+  draftProposalAction,
+  generateLeadsAction,
+  generateInvoiceAction,
+  researchAction,
+} from "@/app/actions";
+import type { Lead, Project } from "@/lib/airtable";
 
 // ─── Task Kind ────────────────────────────────────────────────────────────────
 // Mirrors the `Kind` enum on TaskWriteSchema in airtable.ts. Kept as a local
@@ -21,12 +27,14 @@ type TaskKind =
 
 type Props = {
   projects?: Project[];
+  leads?: Lead[];
 };
 
 // ─── A "play" = one runnable automation ─────────────────────────────────────────
-// Each play queues a Pending Task with the correct Kind + an Inputs JSON blob.
-// A terminal later claims it via /take-task and runs the matching command
-// (e.g. /generate-invoice reads these Inputs).
+// `execute` plays run the work in-app (calling Claude + writing Airtable);
+// `queue` plays drop a Pending Task with the correct Kind + an Inputs JSON blob
+// for a terminal to claim via /take-task and run the matching command (coding
+// jobs that can't run inside a web request).
 
 type FieldDef =
   | {
@@ -49,6 +57,13 @@ type FieldDef =
       label: string;
       type: "project";
       required?: boolean;
+    }
+  | {
+      // A select sourced from the live Leads list.
+      name: string;
+      label: string;
+      type: "lead";
+      required?: boolean;
     };
 
 type Play = {
@@ -58,7 +73,9 @@ type Play = {
   kind: TaskKind;
   accent: string;
   blurb: string;
-  /** Slash command a terminal runs once it claims the task (for the Title). */
+  /** "execute" runs in-app; "queue" drops a Task for a terminal to run. */
+  mode: "execute" | "queue";
+  /** Slash command a terminal runs once it claims a queued task (for the Title). */
   command?: string;
   fields: FieldDef[];
 };
@@ -71,11 +88,11 @@ const PLAYS: Play[] = [
     kind: "lead-gen",
     accent: "#bfff3a",
     blurb: "Find prospects in a niche and location.",
-    command: "/generate-leads",
+    mode: "execute",
     fields: [
       { name: "niche", label: "Niche / industry", type: "text", placeholder: "e.g. restaurants", required: true },
       { name: "location", label: "Location", type: "text", placeholder: "e.g. Port of Spain" },
-      { name: "count", label: "How many", type: "number", placeholder: "20" },
+      { name: "count", label: "How many", type: "number", placeholder: "10" },
     ],
   },
   {
@@ -84,10 +101,10 @@ const PLAYS: Play[] = [
     icon: "📝",
     kind: "client-comms",
     accent: "#c44dff",
-    blurb: "Write a proposal for a project.",
-    command: "/draft-proposal",
+    blurb: "Write a proposal draft for a lead.",
+    mode: "execute",
     fields: [
-      { name: "projectId", label: "Project", type: "project", required: true },
+      { name: "leadId", label: "Lead", type: "lead", required: true },
       { name: "scope", label: "Scope / asks", type: "text", placeholder: "What the client wants" },
       {
         name: "tone",
@@ -108,7 +125,7 @@ const PLAYS: Play[] = [
     kind: "ops",
     accent: "#bfff3a",
     blurb: "Mint a numbered TT$ invoice for a project.",
-    command: "/generate-invoice",
+    mode: "execute",
     fields: [
       { name: "projectId", label: "Project", type: "project", required: true },
       {
@@ -134,6 +151,7 @@ const PLAYS: Play[] = [
     kind: "code",
     accent: "#7dd3fc",
     blurb: "Scaffold a client site from a reference pattern.",
+    mode: "queue",
     command: "/new-marketing-site",
     fields: [
       { name: "clientName", label: "Client / business", type: "text", placeholder: "e.g. Trotters", required: true },
@@ -160,6 +178,7 @@ const PLAYS: Play[] = [
     kind: "ops",
     accent: "#ff4d8b",
     blurb: "Re-snapshot the website-references library.",
+    mode: "queue",
     command: "/refresh-references",
     fields: [
       { name: "notes", label: "Notes (optional)", type: "text", placeholder: "Which sites, why" },
@@ -171,8 +190,8 @@ const PLAYS: Play[] = [
     icon: "🔍",
     kind: "research",
     accent: "#fbbf24",
-    blurb: "Dig into a topic and report back.",
-    command: "/research",
+    blurb: "Dig into a topic and save it to Ideas.",
+    mode: "execute",
     fields: [
       { name: "topic", label: "Topic", type: "text", placeholder: "What to research", required: true },
       {
@@ -254,11 +273,15 @@ function SubmitRow({
   pending,
   onClose,
   accent,
+  mode,
 }: {
   pending: boolean;
   onClose: () => void;
   accent: string;
+  mode: "execute" | "queue";
 }) {
+  const idle = mode === "execute" ? "Run" : "Queue task";
+  const busy = mode === "execute" ? "Running…" : "Queueing…";
   return (
     <div className="flex gap-2 justify-end mt-6">
       <button
@@ -274,7 +297,7 @@ function SubmitRow({
         className="text-xs px-4 py-2 rounded-xl font-semibold disabled:opacity-40 transition-colors"
         style={{ background: accent, color: "#000" }}
       >
-        {pending ? "Queueing…" : "Queue task"}
+        {pending ? busy : idle}
       </button>
     </div>
   );
@@ -282,13 +305,53 @@ function SubmitRow({
 
 // ─── Per-play form → queues a Task ──────────────────────────────────────────────
 
+// Run an in-app "execute" play, dispatched by id. Returns the launcher's
+// { ok, message } so the modal can toast success or a graceful failure.
+async function runExecutePlay(
+  play: Play,
+  inputs: Record<string, string>,
+): Promise<{ ok: boolean; message: string }> {
+  switch (play.id) {
+    case "generate-invoice":
+      return generateInvoiceAction({
+        projectId: inputs.projectId,
+        invoiceType: inputs.invoiceType as
+          | "deposit"
+          | "milestone"
+          | "final"
+          | "recurring"
+          | "one_off"
+          | undefined,
+        amount: inputs.amount ? Number(inputs.amount) : undefined,
+        dueDate: inputs.dueDate || undefined,
+      });
+    case "draft-proposal":
+      return draftProposalAction(inputs.leadId, {
+        scope: inputs.scope,
+        tone: inputs.tone,
+      });
+    case "generate-leads":
+      return generateLeadsAction({
+        niche: inputs.niche,
+        location: inputs.location,
+        count: inputs.count ? Number(inputs.count) : undefined,
+      });
+    case "research":
+      return researchAction({ topic: inputs.topic, depth: inputs.depth });
+    default:
+      return { ok: false, message: "Unknown automation." };
+  }
+}
+
 function PlayModal({
   play,
   projects,
+  leads,
   onClose,
 }: {
   play: Play;
   projects: Project[];
+  leads: Lead[];
   onClose: () => void;
 }) {
   const [pending, start] = useTransition();
@@ -306,8 +369,24 @@ function PlayModal({
       if (raw !== "") inputs[f.name] = raw;
     }
 
-    // A readable title: "Generate invoice — Acme redesign" when a project is
-    // chosen, otherwise just the play label.
+    if (play.mode === "execute") {
+      start(async () => {
+        try {
+          const res = await runExecutePlay(play, inputs);
+          if (res.ok) {
+            toast.success(res.message);
+            onClose();
+          } else {
+            toast.error(res.message);
+          }
+        } catch {
+          toast.error("Automation failed. Try again.");
+        }
+      });
+      return;
+    }
+
+    // Queue mode: drop a Pending Task for a terminal to claim and run.
     const projectName = projectId
       ? projects.find((p) => p.id === projectId)?.Name
       : undefined;
@@ -352,6 +431,17 @@ function PlayModal({
                   </option>
                 ))}
               </select>
+            ) : f.type === "lead" ? (
+              <select name={f.name} className={selectCls} defaultValue="" required={f.required}>
+                <option value="" disabled={f.required}>
+                  — Select lead
+                </option>
+                {leads.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l["Business Name"] ? `${l.Name} — ${l["Business Name"]}` : l.Name}
+                  </option>
+                ))}
+              </select>
             ) : f.type === "select" ? (
               <select name={f.name} className={selectCls} defaultValue="" required={f.required}>
                 <option value="" disabled>
@@ -376,13 +466,13 @@ function PlayModal({
             )}
           </Field>
         ))}
-        <SubmitRow pending={pending} onClose={onClose} accent={play.accent} />
+        <SubmitRow pending={pending} onClose={onClose} accent={play.accent} mode={play.mode} />
       </form>
     </Modal>
   );
 }
 
-export function AutomationLauncher({ projects = [] }: Props) {
+export function AutomationLauncher({ projects = [], leads = [] }: Props) {
   const [openPlay, setOpenPlay] = useState<Play | null>(null);
 
   return (
@@ -412,6 +502,7 @@ export function AutomationLauncher({ projects = [] }: Props) {
         <PlayModal
           play={openPlay}
           projects={projects}
+          leads={leads}
           onClose={() => setOpenPlay(null)}
         />
       )}
