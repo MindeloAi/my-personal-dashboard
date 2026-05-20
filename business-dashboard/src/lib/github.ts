@@ -8,7 +8,10 @@ import { Octokit } from "octokit";
 // missing we log once and return empty results rather than throwing — the
 // dashboard should render without a configured PAT.
 
-const ORGS = ["MindeloAi", "trinirugby"] as const;
+// Accounts whose repos populate the dev hub. These may be GitHub orgs OR
+// personal users, which use different REST endpoints — we resolve each
+// account's type at call time rather than assuming.
+const ACCOUNTS = ["MindeloAi", "trinirugby"] as const;
 
 let _octokit: Octokit | null = null;
 let _warned = false;
@@ -26,7 +29,15 @@ function getClient(): Octokit | null {
     }
     return null;
   }
-  _octokit = new Octokit({ auth: token });
+  // Disable the throttling/retry plugins' automatic backoff. The dev hub fires
+  // many search calls per dashboard load; if we let octokit wait out a rate
+  // limit the whole server render blocks for tens of seconds. Failing fast lets
+  // fetchCounts catch the error and degrade to "counts unavailable" instead.
+  _octokit = new Octokit({
+    auth: token,
+    throttle: { enabled: false },
+    retry: { enabled: false },
+  });
   return _octokit;
 }
 
@@ -57,20 +68,28 @@ async function fetchCounts(
   client: Octokit,
   fullName: string,
 ): Promise<RepoCounts> {
-  const [issues, prs] = await Promise.all([
-    client.rest.search.issuesAndPullRequests({
-      q: `repo:${fullName} is:issue is:open`,
-      per_page: 1,
-    }),
-    client.rest.search.issuesAndPullRequests({
-      q: `repo:${fullName} is:pr is:open`,
-      per_page: 1,
-    }),
-  ]);
-  return {
-    openIssueCount: issues.data.total_count,
-    openPRCount: prs.data.total_count,
-  };
+  try {
+    const [issues, prs] = await Promise.all([
+      client.rest.search.issuesAndPullRequests({
+        q: `repo:${fullName} is:issue is:open`,
+        per_page: 1,
+      }),
+      client.rest.search.issuesAndPullRequests({
+        q: `repo:${fullName} is:pr is:open`,
+        per_page: 1,
+      }),
+    ]);
+    return {
+      openIssueCount: issues.data.total_count,
+      openPRCount: prs.data.total_count,
+    };
+  } catch (err) {
+    // Rate limit or transient API error — degrade to zero rather than hanging
+    // the dashboard render. The search API limit is low and the dev hub fans
+    // out one of these per repo.
+    console.warn(`[github] count fetch failed for ${fullName}:`, err);
+    return { openIssueCount: 0, openPRCount: 0 };
+  }
 }
 
 // ─── Reads ──────────────────────────────────────────────────────────────────
@@ -83,14 +102,34 @@ export async function listAllRepos(): Promise<RepoSummary[]> {
 
   const summaries: RepoSummary[] = [];
 
-  for (const org of ORGS) {
-    const repos = await client.paginate(client.rest.repos.listForOrg, {
-      org,
-      type: "all",
-      per_page: 100,
-    });
+  for (const account of ACCOUNTS) {
+    // An account can be an org or a user, which use different list endpoints
+    // (and the wrong one 404s). Resolve the type, then page accordingly. A
+    // failure for one account must not take down the whole dashboard, so we
+    // log and skip rather than letting the error propagate.
+    let repos;
+    try {
+      const { data } = await client.rest.users.getByUsername({
+        username: account,
+      });
+      repos =
+        data.type === "Organization"
+          ? await client.paginate(client.rest.repos.listForOrg, {
+              org: account,
+              type: "all",
+              per_page: 100,
+            })
+          : await client.paginate(client.rest.repos.listForUser, {
+              username: account,
+              type: "owner",
+              per_page: 100,
+            });
+    } catch (err) {
+      console.warn(`[github] failed to list repos for ${account}:`, err);
+      continue;
+    }
 
-    const orgSummaries = await Promise.all(
+    const accountSummaries = await Promise.all(
       repos.map(async (repo): Promise<RepoSummary> => {
         const counts = await fetchCounts(client, repo.full_name);
         return {
@@ -106,7 +145,7 @@ export async function listAllRepos(): Promise<RepoSummary[]> {
       }),
     );
 
-    summaries.push(...orgSummaries);
+    summaries.push(...accountSummaries);
   }
 
   return summaries;
