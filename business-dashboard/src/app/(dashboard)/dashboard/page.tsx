@@ -3,23 +3,31 @@ import {
   getProjects,
   getExpenses,
   getClients,
+  getLeads,
+  getTasks,
+  getIdeas,
   MissingAirtableEnvError,
 } from "@/lib/airtable";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { DevHub } from "@/components/dashboard/dev-hub";
 
 // Always render at request time. Dashboard data is live; never snapshot at build.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function DashboardPage() {
-  let invoices, projects, expenses, clients;
+  let invoices, projects, expenses, clients, leads, tasks, ideas;
   try {
-    [invoices, projects, expenses, clients] = await Promise.all([
-      getInvoices(),
-      getProjects(),
-      getExpenses(),
-      getClients(),
-    ]);
+    [invoices, projects, expenses, clients, leads, tasks, ideas] =
+      await Promise.all([
+        getInvoices(),
+        getProjects(),
+        getExpenses(),
+        getClients(),
+        getLeads(),
+        getTasks(),
+        getIdeas(),
+      ]);
   } catch (err) {
     if (err instanceof MissingAirtableEnvError) {
       return (
@@ -44,6 +52,10 @@ export default async function DashboardPage() {
       projects={projects}
       invoices={invoices}
       expenses={expenses}
+      leads={leads}
+      tasks={tasks}
+      ideas={ideas}
+      devHub={<DevHub />}
     />
   );
 }
