@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Section } from "@/components/dashboard/section";
 
 /**
- * One entry per dashboard area. Selecting an entry toggles which section is
- * shown in-page — we deliberately stay on the single `/dashboard` route so the
- * existing `force-dynamic` parallel-fetch page and every `revalidatePath`
- * call keep working. Modules are mounted into these sections in a follow-up.
+ * One entry per dashboard area. Every module renders on the single
+ * `/dashboard` route (so the `force-dynamic` parallel-fetch page and every
+ * `revalidatePath` call keep working); selecting an entry smooth-scrolls to
+ * that section's anchor. `overview` scrolls back to the top of the page.
  */
 const NAV = [
   { key: "overview", label: "Overview" },
@@ -24,24 +23,24 @@ const NAV = [
 
 type SectionKey = (typeof NAV)[number]["key"];
 
-/**
- * Areas whose modules already render today. The existing dashboard page bundles
- * Finance/Projects/Clients into one view, so it lives under "Overview"; the
- * dedicated per-area mounts (and splitting that view apart) happen in a
- * follow-up issue.
- */
-const LIVE_SECTIONS: ReadonlySet<SectionKey> = new Set(["overview"]);
-
 export function Sidebar({ children }: { children: React.ReactNode }) {
   const [active, setActive] = useState<SectionKey>("overview");
-  const activeEntry = NAV.find((n) => n.key === active) ?? NAV[0];
+
+  function go(key: SectionKey) {
+    setActive(key);
+    if (key === "overview") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    document.getElementById(key)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      {/* Nav rail — horizontal scroll on mobile, fixed left column on md+ */}
+      {/* Nav rail — horizontal scroll on mobile, sticky left column on md+ */}
       <nav
         aria-label="Dashboard sections"
-        className="shrink-0 border-b border-white/10 bg-[#0e1116] px-3 py-3 md:w-56 md:border-b-0 md:border-r md:px-3 md:py-5"
+        className="shrink-0 border-b border-white/10 bg-[#0e1116] px-3 py-3 md:sticky md:top-0 md:h-screen md:w-56 md:border-b-0 md:border-r md:px-3 md:py-5"
       >
         <p className="hidden px-2 pb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 md:block">
           MindeloAI
@@ -53,7 +52,7 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
               <li key={entry.key} className="shrink-0">
                 <button
                   type="button"
-                  onClick={() => setActive(entry.key)}
+                  onClick={() => go(entry.key)}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "w-full whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
@@ -70,27 +69,8 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
         </ul>
       </nav>
 
-      {/* Content area — one section visible at a time. */}
-      <main className="min-w-0 flex-1">
-        {/* Live areas render the existing dashboard (Finance/Projects/Clients). */}
-        <div className={cn(LIVE_SECTIONS.has(active) ? "block" : "hidden")}>
-          {children}
-        </div>
-
-        {/* Placeholder for areas whose modules mount in a follow-up issue. */}
-        {!LIVE_SECTIONS.has(active) && (
-          <div className="p-5">
-            <Section
-              title={activeEntry.label}
-              description="This module mounts into the dashboard in an upcoming update."
-            >
-              <div className="rounded-xl border border-dashed border-white/10 bg-[#0e1116] p-10 text-center text-sm text-zinc-500">
-                {activeEntry.label} section is ready and will be wired up next.
-              </div>
-            </Section>
-          </div>
-        )}
-      </main>
+      {/* Content area — every module renders here; nav scrolls to anchors. */}
+      <main className="min-w-0 flex-1">{children}</main>
     </div>
   );
 }

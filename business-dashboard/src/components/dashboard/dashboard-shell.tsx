@@ -73,7 +73,9 @@ export function DashboardShell({
       </div>
 
       {/* Row 1: Hero cards */}
-      <HeroCards invoices={invoices} expenses={expenses} />
+      <div id="finance" className="scroll-mt-4">
+        <HeroCards invoices={invoices} expenses={expenses} />
+      </div>
 
       {/* Row 2: Revenue chart + counters + service mix + MRR */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -86,7 +88,9 @@ export function DashboardShell({
       </div>
 
       {/* Row 3: Project board */}
-      <ProjectBoard projects={projects} clients={clients} />
+      <div id="projects" className="scroll-mt-4">
+        <ProjectBoard projects={projects} clients={clients} />
+      </div>
 
       {/* Row 4: Invoices + cashflow + top clients */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -103,13 +107,15 @@ export function DashboardShell({
         </div>
         <div className="grid grid-cols-1 gap-3">
           <Cashflow invoices={invoices} projects={projects} />
-          <TopClients
-            clients={clients}
-            invoices={invoices}
-            projects={projects}
-            selectedClientId={invoiceClient}
-            onSelectClient={setInvoiceClient}
-          />
+          <div id="clients" className="scroll-mt-4">
+            <TopClients
+              clients={clients}
+              invoices={invoices}
+              projects={projects}
+              selectedClientId={invoiceClient}
+              onSelectClient={setInvoiceClient}
+            />
+          </div>
         </div>
       </div>
 
@@ -151,7 +157,7 @@ export function DashboardShell({
 
       {/* Row 9: Automation launcher */}
       <Section id="automation" title="Automation" description="One-click workflows and invoice generation.">
-        <AutomationLauncher projects={projects} />
+        <AutomationLauncher projects={projects} leads={leads} />
       </Section>
     </div>
   );

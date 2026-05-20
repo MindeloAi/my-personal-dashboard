@@ -2,13 +2,26 @@ import { Octokit } from "octokit";
 
 // ─── Lazy, read-only client ─────────────────────────────────────────────────
 //
-// Built from `process.env.GITHUB_TOKEN` (a PAT with `repo` + `read:org`).
-// Constructed only when a call actually runs, so `import "@/lib/github"` is
-// side-effect free and the build never needs the token. If the token is
-// missing we log once and return empty results rather than throwing — the
-// dashboard should render without a configured PAT.
+// Built from `process.env.GITHUB_TOKEN`. To list PRIVATE repos the token must
+// be a classic PAT with the `repo` scope (+ `read:org`), or a fine-grained PAT
+// granted those repos and approved by any org (e.g. MindeloAi). Constructed
+// only when a call actually runs, so `import "@/lib/github"` is side-effect
+// free and the build never needs the token. If the token is missing we log
+// once and return empty results rather than throwing.
 
-const ORGS = ["MindeloAi", "trinirugby"] as const;
+// Accounts whose repos populate the dev hub. We list every repo the token can
+// see (own private + org-member) via the authenticated-user endpoint, then keep
+// only those owned by an allowlisted account. Defaults below; override with the
+// `GITHUB_ACCOUNTS` env var (comma-separated) without touching code.
+const DEFAULT_ACCOUNTS = ["MindeloAi", "trinirugby"] as const;
+
+function accountAllowlist(): string[] {
+  const raw = process.env.GITHUB_ACCOUNTS;
+  if (raw && raw.trim()) {
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  return [...DEFAULT_ACCOUNTS];
+}
 
 let _octokit: Octokit | null = null;
 let _warned = false;
@@ -26,7 +39,14 @@ function getClient(): Octokit | null {
     }
     return null;
   }
-  _octokit = new Octokit({ auth: token });
+  // Disable the throttling/retry plugins' automatic backoff so a transient
+  // rate limit fails fast instead of blocking the server render for tens of
+  // seconds; fetchCounts catches the error and degrades to zero counts.
+  _octokit = new Octokit({
+    auth: token,
+    throttle: { enabled: false },
+    retry: { enabled: false },
+  });
   return _octokit;
 }
 
@@ -50,66 +70,101 @@ export interface RepoCounts {
 
 // ─── Count helpers ────────────────────────────────────────────────────────────
 //
-// `open_issues_count` on a repo conflates issues and PRs, so we query the
-// search API for each separately to get accurate, distinct counts.
+// GitHub's `open_issues_count` on a repo conflates issues and PRs. We get the
+// open-PR count cheaply from the core `pulls.list` endpoint (5000 req/min) and
+// subtract it, rather than the Search API (only 30 req/min — it exhausts
+// instantly across many repos and degrades every count to zero).
+
+// `open_issues_count` includes PRs; subtract them to get true issues. Clamped
+// at zero in case the two reads race. Pure for unit testing.
+export function deriveIssueCount(totalOpenIssuesAndPrs: number, openPRs: number): number {
+  return Math.max(totalOpenIssuesAndPrs - openPRs, 0);
+}
+
+// With `per_page=1`, the `rel="last"` page number in a Link header equals the
+// total item count. Returns null when there is no Link header (0 or 1 items).
+// Pure for unit testing.
+export function parseLastPage(linkHeader: string | undefined): number | null {
+  if (!linkHeader) return null;
+  const match = linkHeader.match(/<[^>]*[?&]page=(\d+)[^>]*>;\s*rel="last"/);
+  return match ? Number(match[1]) : null;
+}
 
 async function fetchCounts(
   client: Octokit,
-  fullName: string,
+  owner: string,
+  repo: string,
+  totalOpenIssuesAndPrs: number,
 ): Promise<RepoCounts> {
-  const [issues, prs] = await Promise.all([
-    client.rest.search.issuesAndPullRequests({
-      q: `repo:${fullName} is:issue is:open`,
+  try {
+    const res = await client.rest.pulls.list({
+      owner,
+      repo,
+      state: "open",
       per_page: 1,
-    }),
-    client.rest.search.issuesAndPullRequests({
-      q: `repo:${fullName} is:pr is:open`,
-      per_page: 1,
-    }),
-  ]);
-  return {
-    openIssueCount: issues.data.total_count,
-    openPRCount: prs.data.total_count,
-  };
+    });
+    const openPRCount = parseLastPage(res.headers.link) ?? res.data.length;
+    return {
+      openPRCount,
+      openIssueCount: deriveIssueCount(totalOpenIssuesAndPrs, openPRCount),
+    };
+  } catch (err) {
+    // Transient API error — degrade to zero rather than hanging the render.
+    console.warn(`[github] count fetch failed for ${owner}/${repo}:`, err);
+    return { openIssueCount: 0, openPRCount: 0 };
+  }
 }
 
 // ─── Reads ──────────────────────────────────────────────────────────────────
 
-// List every repo across both orgs, each with open-issue / open-PR counts and
+// List every repo the token can see (own private + org-member, public and
+// private) via the authenticated-user endpoint — one paginated sweep that works
+// regardless of whether an account is a user or an org — then keep only those
+// owned by an allowlisted account. Each carries open-issue / open-PR counts and
 // the last-push timestamp. Returns [] when no token is configured.
 export async function listAllRepos(): Promise<RepoSummary[]> {
   const client = getClient();
   if (!client) return [];
 
-  const summaries: RepoSummary[] = [];
+  const allowSet = new Set(accountAllowlist().map((a) => a.toLowerCase()));
 
-  for (const org of ORGS) {
-    const repos = await client.paginate(client.rest.repos.listForOrg, {
-      org,
-      type: "all",
+  let repos;
+  try {
+    repos = await client.paginate(client.rest.repos.listForAuthenticatedUser, {
+      visibility: "all",
+      affiliation: "owner,organization_member",
       per_page: 100,
     });
-
-    const orgSummaries = await Promise.all(
-      repos.map(async (repo): Promise<RepoSummary> => {
-        const counts = await fetchCounts(client, repo.full_name);
-        return {
-          owner: repo.owner.login,
-          name: repo.name,
-          fullName: repo.full_name,
-          url: repo.html_url,
-          defaultBranch: repo.default_branch ?? "main",
-          openIssueCount: counts.openIssueCount,
-          openPRCount: counts.openPRCount,
-          lastCommit: repo.pushed_at ?? null,
-        };
-      }),
-    );
-
-    summaries.push(...orgSummaries);
+  } catch (err) {
+    // A failure here must not take down the dashboard — render empty instead.
+    console.warn("[github] failed to list repos for the authenticated user:", err);
+    return [];
   }
 
-  return summaries;
+  const filtered = repos.filter((repo) =>
+    allowSet.has(repo.owner.login.toLowerCase()),
+  );
+
+  return Promise.all(
+    filtered.map(async (repo): Promise<RepoSummary> => {
+      const counts = await fetchCounts(
+        client,
+        repo.owner.login,
+        repo.name,
+        repo.open_issues_count,
+      );
+      return {
+        owner: repo.owner.login,
+        name: repo.name,
+        fullName: repo.full_name,
+        url: repo.html_url,
+        defaultBranch: repo.default_branch ?? "main",
+        openIssueCount: counts.openIssueCount,
+        openPRCount: counts.openPRCount,
+        lastCommit: repo.pushed_at ?? null,
+      };
+    }),
+  );
 }
 
 // Parse `owner` and `repo` out of a GitHub repo URL (or `owner/repo` shorthand).
@@ -136,7 +191,16 @@ export async function getCountsForRepoUrl(
     console.warn(`[github] could not parse repo URL: ${repoUrl}`);
     return null;
   }
-  return fetchCounts(client, `${parsed.owner}/${parsed.repo}`);
+  try {
+    const { data } = await client.rest.repos.get({
+      owner: parsed.owner,
+      repo: parsed.repo,
+    });
+    return fetchCounts(client, parsed.owner, parsed.repo, data.open_issues_count);
+  } catch (err) {
+    console.warn(`[github] failed to fetch ${parsed.owner}/${parsed.repo}:`, err);
+    return { openIssueCount: 0, openPRCount: 0 };
+  }
 }
 
 // ─── Link helpers ─────────────────────────────────────────────────────────────
