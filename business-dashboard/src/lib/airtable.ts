@@ -73,6 +73,10 @@ export const ProjectSchema = z.object({
   Notes: z.string().optional(),
   Owner: z.string().optional(),
   "Service Type": z.string().optional(),
+  "GitHub Repo URL": z.string().optional(),
+  "Deploy URL": z.string().optional(),
+  Host: z.enum(["Railway", "Vercel", "Netlify"]).optional(),
+  "Tech Stack": z.string().optional(),
 });
 export type Project = z.infer<typeof ProjectSchema>;
 
@@ -130,6 +134,72 @@ export const MilestoneSchema = z.object({
 });
 export type Milestone = z.infer<typeof MilestoneSchema>;
 
+export const LeadSchema = z.object({
+  id: z.string(),
+  Name: z.string(),
+  "Business Name": z.string().optional(),
+  Email: z.string().optional(),
+  "Phone/WhatsApp": z.string().optional(),
+  Source: z.string().optional(),
+  Status: z
+    .enum(["New", "Contacted", "Proposal Sent", "Won", "Lost"])
+    .optional(),
+  "Service Interest": z.string().optional(),
+  "Current Website": z.string().optional(),
+  "Budget Range": z.string().optional(),
+  Message: z.string().optional(),
+  "Follow-up Date": z.string().optional(),
+  "Proposal Draft": z.string().optional(),
+  Owner: z.string().optional(),
+  Created: z.string().optional(),
+  Notes: z.string().optional(),
+});
+export type Lead = z.infer<typeof LeadSchema>;
+
+export const TaskSchema = z.object({
+  id: z.string(),
+  Title: z.string(),
+  Description: z.string().optional(),
+  Project: z.array(z.string()).optional(),
+  Kind: z
+    .enum([
+      "code",
+      "lead-gen",
+      "client-comms",
+      "research",
+      "content",
+      "ops",
+      "other",
+    ])
+    .optional(),
+  Status: z.enum(["Pending", "In Progress", "Blocked", "Done"]).optional(),
+  Priority: z.string().optional(),
+  "Assigned To": z.enum(["You", "Partner", "Any"]).optional(),
+  "Picked Up By": z.string().optional(),
+  Inputs: z.string().optional(),
+  "Result Notes": z.string().optional(),
+  Created: z.string().optional(),
+  "Created By": z.string().optional(),
+});
+export type Task = z.infer<typeof TaskSchema>;
+
+export const IdeaSchema = z.object({
+  id: z.string(),
+  Title: z.string(),
+  Description: z.string().optional(),
+  Category: z
+    .enum(["product", "service", "marketing", "internal", "client"])
+    .optional(),
+  Status: z
+    .enum(["Raw", "Exploring", "Validated", "Parked", "Doing"])
+    .optional(),
+  Effort: z.string().optional(),
+  Impact: z.string().optional(),
+  Notes: z.string().optional(),
+  Created: z.string().optional(),
+});
+export type Idea = z.infer<typeof IdeaSchema>;
+
 // ─── Write schemas ────────────────────────────────────────────────────────────
 //
 // Strict per-table input shapes. Validated *before* any Airtable mutation —
@@ -172,6 +242,10 @@ export const ProjectWriteSchema = z.object({
   Notes: z.string().optional(),
   Owner: z.string().optional(),
   "Service Type": z.string().optional(),
+  "GitHub Repo URL": z.string().optional(),
+  "Deploy URL": z.string().optional(),
+  Host: z.enum(["Railway", "Vercel", "Netlify"]).optional(),
+  "Tech Stack": z.string().optional(),
 });
 export type ProjectWrite = z.infer<typeof ProjectWriteSchema>;
 
@@ -206,6 +280,69 @@ export const ExpenseWriteSchema = z.object({
   Notes: z.string().optional(),
 });
 export type ExpenseWrite = z.infer<typeof ExpenseWriteSchema>;
+
+export const LeadWriteSchema = z.object({
+  Name: z.string().optional(),
+  "Business Name": z.string().optional(),
+  Email: z.string().optional(),
+  "Phone/WhatsApp": z.string().optional(),
+  Source: z.string().optional(),
+  Status: z
+    .enum(["New", "Contacted", "Proposal Sent", "Won", "Lost"])
+    .optional(),
+  "Service Interest": z.string().optional(),
+  "Current Website": z.string().optional(),
+  "Budget Range": z.string().optional(),
+  Message: z.string().optional(),
+  "Follow-up Date": z.string().optional(),
+  "Proposal Draft": z.string().optional(),
+  Owner: z.string().optional(),
+  Created: z.string().optional(),
+  Notes: z.string().optional(),
+});
+export type LeadWrite = z.infer<typeof LeadWriteSchema>;
+
+export const TaskWriteSchema = z.object({
+  Title: z.string().optional(),
+  Description: z.string().optional(),
+  Project: z.array(z.string()).optional(),
+  Kind: z
+    .enum([
+      "code",
+      "lead-gen",
+      "client-comms",
+      "research",
+      "content",
+      "ops",
+      "other",
+    ])
+    .optional(),
+  Status: z.enum(["Pending", "In Progress", "Blocked", "Done"]).optional(),
+  Priority: z.string().optional(),
+  "Assigned To": z.enum(["You", "Partner", "Any"]).optional(),
+  "Picked Up By": z.string().optional(),
+  Inputs: z.string().optional(),
+  "Result Notes": z.string().optional(),
+  Created: z.string().optional(),
+  "Created By": z.string().optional(),
+});
+export type TaskWrite = z.infer<typeof TaskWriteSchema>;
+
+export const IdeaWriteSchema = z.object({
+  Title: z.string().optional(),
+  Description: z.string().optional(),
+  Category: z
+    .enum(["product", "service", "marketing", "internal", "client"])
+    .optional(),
+  Status: z
+    .enum(["Raw", "Exploring", "Validated", "Parked", "Doing"])
+    .optional(),
+  Effort: z.string().optional(),
+  Impact: z.string().optional(),
+  Notes: z.string().optional(),
+  Created: z.string().optional(),
+});
+export type IdeaWrite = z.infer<typeof IdeaWriteSchema>;
 
 // ─── Read helpers ─────────────────────────────────────────────────────────────
 
@@ -252,6 +389,25 @@ export const getExpenses = (opts?: Airtable.SelectOptions<Airtable.FieldSet>) =>
 export const getMilestones = (
   opts?: Airtable.SelectOptions<Airtable.FieldSet>,
 ) => fetchAll("Milestones", MilestoneSchema, opts);
+
+export const getLeads = (opts?: Airtable.SelectOptions<Airtable.FieldSet>) =>
+  fetchAll("Leads", LeadSchema, opts);
+
+export const getTasks = (opts?: Airtable.SelectOptions<Airtable.FieldSet>) =>
+  fetchAll("Tasks", TaskSchema, opts);
+
+// Tasks still available to claim (Status = Pending). Used by the task queue
+// so terminals only attempt to claim work nobody has picked up yet.
+export const getOpenTasks = (
+  opts: Airtable.SelectOptions<Airtable.FieldSet> = {},
+) =>
+  fetchAll("Tasks", TaskSchema, {
+    filterByFormula: "{Status} = 'Pending'",
+    ...opts,
+  });
+
+export const getIdeas = (opts?: Airtable.SelectOptions<Airtable.FieldSet>) =>
+  fetchAll("Ideas", IdeaSchema, opts);
 
 // ─── Write helpers ────────────────────────────────────────────────────────────
 //
@@ -313,3 +469,68 @@ export const updateExpense = (id: string, payload: ExpenseWrite) =>
 export const deleteProject = (id: string) => deleteRecord("Projects", id);
 
 export const deleteExpense = (id: string) => deleteRecord("Expenses", id);
+
+export const createLead = (payload: LeadWrite) =>
+  createRecord("Leads", LeadWriteSchema, payload);
+
+export const updateLead = (id: string, payload: LeadWrite) =>
+  updateRecord("Leads", LeadWriteSchema, id, payload);
+
+export const createTask = (payload: TaskWrite) =>
+  createRecord("Tasks", TaskWriteSchema, payload);
+
+export const updateTask = (id: string, payload: TaskWrite) =>
+  updateRecord("Tasks", TaskWriteSchema, id, payload);
+
+export const createIdea = (payload: IdeaWrite) =>
+  createRecord("Ideas", IdeaWriteSchema, payload);
+
+export const updateIdea = (id: string, payload: IdeaWrite) =>
+  updateRecord("Ideas", IdeaWriteSchema, id, payload);
+
+// Project metadata (repo / deploy / host / stack) lives on the same Projects
+// table; reuse the Project write schema so the extra fields validate too.
+export const updateProjectMeta = (id: string, payload: ProjectWrite) =>
+  updateRecord("Projects", ProjectWriteSchema, id, payload);
+
+// ─── Task claiming ──────────────────────────────────────────────────────────
+//
+// Airtable has no atomic compare-and-set, so claiming uses read-write-verify:
+//   1. read the row; bail if it isn't Pending
+//   2. write Status="In Progress" + Picked Up By=terminalId
+//   3. re-read; the terminal whose write landed last owns "Picked Up By"
+// Under a concurrent double-claim the last writer wins and every other caller
+// re-reads a different terminal id, so exactly one caller gets `{ ok: true }`.
+
+export type ClaimResult =
+  | { ok: true; task: AirtableRecord }
+  | { ok: false; reason: "not-pending" | "lost-race" };
+
+export async function claimTask(
+  taskId: string,
+  terminalId: string,
+): Promise<ClaimResult> {
+  const tasks = getBase()("Tasks");
+
+  const current = await tasks.find(taskId);
+  if (current.fields["Status"] !== "Pending") {
+    return { ok: false, reason: "not-pending" };
+  }
+
+  await tasks.update(taskId, {
+    Status: "In Progress",
+    "Picked Up By": terminalId,
+  });
+
+  const verified = await tasks.find(taskId);
+  if (verified.fields["Picked Up By"] === terminalId) {
+    return {
+      ok: true,
+      task: {
+        id: verified.id,
+        fields: verified.fields as Record<string, unknown>,
+      },
+    };
+  }
+  return { ok: false, reason: "lost-race" };
+}
