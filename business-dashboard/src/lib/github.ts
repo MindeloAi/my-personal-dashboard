@@ -1,4 +1,11 @@
 import { Octokit } from "octokit";
+import { unstable_cache } from "next/cache";
+
+// GitHub data is expensive: listing every repo across both accounts plus a
+// per-repo PR-count call is 100+ requests. None of it needs to be real-time, so
+// we cache results for a few minutes. This is the difference between the
+// dashboard loading instantly and hanging on every request.
+const GITHUB_CACHE_SECONDS = 300;
 
 // ─── Lazy, read-only client ─────────────────────────────────────────────────
 //
@@ -122,7 +129,7 @@ async function fetchCounts(
 // regardless of whether an account is a user or an org — then keep only those
 // owned by an allowlisted account. Each carries open-issue / open-PR counts and
 // the last-push timestamp. Returns [] when no token is configured.
-export async function listAllRepos(): Promise<RepoSummary[]> {
+async function listAllReposUncached(): Promise<RepoSummary[]> {
   const client = getClient();
   if (!client) return [];
 
@@ -167,6 +174,14 @@ export async function listAllRepos(): Promise<RepoSummary[]> {
   );
 }
 
+// Cached across requests for GITHUB_CACHE_SECONDS so the repo sweep + per-repo
+// PR counts run at most once every few minutes instead of on every page load.
+export const listAllRepos = unstable_cache(
+  listAllReposUncached,
+  ["github:list-all-repos"],
+  { revalidate: GITHUB_CACHE_SECONDS, tags: ["github"] },
+);
+
 // Parse `owner` and `repo` out of a GitHub repo URL (or `owner/repo` shorthand).
 export function parseRepoUrl(
   repoUrl: string,
@@ -181,7 +196,7 @@ export function parseRepoUrl(
 
 // Map a repo URL → its open-issue / open-PR counts. Returns null when the URL
 // can't be parsed or no token is configured.
-export async function getCountsForRepoUrl(
+async function getCountsForRepoUrlUncached(
   repoUrl: string,
 ): Promise<RepoCounts | null> {
   const client = getClient();
@@ -202,6 +217,14 @@ export async function getCountsForRepoUrl(
     return { openIssueCount: 0, openPRCount: 0 };
   }
 }
+
+// `repoUrl` is part of the cache key automatically, so each project's counts are
+// cached independently and shared across requests.
+export const getCountsForRepoUrl = unstable_cache(
+  getCountsForRepoUrlUncached,
+  ["github:counts-for-repo-url"],
+  { revalidate: GITHUB_CACHE_SECONDS, tags: ["github"] },
+);
 
 // ─── Link helpers ─────────────────────────────────────────────────────────────
 

@@ -8,6 +8,7 @@ import {
   getIdeas,
   MissingAirtableEnvError,
 } from "@/lib/airtable";
+import { Suspense } from "react";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DevHub } from "@/components/dashboard/dev-hub";
 
@@ -55,7 +56,17 @@ export default async function DashboardPage() {
       leads={leads}
       tasks={tasks}
       ideas={ideas}
-      devHub={<DevHub />}
+      devHub={
+        <Suspense
+          fallback={
+            <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6 text-sm text-zinc-500">
+              Loading repos…
+            </div>
+          }
+        >
+          <DevHub />
+        </Suspense>
+      }
     />
   );
 }
