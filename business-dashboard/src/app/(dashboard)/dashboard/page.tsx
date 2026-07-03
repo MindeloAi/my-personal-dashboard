@@ -11,6 +11,7 @@ import {
 import { Suspense } from "react";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DevHub } from "@/components/dashboard/dev-hub";
+import { getVaultProjects, getVaultActivity, getVaultSyncedAt } from "@/lib/vault";
 
 // Always render at request time. Dashboard data is live; never snapshot at build.
 export const dynamic = "force-dynamic";
@@ -47,6 +48,12 @@ export default async function DashboardPage() {
     );
   }
 
+  // Vault data is a committed static JSON snapshot (see lib/vault.ts + sync-vault.mjs),
+  // so these are synchronous reads — no Airtable/network involved.
+  const vaultProjects = getVaultProjects();
+  const vaultActivity = getVaultActivity();
+  const vaultSyncedAt = getVaultSyncedAt();
+
   return (
     <DashboardShell
       clients={clients}
@@ -56,6 +63,9 @@ export default async function DashboardPage() {
       leads={leads}
       tasks={tasks}
       ideas={ideas}
+      vaultProjects={vaultProjects}
+      vaultActivity={vaultActivity}
+      vaultSyncedAt={vaultSyncedAt}
       devHub={
         <Suspense
           fallback={

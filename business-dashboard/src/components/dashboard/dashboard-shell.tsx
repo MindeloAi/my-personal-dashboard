@@ -19,7 +19,10 @@ import { LeadsTable } from "@/components/dashboard/leads-table";
 import { TasksPanel } from "@/components/dashboard/tasks-panel";
 import { IdeasPanel } from "@/components/dashboard/ideas-panel";
 import { AutomationLauncher } from "@/components/dashboard/automation-launcher";
+import { VaultProjects } from "@/components/dashboard/vault-projects";
+import { VaultActivity } from "@/components/dashboard/vault-activity";
 import type { Client, Project, Invoice, Expense, Lead, Task, Idea } from "@/lib/airtable";
+import type { VaultProject, VaultActivity as VaultActivityType } from "@/lib/vault";
 
 type Props = {
   clients: Client[];
@@ -29,6 +32,9 @@ type Props = {
   leads: Lead[];
   tasks: Task[];
   ideas: Idea[];
+  vaultProjects: VaultProject[];
+  vaultActivity: VaultActivityType[];
+  vaultSyncedAt: string;
   // DevHub is an async Server Component that fetches its own GitHub/Airtable
   // data, so it can't be imported into this client tree — page.tsx renders it
   // and passes the element down.
@@ -43,6 +49,9 @@ export function DashboardShell({
   leads,
   tasks,
   ideas,
+  vaultProjects,
+  vaultActivity,
+  vaultSyncedAt,
   devHub,
 }: Props) {
   const [expenseCategory, setExpenseCategory] = useState<string | null>(null);
@@ -158,6 +167,32 @@ export function DashboardShell({
       {/* Row 9: Automation launcher */}
       <Section id="automation" title="Automation" description="One-click workflows and invoice generation.">
         <AutomationLauncher projects={projects} leads={leads} />
+      </Section>
+
+      {/* Row 10: Vault — visual index of the Obsidian vault (synced from local machine) */}
+      <Section
+        id="vault"
+        title="Vault"
+        description="Visual index of the Obsidian vault — every project note, filterable."
+        action={
+          vaultSyncedAt ? (
+            <span className="text-[10px] text-zinc-600">
+              Synced {format(new Date(vaultSyncedAt), "MMM d, h:mm a")}
+            </span>
+          ) : null
+        }
+      >
+        <div className="space-y-3">
+          <VaultProjects projects={vaultProjects} />
+          {vaultActivity.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                Recent activity
+              </p>
+              <VaultActivity activity={vaultActivity} />
+            </div>
+          )}
+        </div>
       </Section>
     </div>
   );

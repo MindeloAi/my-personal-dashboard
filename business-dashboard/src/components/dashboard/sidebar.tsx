@@ -19,6 +19,7 @@ const NAV = [
   { key: "dev", label: "Dev" },
   { key: "ideas", label: "Ideas" },
   { key: "automation", label: "Automation" },
+  { key: "vault", label: "Vault" },
 ] as const;
 
 type SectionKey = (typeof NAV)[number]["key"];

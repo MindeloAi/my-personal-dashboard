@@ -1,0 +1,1213 @@
+{
+  "syncedAt": "2026-07-03T20:12:18.854Z",
+  "projects": [
+    {
+      "name": "GrantDraft",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Mindelo AI product (Caribbean/LatAm nonprofits)",
+      "stack": [
+        "Next.js 16",
+        "React 19",
+        "TypeScript",
+        "Supabase",
+        "Stripe",
+        "Anthropic SDK",
+        "Claude Opus 4.8",
+        "Tailwind v4",
+        "shadcn/ui",
+        "docx",
+        "Vercel"
+      ],
+      "deploy_url": "https://grantdraft-beta.vercel.app",
+      "github": "MindeloAi/GrantDraft",
+      "created": "2026-06-18",
+      "last_touched": "2026-06-18",
+      "tags": [
+        "project",
+        "ai-agent",
+        "saas",
+        "nextjs",
+        "supabase",
+        "stripe",
+        "anthropic",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "InvoiceTT",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Mindelo AI product (Trinidad invoicing)",
+      "stack": [
+        "Next.js 16",
+        "React 19",
+        "TypeScript",
+        "Tailwind v4",
+        "shadcn/ui",
+        "Supabase",
+        "jsPDF",
+        "Resend",
+        "Vercel"
+      ],
+      "deploy_url": "https://invoice-app-pi-amber-69.vercel.app",
+      "github": "MindeloAi/invoice-app",
+      "created": "2026-06-18",
+      "last_touched": "2026-06-18",
+      "tags": [
+        "project",
+        "ai-agent",
+        "saas",
+        "nextjs",
+        "supabase",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "Localift",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Mindelo AI product (Trinidad & Tobago gyms)",
+      "stack": [
+        "Expo SDK 56",
+        "React Native 0.85",
+        "React 19",
+        "expo-router",
+        "TypeScript",
+        "Supabase",
+        "react-leaflet"
+      ],
+      "deploy_url": "",
+      "github": "MindeloAi/localift",
+      "created": "2026-06-18",
+      "last_touched": "2026-06-18",
+      "tags": [
+        "project",
+        "ai-agent",
+        "expo",
+        "react-native",
+        "supabase",
+        "trinidad",
+        "fitness"
+      ]
+    },
+    {
+      "name": "Mindelo Hub",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Mindelo AI product (T&T businesses)",
+      "stack": [
+        "Next.js 16",
+        "React 19",
+        "TypeScript",
+        "Supabase",
+        "Tailwind v4",
+        "shadcn/ui",
+        "Recharts",
+        "dnd-kit",
+        "Vercel"
+      ],
+      "deploy_url": "",
+      "github": "MindeloAi/mindelo-hub",
+      "created": "2026-06-18",
+      "last_touched": "2026-06-18",
+      "tags": [
+        "project",
+        "ai-agent",
+        "saas",
+        "multi-tenant",
+        "nextjs",
+        "supabase",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "Mindelo IG Bot",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Mindelo AI (own + sellable template)",
+      "stack": [
+        "Node.js",
+        "Express",
+        "Anthropic SDK",
+        "Claude Haiku 4.5",
+        "Google Calendar API",
+        "Instagram Graph API"
+      ],
+      "deploy_url": "",
+      "github": "trinirugby/mindelo-ig-bot",
+      "created": "2026-06-18",
+      "last_touched": "2026-06-18",
+      "tags": [
+        "project",
+        "ai-agent",
+        "nodejs",
+        "anthropic",
+        "instagram",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "Odds Tool",
+      "folder": "Agents",
+      "status": "active",
+      "category": "personal",
+      "client": "",
+      "stack": [
+        "Python",
+        "Flask",
+        "The Odds API",
+        "requests"
+      ],
+      "deploy_url": "",
+      "github": "trinirugby/odds-tool",
+      "created": "2026-06-18",
+      "last_touched": "2026-06-18",
+      "tags": [
+        "project",
+        "personal",
+        "python",
+        "betting"
+      ]
+    },
+    {
+      "name": "Reef",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Mindelo AI product (Trinidad & Tobago marine charters)",
+      "stack": [
+        "Expo SDK 56",
+        "React Native 0.85",
+        "React 19",
+        "expo-router",
+        "Zustand",
+        "Supabase",
+        "Reanimated 4",
+        "Vercel"
+      ],
+      "deploy_url": "https://reef-chi.vercel.app",
+      "github": "MindeloAi/Reef",
+      "created": "2026-06-18",
+      "last_touched": "2026-06-18",
+      "tags": [
+        "project",
+        "ai-agent",
+        "marketplace",
+        "expo",
+        "react-native",
+        "supabase",
+        "trinidad",
+        "pwa"
+      ]
+    },
+    {
+      "name": "Trinity Property Solutions",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "Trinity Property Solutions (Trinidad & Tobago)",
+      "stack": [
+        "HTML",
+        "CSS",
+        "JavaScript",
+        "Vercel"
+      ],
+      "deploy_url": "",
+      "github": "MindeloAi/trinity-property-solutions",
+      "created": "2026-06-18",
+      "last_touched": "2026-06-18",
+      "tags": [
+        "project",
+        "client-website",
+        "real-estate",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "Email Order Extractor",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "(client automation — order intake)",
+      "stack": [
+        "Next.js 16",
+        "TypeScript",
+        "Anthropic SDK",
+        "exceljs",
+        "Zod",
+        "Vitest",
+        "Vercel"
+      ],
+      "deploy_url": "",
+      "github": "MindeloAi/email-order-extractor",
+      "created": "2026-06-03",
+      "last_touched": "2026-06-03",
+      "tags": [
+        "project",
+        "ai-agent",
+        "automation",
+        "anthropic",
+        "nextjs"
+      ]
+    },
+    {
+      "name": "Mindelo Demo",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Mindelo (internal — growth engine)",
+      "stack": [
+        "Next.js 16",
+        "TypeScript",
+        "Vapi",
+        "Airtable",
+        "Vercel"
+      ],
+      "deploy_url": "https://mindelo-demo.vercel.app",
+      "github": "MindeloAi/mindelo-demo",
+      "created": "2026-05-31",
+      "last_touched": "2026-06-03",
+      "tags": [
+        "project",
+        "ai-agent",
+        "automation",
+        "vapi",
+        "voice",
+        "nextjs"
+      ]
+    },
+    {
+      "name": "Vantage Media Upstream",
+      "folder": "Agents",
+      "status": "reference",
+      "category": "ai-agent",
+      "client": "Vantage Media (internal ops)",
+      "stack": [
+        "Node.js",
+        "Express",
+        "Airtable",
+        "Telegram",
+        "node-cron",
+        "Nodemailer",
+        "googleapis"
+      ],
+      "deploy_url": "",
+      "github": "trinirugby/vantage-media",
+      "created": "2026-06-03",
+      "last_touched": "2026-06-03",
+      "tags": [
+        "project",
+        "ai-agent",
+        "automation",
+        "upstream"
+      ]
+    },
+    {
+      "name": "Import Export Dashboard",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Demo / portfolio (import-export middleman)",
+      "stack": [
+        "Next.js 16",
+        "App Router",
+        "TypeScript",
+        "Airtable",
+        "Tailwind",
+        "Recharts",
+        "Vercel"
+      ],
+      "deploy_url": "https://import-export-dashboard-nine.vercel.app",
+      "github": "MindeloAi/import-export-dashboard",
+      "created": "2026-05-27",
+      "last_touched": "2026-05-27",
+      "tags": [
+        "project",
+        "ai-agent",
+        "dashboard",
+        "airtable",
+        "nextjs",
+        "demo"
+      ]
+    },
+    {
+      "name": "Voice Receptionist Mindelo",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Mindelo AI (own / first live deployment)",
+      "stack": [
+        "Next.js 16",
+        "App Router",
+        "TypeScript",
+        "Supabase",
+        "Vapi",
+        "Tailwind v4",
+        "shadcn/ui",
+        "Railway"
+      ],
+      "deploy_url": "",
+      "github": "MindeloAi/voice-receptionist-mindelo",
+      "created": "2026-05-23",
+      "last_touched": "2026-05-27",
+      "tags": [
+        "project",
+        "ai-agent",
+        "voice",
+        "supabase",
+        "vapi",
+        "nextjs",
+        "live"
+      ]
+    },
+    {
+      "name": "Adams Recruitment",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "Adams Recruitment (Jacqueline Adams)",
+      "stack": [
+        "HTML",
+        "CSS",
+        "JavaScript",
+        "Netlify"
+      ],
+      "deploy_url": "",
+      "github": "MindeloAi/Adams-Recruitment-Website",
+      "created": "2026-05-21",
+      "last_touched": "2026-05-21",
+      "tags": [
+        "project",
+        "client-website",
+        "recruitment",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "General QC App",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Mindelo AI (product / template)",
+      "stack": [
+        "Next.js 16",
+        "Turbopack",
+        "Supabase",
+        "Anthropic (Claude vision)",
+        "Vercel"
+      ],
+      "deploy_url": "",
+      "github": "MindeloAi/General-QC-App",
+      "created": "2026-05-21",
+      "last_touched": "2026-05-21",
+      "tags": [
+        "project",
+        "ai-agent",
+        "product",
+        "template",
+        "qc",
+        "supabase",
+        "anthropic",
+        "nextjs"
+      ]
+    },
+    {
+      "name": "My Personal Dashboard",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "",
+      "stack": [
+        "Next.js 16",
+        "App Router",
+        "Airtable",
+        "Railway",
+        "Tailwind",
+        "Recharts",
+        "sonner",
+        "dnd-kit"
+      ],
+      "deploy_url": "https://business-dashboard-production-ac44.up.railway.app",
+      "github": "MindeloAi/my-personal-dashboard",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-21",
+      "tags": [
+        "project",
+        "ai-agent",
+        "dashboard",
+        "airtable",
+        "nextjs"
+      ]
+    },
+    {
+      "name": "Nick Sick Dashboard",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Nick Sick (B2B wholesale vape)",
+      "stack": [
+        "Next.js 16",
+        "React 19",
+        "TypeScript",
+        "Tailwind v4",
+        "Airtable",
+        "Zod",
+        "Recharts",
+        "date-fns",
+        "Railway"
+      ],
+      "deploy_url": "",
+      "github": "trinirugby/nick-sick-dashboard",
+      "created": "2026-05-21",
+      "last_touched": "2026-05-21",
+      "tags": [
+        "project",
+        "ai-agent",
+        "dashboard",
+        "airtable",
+        "nextjs",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "Retro Closet Dashboard",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "RC868 / Retro Closet 868 (internal tooling)",
+      "stack": [
+        "Next.js 16",
+        "App Router",
+        "TypeScript",
+        "Tailwind v4",
+        "Airtable",
+        "Railway"
+      ],
+      "deploy_url": "https://retrocloset-production.up.railway.app",
+      "github": "MindeloAi/Retro-Closet-Dashboard",
+      "created": "2026-05-15",
+      "last_touched": "2026-05-21",
+      "tags": [
+        "project",
+        "ai-agent",
+        "dashboard",
+        "airtable",
+        "nextjs",
+        "rc868"
+      ]
+    },
+    {
+      "name": "Voice Receptionist App",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Mindelo AI (product / template)",
+      "stack": [
+        "Next.js 16",
+        "App Router",
+        "TypeScript",
+        "Supabase",
+        "Vapi",
+        "Tailwind v4",
+        "shadcn/ui",
+        "Railway"
+      ],
+      "deploy_url": "",
+      "github": "MindeloAi/Voice-Receptionist-App",
+      "created": "2026-05-21",
+      "last_touched": "2026-05-21",
+      "tags": [
+        "project",
+        "ai-agent",
+        "product",
+        "template",
+        "voice",
+        "supabase",
+        "vapi",
+        "nextjs"
+      ]
+    },
+    {
+      "name": "JJ Smokehouse",
+      "folder": "Clients",
+      "status": "paused",
+      "category": "client-website",
+      "client": "JJ Smokehouse",
+      "stack": [],
+      "deploy_url": "",
+      "github": "MindeloAi/JJs-smokehouse",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-17",
+      "tags": [
+        "project",
+        "client-website",
+        "skeleton",
+        "restaurant"
+      ]
+    },
+    {
+      "name": "QC App",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "Label printing business (internal QC team)",
+      "stack": [
+        "Next.js",
+        "TypeScript",
+        "Supabase",
+        "Anthropic SDK",
+        "pnpm",
+        "Vercel"
+      ],
+      "deploy_url": "https://qc-app-rust.vercel.app",
+      "github": "MindeloAi/QC-App",
+      "created": "2026-05-17",
+      "last_touched": "2026-05-17",
+      "tags": [
+        "project",
+        "client-website",
+        "internal-tool",
+        "ai",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "Town Website Revamp",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "TBD",
+      "stack": [
+        "HTML",
+        "Vercel"
+      ],
+      "deploy_url": "https://town-website-revamp.vercel.app",
+      "github": "MindeloAi/Town-website-revamp",
+      "created": "2026-05-17",
+      "last_touched": "2026-05-17",
+      "tags": [
+        "project",
+        "client-website",
+        "html"
+      ]
+    },
+    {
+      "name": "Vantage Media Automation",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Vantage Media (internal ops)",
+      "stack": [
+        "Node.js",
+        "Express",
+        "Airtable",
+        "Telegram",
+        "node-cron",
+        "Nodemailer",
+        "googleapis"
+      ],
+      "deploy_url": "",
+      "github": "MindeloAi/vantage-media",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-17",
+      "tags": [
+        "project",
+        "ai-agent",
+        "automation",
+        "airtable",
+        "telegram"
+      ]
+    },
+    {
+      "name": "Vantage Media Marketing",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "Vantage Media Marketing Ltd.",
+      "stack": [
+        "Astro 5",
+        "Tailwind v4",
+        "React",
+        "Netlify"
+      ],
+      "deploy_url": "https://vantagemedia.site/",
+      "github": "MindeloAi/vantage-media-website",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-17",
+      "tags": [
+        "project",
+        "client-website",
+        "astro",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "WhatsApp Bot",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "Porsche Centre Trinidad",
+      "stack": [
+        "Next.js",
+        "TypeScript",
+        "Twilio (WhatsApp)",
+        "Supabase"
+      ],
+      "deploy_url": "",
+      "github": "MindeloAi/whatsapp-bot",
+      "created": "2026-05-17",
+      "last_touched": "2026-05-17",
+      "tags": [
+        "project",
+        "ai-agent",
+        "whatsapp",
+        "twilio",
+        "supabase",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "Law Firm Demo",
+      "folder": "Clients",
+      "status": "paused",
+      "category": "client-website",
+      "client": "Demo / template",
+      "stack": [
+        "HTML",
+        "CSS",
+        "JavaScript"
+      ],
+      "deploy_url": "",
+      "github": "trinirugby/demo-law-group-website",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-15",
+      "tags": [
+        "project",
+        "client-website",
+        "demo",
+        "template"
+      ]
+    },
+    {
+      "name": "Mindelo Automation",
+      "folder": "Agents",
+      "status": "paused",
+      "category": "ai-agent",
+      "client": "",
+      "stack": [],
+      "deploy_url": "",
+      "github": "trinirugby/Mindelo-automation",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-15",
+      "tags": [
+        "project",
+        "ai-agent",
+        "skeleton",
+        "mindelo"
+      ]
+    },
+    {
+      "name": "Mindelo HTML",
+      "folder": "Clients",
+      "status": "paused",
+      "category": "client-website",
+      "client": "Mindelo",
+      "stack": [
+        "HTML"
+      ],
+      "deploy_url": "",
+      "github": "trinirugby/Mindelo-Website",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-15",
+      "tags": [
+        "project",
+        "client-website",
+        "mindelo"
+      ]
+    },
+    {
+      "name": "On Mucurapo",
+      "folder": "Clients",
+      "status": "paused",
+      "category": "client-website",
+      "client": "On Mucurapo",
+      "stack": [
+        "CSS"
+      ],
+      "deploy_url": "",
+      "github": "trinirugby/on-mucurapo-website",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-15",
+      "tags": [
+        "project",
+        "client-website",
+        "skeleton"
+      ]
+    },
+    {
+      "name": "Paula Decles",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "Paula Decle",
+      "stack": [
+        "HTML",
+        "CSS",
+        "JavaScript"
+      ],
+      "deploy_url": "",
+      "github": "trinirugby/decle-realty-website",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-15",
+      "tags": [
+        "project",
+        "client-website",
+        "real-estate"
+      ]
+    },
+    {
+      "name": "PickleBall Paradise",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "PickleBall Paradise",
+      "stack": [
+        "HTML",
+        "CSS",
+        "JavaScript",
+        "Netlify",
+        "serve"
+      ],
+      "deploy_url": "",
+      "github": "trinirugby/pickleball-paradise",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-15",
+      "tags": [
+        "project",
+        "client-website",
+        "sports",
+        "netlify"
+      ]
+    },
+    {
+      "name": "RC868 Retro Closet",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "RC868 / Retro Closet 868",
+      "stack": [
+        "HTML",
+        "CSS",
+        "JavaScript",
+        "Netlify"
+      ],
+      "deploy_url": "https://retrocloset868.com",
+      "github": "trinirugby/retro-closet-868",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-15",
+      "tags": [
+        "project",
+        "client-website",
+        "ecommerce",
+        "fashion",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "Samurai",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "Samurai (restaurant)",
+      "stack": [
+        "HTML",
+        "CSS",
+        "JavaScript"
+      ],
+      "deploy_url": "",
+      "github": "trinirugby/samurai-website",
+      "created": "2026-05-15",
+      "last_touched": "2026-05-15",
+      "tags": [
+        "project",
+        "client-website",
+        "restaurant"
+      ]
+    },
+    {
+      "name": "Taylor Engineering",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "Taylor Engineering Agencies Limited (TEAL)",
+      "stack": [
+        "Next.js 16",
+        "React 19",
+        "Wix Headless",
+        "Wix SDK"
+      ],
+      "deploy_url": "https://tayeng.com",
+      "github": "trinirugby/Taylor-Engineering-Website",
+      "created": "2026-04-29",
+      "last_touched": "2026-05-15",
+      "tags": [
+        "project",
+        "client-website",
+        "nextjs",
+        "wix",
+        "trinidad"
+      ]
+    },
+    {
+      "name": "Trotters",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "Trotters Trinidad & Tobago",
+      "stack": [
+        "HTML",
+        "CSS",
+        "JavaScript",
+        "Netlify"
+      ],
+      "deploy_url": "",
+      "github": "trinirugby/trotters-website",
+      "created": "2026-05-12",
+      "last_touched": "2026-05-15",
+      "tags": [
+        "project",
+        "client-website",
+        "restaurant",
+        "trinidad",
+        "netlify"
+      ]
+    },
+    {
+      "name": "Launchpad",
+      "folder": "Clients",
+      "status": "active",
+      "category": "client-website",
+      "client": "zmanupnow777 (GitHub owner)",
+      "stack": [
+        "React 19",
+        "TypeScript",
+        "Vite",
+        "Tailwind",
+        "Supabase",
+        "Deno Edge Functions",
+        "OpenAI"
+      ],
+      "deploy_url": "",
+      "github": "zmanupnow777/Launchpad",
+      "created": "2026-05-03",
+      "last_touched": "2026-05-03",
+      "tags": [
+        "project",
+        "client-website",
+        "ats",
+        "job-board",
+        "supabase",
+        "react",
+        "ai"
+      ]
+    },
+    {
+      "name": "Claude Playground",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "",
+      "stack": [
+        "n8n",
+        "MCP",
+        "Claude"
+      ],
+      "deploy_url": "",
+      "github": "",
+      "created": "2026-04-29",
+      "last_touched": "2026-04-29",
+      "tags": [
+        "project",
+        "ai-agent",
+        "n8n",
+        "mcp",
+        "learning"
+      ]
+    },
+    {
+      "name": "General Sales CRM",
+      "folder": "Agents",
+      "status": "paused",
+      "category": "ai-agent",
+      "client": "",
+      "stack": [],
+      "deploy_url": "",
+      "github": "",
+      "created": "2026-04-29",
+      "last_touched": "2026-04-29",
+      "tags": [
+        "project",
+        "ai-agent",
+        "crm",
+        "skeleton"
+      ]
+    },
+    {
+      "name": "Lead Agent for Me",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "",
+      "stack": [
+        "Python"
+      ],
+      "deploy_url": "",
+      "github": "",
+      "created": "2026-04-29",
+      "last_touched": "2026-04-29",
+      "tags": [
+        "project",
+        "ai-agent",
+        "leadgen",
+        "python"
+      ]
+    },
+    {
+      "name": "Lead Generation Agent",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "",
+      "stack": [
+        "Python",
+        "SerpAPI",
+        "OpenStreetMap",
+        "openpyxl",
+        "geopy",
+        "python-dotenv"
+      ],
+      "deploy_url": "",
+      "github": "",
+      "created": "2026-04-29",
+      "last_touched": "2026-04-29",
+      "tags": [
+        "project",
+        "ai-agent",
+        "leadgen",
+        "python"
+      ]
+    },
+    {
+      "name": "Lead Qualification Agent",
+      "folder": "Agents",
+      "status": "active",
+      "category": "ai-agent",
+      "client": "",
+      "stack": [
+        "Node.js",
+        "Anthropic SDK",
+        "Telegram Bot",
+        "googleapis",
+        "axios"
+      ],
+      "deploy_url": "",
+      "github": "",
+      "created": "2026-04-29",
+      "last_touched": "2026-04-29",
+      "tags": [
+        "project",
+        "ai-agent",
+        "automation",
+        "telegram"
+      ]
+    }
+  ],
+  "activity": [
+    {
+      "date": "2026-06-18",
+      "project": "GrantDraft",
+      "note": "new agent note (`MindeloAi/GrantDraft` — AI grant-draft generator, live at grantdraft-beta.vercel.app)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-18",
+      "project": "InvoiceTT",
+      "note": "new agent note (`MindeloAi/invoice-app` — Trinidad invoicing + overdue reminders, live)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-18",
+      "project": "Reef",
+      "note": "new agent note (`MindeloAi/Reef` — T&T marine charter marketplace, live PWA)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-18",
+      "project": "Localift",
+      "note": "new agent note (`MindeloAi/localift` — T&T gym app, leaderboards + King/Queen badges)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-18",
+      "project": "Mindelo Hub",
+      "note": "new agent note (`MindeloAi/mindelo-hub` — multi-tenant GHL+Odoo hybrid SaaS)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-18",
+      "project": "Mindelo IG Bot",
+      "note": "new agent note (`trinirugby/mindelo-ig-bot` — IG DM concierge \"Sophie\")",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-18",
+      "project": "Odds Tool",
+      "note": "new agent note (`trinirugby/odds-tool` — +EV betting helper)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-18",
+      "project": "Trinity Property Solutions",
+      "note": "new client note (`MindeloAi/trinity-property-solutions` — T&T real-estate site, 74 scraped listings)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-18",
+      "project": "AI Agents MOC",
+      "note": "added the 7 new active agents + 2026-06-18 sync section",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-18",
+      "project": "Clients MOC",
+      "note": "added [[Trinity Property Solutions]] + 2026-06-18 sync section",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-18",
+      "project": "Launchpad",
+      "note": "per the established pattern, the `zmanupnow777` account's 7 older untracked repos (Hours-worked, Vivint-feild-tracker, a vantage-media fork, Porsche demo, Websites-intake-form, Quantitative-Bot, Vertical-Solutions-Ltd, all Mar–Apr 2026) stay **untracked** — only [[Launchpad]] is tracked from that account.",
+      "kind": "decision"
+    },
+    {
+      "date": "2026-06-18",
+      "project": "Trinity Property Solutions",
+      "note": "non-website apps (Reef, Localift, GrantDraft, etc.) filed under `01 - Projects/Agents/`; Clients stays marketing-site-only. [[Trinity Property Solutions]] is the only new Clients entry.",
+      "kind": "decision"
+    },
+    {
+      "date": "2026-06-03",
+      "project": "Email Order Extractor",
+      "note": "new agent project note (`MindeloAi/email-order-extractor` — forwarded order email → Claude reads 2 PDFs → 11 fields → Excel row → reply)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-03",
+      "project": "Mindelo Demo",
+      "note": "new agent project note (`MindeloAi/mindelo-demo` — outbound AI sales agent, live at mindelo-demo.vercel.app)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-03",
+      "project": "Vantage Media Upstream",
+      "note": "new reference note (`trinirugby/vantage-media`, the original upstream of the [[Vantage Media Automation]] fork)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-03",
+      "project": "AI Agents MOC",
+      "note": "added the 2 new active agents + 2026-06-03 sync section",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-03",
+      "project": "Clients MOC",
+      "note": "added 2026-06-03 sync note",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-06-03",
+      "project": "Vantage Media Upstream",
+      "note": "start tracking **both** vantage-media repos — the original `trinirugby/vantage-media` ([[Vantage Media Upstream]]) alongside the active fork `MindeloAi/vantage-media` ([[Vantage Media Automation]]). This resolves the long-standing \"left as-is\" note; the fork remains the source of truth.",
+      "kind": "decision"
+    },
+    {
+      "date": "2026-05-31",
+      "project": "Import Export Dashboard",
+      "note": "new agent project note (TradeBridge import/export demo dashboard, live on Vercel)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-05-31",
+      "project": "Voice Receptionist Mindelo",
+      "note": "new agent project note (Mindelo's own live instance of the receptionist template)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-05-31",
+      "project": "AI Agents MOC",
+      "note": "added both new projects + 2026-05-31 sync section",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-05-21",
+      "project": "Adams Recruitment",
+      "note": "new client site note created (pre-launch)",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-05-21",
+      "project": "Voice Receptionist App",
+      "note": "new Mindelo product-template note",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-05-21",
+      "project": "General QC App",
+      "note": "new Mindelo product-template note",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-05-21",
+      "project": "Nick Sick Dashboard",
+      "note": "new B2B vape dashboard note",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-05-21",
+      "project": "Manufacturing & Labelling Pitch",
+      "note": "new sales-deck resource note",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-05-21",
+      "project": "Website References",
+      "note": "new reference-library resource note",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-05-21",
+      "project": "My Personal Dashboard",
+      "note": "repo moved org → `MindeloAi`, slug fixed",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-05-21",
+      "project": "Retro Closet Dashboard",
+      "note": "repo moved org → `MindeloAi`, slug fixed",
+      "kind": "touch"
+    },
+    {
+      "date": "2026-05-21",
+      "project": "Clients MOC",
+      "note": "updated",
+      "kind": "touch"
+    }
+  ]
+}
