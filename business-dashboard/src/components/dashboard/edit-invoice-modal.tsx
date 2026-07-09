@@ -49,6 +49,7 @@ export function EditInvoiceModal({
           Status: status ? (status as InvoiceStatusValue) : undefined,
           "Issue Date": (fd.get("issueDate") as string) || undefined,
           "Due Date": (fd.get("dueDate") as string) || undefined,
+          "Paid Date": (fd.get("paidDate") as string) || undefined,
           Notes: (fd.get("notes") as string) || undefined,
           Project: projectId ? [projectId] : undefined,
         });
@@ -132,6 +133,13 @@ export function EditInvoiceModal({
               <label className="text-xs text-zinc-400">Due Date</label>
               <input name="dueDate" type="date" defaultValue={invoice["Due Date"] ?? ""} className={inputCls} />
             </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-zinc-400">Paid Date</label>
+            <input name="paidDate" type="date" defaultValue={invoice["Paid Date"] ?? ""} className={inputCls} />
+            <p className="text-[10px] text-zinc-600">
+              Required for revenue/profit to count this invoice. Leave blank and set Status to Paid to default to today.
+            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-zinc-400">Notes</label>

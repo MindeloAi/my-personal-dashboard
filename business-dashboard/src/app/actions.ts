@@ -76,7 +76,15 @@ export async function updateExpenseAction(id: string, data: ExpenseWrite) {
 }
 
 export async function updateInvoiceAction(id: string, data: InvoiceWrite) {
-  await updateInvoice(id, data);
+  // Revenue/profit metrics require Status "Paid" + a Paid Date to both be
+  // set (see hero-cards.tsx etc.) — stamp today's date if the caller is
+  // flipping to Paid without supplying one, so an invoice never goes
+  // "Paid" but invisible to those calculations.
+  const payload =
+    data.Status === "Paid" && !data["Paid Date"]
+      ? { ...data, "Paid Date": format(new Date(), "yyyy-MM-dd") }
+      : data;
+  await updateInvoice(id, payload);
   revalidatePath("/dashboard");
 }
 
