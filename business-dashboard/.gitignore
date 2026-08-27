@@ -42,3 +42,7 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# Airtable migration snapshot — real client emails and full financials.
+# Doubles as the one-time archive of the base; copy it somewhere durable.
+/scripts/.airtable-export/

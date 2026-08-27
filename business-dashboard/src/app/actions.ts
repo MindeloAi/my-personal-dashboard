@@ -19,10 +19,8 @@ import {
   getProject,
   createTask,
   updateTask,
-  claimTask,
   createIdea,
   updateIdea,
-  updateProjectMeta,
   LeadWriteSchema,
   type InvoiceWrite,
   type ProjectWrite,
@@ -30,7 +28,6 @@ import {
   type LeadWrite,
   type TaskWrite,
   type IdeaWrite,
-  type ClaimResult,
 } from "@/lib/airtable";
 import {
   generateInvoiceNumber,
@@ -131,21 +128,6 @@ export async function createTaskAction(data: TaskWrite) {
   revalidatePath("/dashboard");
 }
 
-export async function claimTaskAction(
-  taskId: string,
-  terminalId: string,
-): Promise<ClaimResult> {
-  const result = await claimTask(taskId, terminalId);
-  revalidatePath("/dashboard");
-  return result;
-}
-
-// Return a claimed task to the pool: back to Pending, owner cleared.
-export async function releaseTaskAction(taskId: string) {
-  await updateTask(taskId, { Status: "Pending", "Picked Up By": "" });
-  revalidatePath("/dashboard");
-}
-
 export async function updateTaskAction(id: string, data: TaskWrite) {
   await updateTask(id, data);
   revalidatePath("/dashboard");
@@ -160,13 +142,6 @@ export async function createIdeaAction(data: IdeaWrite) {
 
 export async function updateIdeaAction(id: string, data: IdeaWrite) {
   await updateIdea(id, data);
-  revalidatePath("/dashboard");
-}
-
-// ─── Projects (metadata) ──────────────────────────────────────────────────────
-
-export async function updateProjectMetaAction(id: string, data: ProjectWrite) {
-  await updateProjectMeta(id, data);
   revalidatePath("/dashboard");
 }
 
