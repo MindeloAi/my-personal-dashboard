@@ -123,12 +123,18 @@ create table if not exists expenses (
   name        text not null default '',
   category    text check (category in
                 ('Software','Subcontractors','Hosting','Hardware','Marketing','Other')),
+  -- The TTD figure every dashboard total sums. Never derived from usd_amount.
   amount      numeric,
   date        date,
   -- Airtable omits an unchecked checkbox entirely, so the UI sees undefined.
   -- db.ts shapes `false` back to undefined on read to keep that identical.
   recurring   boolean not null default false,
-  notes       text
+  notes       text,
+
+  -- Per-row audit trail (migration 001). Nullable, no defaults. Recorded for
+  -- traceability only — no total, chart or metric reads these.
+  usd_amount  numeric(10,2),   -- source amount in USD before conversion
+  reference   text             -- vendor invoice or receipt number
 );
 
 -- ─── milestones ─────────────────────────────────────────────────────────────

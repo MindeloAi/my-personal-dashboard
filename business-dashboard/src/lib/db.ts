@@ -210,10 +210,14 @@ export const ExpenseSchema = z.object({
       "Other",
     ])
     .optional(),
+  // The TTD figure. Every expense total on the dashboard sums this and only
+  // this — "USD Amount" below is audit metadata and is never totalled.
   Amount: z.number().optional(),
   Date: z.string().optional(),
   Recurring: z.boolean().optional(),
   Notes: z.string().optional(),
+  "USD Amount": z.number().optional(),
+  Reference: z.string().optional(),
 });
 export type Expense = z.infer<typeof ExpenseSchema>;
 
@@ -372,6 +376,8 @@ export const ExpenseWriteSchema = z.object({
   Date: z.string().optional(),
   Recurring: z.boolean().optional(),
   Notes: z.string().optional(),
+  "USD Amount": z.number().optional(),
+  Reference: z.string().optional(),
 });
 export type ExpenseWrite = z.infer<typeof ExpenseWriteSchema>;
 
@@ -498,6 +504,8 @@ const EXPENSE_COLS: ColMap = {
   Date: "date",
   Recurring: "recurring",
   Notes: "notes",
+  "USD Amount": "usd_amount",
+  Reference: "reference",
 };
 
 // Milestones is read-only in the app today, so it has no write maps yet.
@@ -628,6 +636,8 @@ function shapeExpense(r: Row) {
     // byte-exact.
     Recurring: r.recurring === true ? true : undefined,
     Notes: r.notes,
+    "USD Amount": r.usd_amount,
+    Reference: r.reference,
   };
 }
 

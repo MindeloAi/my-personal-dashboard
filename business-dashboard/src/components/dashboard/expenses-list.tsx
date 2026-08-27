@@ -46,6 +46,7 @@ function EditModal({ expense, onClose }: { expense: Expense; onClose: () => void
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const amount = fd.get("amount") as string;
+    const usdAmount = fd.get("usdAmount") as string;
     setError(false);
     const category = (fd.get("category") as string) || "";
     start(async () => {
@@ -57,6 +58,8 @@ function EditModal({ expense, onClose }: { expense: Expense; onClose: () => void
           Date: (fd.get("date") as string) || undefined,
           Recurring: fd.get("recurring") === "on",
           Notes: (fd.get("notes") as string) || undefined,
+          "USD Amount": usdAmount ? parseFloat(usdAmount) : undefined,
+          Reference: (fd.get("reference") as string) || undefined,
         });
         toast.success("Expense saved");
         onClose();
@@ -85,8 +88,18 @@ function EditModal({ expense, onClose }: { expense: Expense; onClose: () => void
               <input name="name" defaultValue={expense.Name} className={inputCls} required />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Amount ($)</label>
+              <label className="text-xs text-zinc-400">Amount (TTD)</label>
               <input name="amount" type="number" min="0" step="0.01" defaultValue={expense.Amount ?? ""} className={inputCls} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-zinc-400">USD Amount</label>
+              <input name="usdAmount" type="number" min="0" step="0.01" defaultValue={expense["USD Amount"] ?? ""} placeholder="Optional" className={inputCls} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-zinc-400">Reference</label>
+              <input name="reference" defaultValue={expense.Reference ?? ""} placeholder="Invoice / receipt no." className={inputCls} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

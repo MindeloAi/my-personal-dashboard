@@ -215,6 +215,7 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const amount = fd.get("amount") as string;
+    const usdAmount = fd.get("usdAmount") as string;
     const category = (fd.get("category") as string) || "";
     start(async () => {
       try {
@@ -225,6 +226,8 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
           Date: (fd.get("date") as string) || undefined,
           Recurring: fd.get("recurring") === "on",
           Notes: (fd.get("notes") as string) || undefined,
+          "USD Amount": usdAmount ? parseFloat(usdAmount) : undefined,
+          Reference: (fd.get("reference") as string) || undefined,
         });
         toast.success("Expense created");
         onClose();
@@ -246,7 +249,7 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
               required
             />
           </Field>
-          <Field label="Amount ($)">
+          <Field label="Amount (TTD)">
             <input
               name="amount"
               type="number"
@@ -255,6 +258,25 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
               placeholder="0.00"
               className={inputCls}
               required
+            />
+          </Field>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="USD Amount">
+            <input
+              name="usdAmount"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Optional"
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Reference">
+            <input
+              name="reference"
+              placeholder="Invoice / receipt no."
+              className={inputCls}
             />
           </Field>
         </div>
