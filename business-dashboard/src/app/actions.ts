@@ -41,7 +41,7 @@ export async function markInvoicePaid(invoiceId: string) {
     Status: "Paid",
     "Paid Date": format(new Date(), "yyyy-MM-dd"),
   });
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function updateProjectStatus(
@@ -49,27 +49,27 @@ export async function updateProjectStatus(
   status: "Lead" | "In Progress" | "Review" | "Done" | "Cancelled",
 ) {
   await updateProject(projectId, { Status: status });
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function createInvoiceAction(data: InvoiceWrite) {
   await createInvoice(data);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function createExpenseAction(data: ExpenseWrite) {
   await createExpense(data);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function createProjectAction(data: ProjectWrite) {
   await createProject(data);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function updateExpenseAction(id: string, data: ExpenseWrite) {
   await updateExpense(id, data);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function updateInvoiceAction(id: string, data: InvoiceWrite) {
@@ -82,22 +82,22 @@ export async function updateInvoiceAction(id: string, data: InvoiceWrite) {
       ? { ...data, "Paid Date": format(new Date(), "yyyy-MM-dd") }
       : data;
   await updateInvoice(id, payload);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function updateProjectAction(id: string, data: ProjectWrite) {
   await updateProject(id, data);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function deleteProjectAction(id: string) {
   await deleteProject(id);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function deleteExpenseAction(id: string) {
   await deleteExpense(id);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 // ─── Leads ──────────────────────────────────────────────────────────────────
@@ -105,12 +105,12 @@ export async function deleteExpenseAction(id: string) {
 // Public intake form submission. New leads default to Status "New".
 export async function submitIntakeAction(data: LeadWrite) {
   await createLead({ Status: "New", ...data });
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function createLeadAction(data: LeadWrite) {
   await createLead(data);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function updateLeadStatusAction(
@@ -118,31 +118,31 @@ export async function updateLeadStatusAction(
   status: "New" | "Contacted" | "Proposal Sent" | "Won" | "Lost",
 ) {
   await updateLead(id, { Status: status });
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 // ─── Tasks ──────────────────────────────────────────────────────────────────
 
 export async function createTaskAction(data: TaskWrite) {
   await createTask(data);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function updateTaskAction(id: string, data: TaskWrite) {
   await updateTask(id, data);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 // ─── Ideas ──────────────────────────────────────────────────────────────────
 
 export async function createIdeaAction(data: IdeaWrite) {
   await createIdea(data);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 export async function updateIdeaAction(id: string, data: IdeaWrite) {
   await updateIdea(id, data);
-  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 }
 
 // ─── Automations (executed in-app) ─────────────────────────────────────────────
@@ -216,7 +216,7 @@ export async function draftProposalAction(
       Status: "Proposal Sent",
       "Follow-up Date": addDaysISO(new Date(), 3),
     });
-    revalidatePath("/dashboard");
+    revalidatePath("/", "layout");
     return { ok: true, message: "Proposal drafted — review it in the lead's row." };
   } catch (err) {
     return { ok: false, message: automationError(err) };
@@ -265,7 +265,7 @@ export async function generateLeadsAction(opts: {
       }
     }
 
-    revalidatePath("/dashboard");
+    revalidatePath("/", "layout");
     if (created === 0) {
       return { ok: false, message: "No valid leads were generated. Try a more specific niche." };
     }
@@ -299,7 +299,7 @@ export async function researchAction(opts: {
       Category: "internal",
       Status: "Raw",
     });
-    revalidatePath("/dashboard");
+    revalidatePath("/", "layout");
     return { ok: true, message: "Research saved to Ideas." };
   } catch (err) {
     return { ok: false, message: automationError(err) };
@@ -336,7 +336,7 @@ export async function generateInvoiceAction(opts: {
       "Due Date": dueDate,
       Notes: `Auto-generated ${invoiceNumber}`,
     });
-    revalidatePath("/dashboard");
+    revalidatePath("/", "layout");
     return { ok: true, message: `Invoice ${invoiceNumber} created.` };
   } catch (err) {
     return { ok: false, message: automationError(err) };
