@@ -14,12 +14,6 @@ const NAV = [
   { href: "/projects", label: "Projects" },
   { href: "/clients", label: "Clients" },
   { href: "/leads", label: "Leads" },
-  { href: "/tasks", label: "Tasks" },
-  { href: "/dev", label: "Dev" },
-  { href: "/ideas", label: "Ideas" },
-  { href: "/automation", label: "Automation" },
-  { href: "/vault", label: "Vault" },
-  { href: "/ops", label: "Mindelo OPS" },
 ] as const;
 
 export function Sidebar({ children }: { children: React.ReactNode }) {
