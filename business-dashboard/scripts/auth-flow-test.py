@@ -6,7 +6,11 @@ than an empty shell.
 """
 from playwright.sync_api import sync_playwright
 
-BASE = "http://localhost:5622"
+import os
+
+# Defaults to the local server. Override to run the same checks against a
+# deployment: AUTH_TEST_BASE=https://mindelo.site python scripts/auth-flow-test.py
+BASE = os.environ.get("AUTH_TEST_BASE", "http://localhost:5622").rstrip("/")
 EMAIL = "michaeltaylorwalker@mindelo.site"
 PASSWORD = "michaelzane1234"
 
