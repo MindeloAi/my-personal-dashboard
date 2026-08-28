@@ -1070,3 +1070,18 @@ export async function claimTask(
   // last-writer-wins update. The union member stays for API compatibility.
   return { ok: false, reason: "not-pending" };
 }
+
+// ─── Admin profiles (auth) ────────────────────────────────────────────────────
+//
+// Read-only lookup used by requireAdmin() in lib/auth.ts. Rows are created only by
+// scripts/seed-admins.mjs via the service role key; nothing in the app writes here.
+
+export type AdminProfile = { id: string; email: string };
+
+export async function getAdminProfile(userId: string): Promise<AdminProfile | null> {
+  const sql = getSql();
+  const [row] = await sql`
+    select id, email from profiles where id = ${userId} and role = 'admin'
+  `;
+  return row ? { id: String(row.id), email: String(row.email) } : null;
+}

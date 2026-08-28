@@ -1,69 +1,102 @@
-// src/app/login/page.tsx
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { AUTH_COOKIE, hashPasscode } from "@/lib/auth";
+import { createClient, getAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-async function login(formData: FormData) {
+// Sign in with Supabase Auth. Email and password only, no magic links, no OAuth.
+//
+// There is no signup, no password reset and no invite flow here, on purpose. The
+// three founder accounts are seeded by scripts/seed-admins.mjs and public signup is
+// disabled at the Supabase project level.
+
+async function signIn(formData: FormData) {
   "use server";
-  const passcode = process.env.DASHBOARD_PASSCODE;
-  if (!passcode) redirect("/login?reason=unconfigured");
 
-  const entered = String(formData.get("passcode") ?? "");
-  if (entered !== passcode) redirect("/login?reason=invalid");
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  if (!email || !password) redirect("/login?error=missing");
 
-  const store = await cookies();
-  store.set(AUTH_COOKIE, await hashPasscode(passcode), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  // One message for a wrong password and for an address that has no account.
+  // Distinguishing them would let anyone enumerate who has access.
+  if (error) redirect("/login?error=invalid");
+
   redirect("/overview");
 }
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reason?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
-  const { reason } = await searchParams;
+  const { error } = await searchParams;
+
+  // Already signed in and authorised: skip the form.
+  const admin = await getAdmin();
+  if (admin) redirect("/overview");
 
   return (
     <div className="min-h-screen bg-[#0b0d10] text-white flex items-center justify-center p-6">
       <form
-        action={login}
+        action={signIn}
         className="w-full max-w-sm space-y-4 bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6"
       >
         <div className="space-y-1">
-          <p className="text-lg font-semibold text-[#f5f5f5]">MindeloAI Dashboard</p>
-          <p className="text-xs text-zinc-500">Enter the shared passcode to continue.</p>
+          <p className="text-lg font-semibold text-[#f5f5f5]">Mindelo Dashboard</p>
+          <p className="text-xs text-zinc-500">Sign in to continue.</p>
         </div>
 
-        {reason === "invalid" && (
-          <p className="text-xs text-[#ff4d8b]">That passcode is not correct.</p>
+        {error === "invalid" && (
+          <p className="text-xs text-[#ff4d8b]">
+            That email and password combination was not recognised.
+          </p>
         )}
-        {reason === "unconfigured" && (
+        {error === "missing" && (
+          <p className="text-xs text-[#ff4d8b]">Enter both an email and a password.</p>
+        )}
+        {error === "config" && (
           <p className="text-xs text-[#fbbf24]">
-            DASHBOARD_PASSCODE is not set on this deployment, so login is impossible.
-            Set it in the environment and redeploy.
+            Supabase auth is not configured on this deployment. Set
+            NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then redeploy.
           </p>
         )}
 
-        <input
-          name="passcode"
-          type="password"
-          autoFocus
-          autoComplete="current-password"
-          className="w-full rounded-lg bg-[#0b0d10] border border-[#2a2e34] px-3 py-2 text-sm outline-none focus:border-[#bfff3a]/40"
-        />
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs text-zinc-400" htmlFor="email">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="username"
+            autoFocus
+            required
+            className="w-full rounded-lg bg-[#0b0d10] border border-[#2a2e34] px-3 py-2 text-sm outline-none focus:border-[#bfff3a]/40"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs text-zinc-400" htmlFor="password">
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            className="w-full rounded-lg bg-[#0b0d10] border border-[#2a2e34] px-3 py-2 text-sm outline-none focus:border-[#bfff3a]/40"
+          />
+        </div>
+
         <button
           type="submit"
           className="w-full rounded-lg bg-[#bfff3a] text-black text-sm font-semibold px-3 py-2 hover:bg-[#bfff3a]/90 transition-colors"
         >
-          Enter
+          Sign in
         </button>
       </form>
     </div>

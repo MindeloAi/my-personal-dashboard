@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MindeloAI Dashboard",
-  description: "Operational dashboard for MindeloAI — Web Dev + AI Automation",
+  title: "Mindelo Dashboard",
+  description: "Internal operations dashboard for Mindelo: clients, projects, revenue and expenses.",
 };
 
 export default function RootLayout({
