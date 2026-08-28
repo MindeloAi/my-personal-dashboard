@@ -409,7 +409,7 @@ function ProjectDetailModal({
                 >
                   <option value="">—</option>
                   <option value="Web Dev">Web Dev</option>
-                  <option value="AI Automation">AI Automation</option>
+                  <option value="Automation">Automation</option>
                   <option value="Hybrid">Hybrid</option>
                 </select>
               </div>

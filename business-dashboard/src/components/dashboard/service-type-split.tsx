@@ -8,7 +8,7 @@ type Props = { projects: Project[]; invoices: Invoice[] };
 
 const TYPE_COLORS: Record<string, string> = {
   "Web Dev": "#bfff3a",
-  "AI Automation": "#c44dff",
+  Automation: "#c44dff",
   Hybrid: "#3affd1",
   Unspecified: "#3a3f47",
 };

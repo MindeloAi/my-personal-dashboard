@@ -9,8 +9,8 @@ const selectCls = inputCls + " cursor-pointer";
 
 const SERVICE_OPTIONS = [
   "Website / Web Dev",
-  "AI Automation",
-  "Web Dev + AI Automation",
+  "Automation",
+  "Web Dev + Automation",
   "Not sure yet",
 ];
 
@@ -56,11 +56,11 @@ export default function IntakePage() {
       <div className="w-full max-w-xl">
         <div className="mb-8 text-center">
           <p className="text-[#bfff3a] text-sm font-semibold tracking-wider uppercase mb-2">
-            MindeloAI
+            Mindelo
           </p>
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Let&apos;s build something</h1>
           <p className="text-sm text-zinc-400 mt-2">
-            Tell us about your project — web development, AI automation, or both. We&apos;ll get back
+            Tell us about your project: web development, automation, or both. We&apos;ll get back
             to you within a couple of days.
           </p>
         </div>
@@ -70,7 +70,7 @@ export default function IntakePage() {
             <div className="w-12 h-12 rounded-full bg-[#bfff3a]/10 border border-[#bfff3a]/20 flex items-center justify-center mx-auto mb-4 text-2xl">
               ✓
             </div>
-            <p className="text-lg font-semibold text-white">Thanks — we got it.</p>
+            <p className="text-lg font-semibold text-white">Thanks, we got it.</p>
             <p className="text-sm text-zinc-400 mt-2">
               Your details are in. We&apos;ll reach out soon to talk through your project.
             </p>

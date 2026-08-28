@@ -6,7 +6,7 @@ than an empty shell.
 """
 from playwright.sync_api import sync_playwright
 
-BASE = "http://localhost:5621"
+BASE = "http://localhost:5622"
 EMAIL = "michaeltaylorwalker@mindelo.site"
 PASSWORD = "michaelzane1234"
 
@@ -68,6 +68,18 @@ with sync_playwright() as p:
     check("session persists across navigation", page.url.rstrip("/").endswith("/finance"), page.url)
     fin = page.content()
     check("finance page renders invoice data", "Invoice" in fin or "Expenses" in fin)
+
+    # 7b. The sign-out button must exist and actually end the session.
+    page.goto(f"{BASE}/overview", wait_until="domcontentloaded")
+    page.wait_for_timeout(1500)
+    check("sign out button present", page.locator('button:has-text("Sign out")').count() >= 1)
+    check("signed-in email shown", EMAIL in page.content())
+    page.click('button:has-text("Sign out")')
+    page.wait_for_timeout(3500)
+    check("sign out lands on /login", "/login" in page.url, page.url)
+    page.goto(f"{BASE}/overview", wait_until="domcontentloaded")
+    page.wait_for_timeout(1200)
+    check("after sign out the gate is closed", "/login" in page.url, page.url)
 
     # 8. Clearing cookies must re-close the gate (proves the guard is real,
     #    not a one-time redirect).

@@ -161,7 +161,7 @@ function NewLeadModal({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Service Interest</label>
-              <input name="serviceInterest" placeholder="Web Dev, AI Automation…" className={inputCls} />
+              <input name="serviceInterest" placeholder="Web Dev, Automation…" className={inputCls} />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Budget Range</label>
