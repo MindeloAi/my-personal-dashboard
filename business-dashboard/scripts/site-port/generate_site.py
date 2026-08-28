@@ -435,13 +435,26 @@ def main():
 
     # next/font generates a hashed family name, so the ported rules cannot name
     # the font literally any more.
+    #
+    # The declaration also has to move off `body`. next/font defines
+    # --font-jakarta on the element carrying its generated class, which is the
+    # wrapper div, and custom properties inherit downwards only. A font-family
+    # on `body:has(.site-root)` therefore references a variable that does not
+    # exist there, the declaration is invalid at computed-value time, and every
+    # page silently falls back to the browser default serif. Declaring it on the
+    # wrapper itself resolves, and everything inside inherits.
+    wrapper_font = (
+        "\n/* next/font defines --font-jakarta on the wrapper element, not on\n"
+        "   <body>, and custom properties only inherit downwards. Declared here\n"
+        "   so it resolves; every descendant inherits it. */\n"
+        ".site-root { font-family: var(--font-jakarta), sans-serif; }\n")
     for f in sorted(os.listdir(styles_dir)):
         fp = os.path.join(styles_dir, f)
         css = io.open(fp, encoding="utf-8").read()
         if "'Plus Jakarta Sans'" in css:
-            io.open(fp, "w", encoding="utf-8", newline="\n").write(
-                css.replace("'Plus Jakarta Sans', sans-serif",
-                            "var(--font-jakarta), sans-serif"))
+            css = css.replace("'Plus Jakarta Sans', sans-serif",
+                              "var(--font-jakarta), sans-serif") + wrapper_font
+            io.open(fp, "w", encoding="utf-8", newline="\n").write(css)
 
     print("%-32s %-28s %9s %8s" % ("source", "route", "jsx", "css"))
     for r in report:

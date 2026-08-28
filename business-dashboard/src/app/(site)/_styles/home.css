@@ -294,3 +294,8 @@ body:has(.site-root) {
         @media (prefers-reduced-motion: reduce) {
             .site-root .reveal { opacity: 1 !important; transform: none !important; }
         }
+
+/* next/font defines --font-jakarta on the wrapper element, not on
+   <body>, and custom properties only inherit downwards. Declared here
+   so it resolves; every descendant inherits it. */
+.site-root { font-family: var(--font-jakarta), sans-serif; }

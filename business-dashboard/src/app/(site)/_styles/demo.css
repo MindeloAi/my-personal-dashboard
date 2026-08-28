@@ -153,3 +153,8 @@ body:has(.site-root) {
             background: rgba(0,229,176,0.04); font-family: inherit;
         }
         .site-root .demo-chip:hover { border-color: #00e5b0; color: #00e5b0; background: rgba(0,229,176,0.08); }
+
+/* next/font defines --font-jakarta on the wrapper element, not on
+   <body>, and custom properties only inherit downwards. Declared here
+   so it resolves; every descendant inherits it. */
+.site-root { font-family: var(--font-jakarta), sans-serif; }
