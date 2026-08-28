@@ -1,0 +1,106 @@
+.custom-icon {
+    display: inline-block;
+    object-fit: contain;
+    flex-shrink: 0;
+    vertical-align: middle;
+    filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.35));
+}
+
+.service-icon {
+    display: block;
+    width: 4.85rem;
+    height: 4.85rem;
+    margin: 0.8rem 0 1.05rem -0.25rem;
+    filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.42)) brightness(1.12) saturate(1.08);
+}
+
+.flagship-icon {
+    display: block;
+    width: 5.15rem;
+    height: 5.15rem;
+    margin-left: -0.35rem;
+    filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.42)) brightness(1.12) saturate(1.08);
+}
+
+.contact-icon {
+    display: block;
+    width: 3.65rem;
+    height: 3.65rem;
+    filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.38)) brightness(1.1) saturate(1.08);
+}
+
+.success-icon {
+    display: block;
+    width: 5rem;
+    height: 5rem;
+    margin-bottom: 0.5rem;
+    filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.42)) brightness(1.12) saturate(1.08);
+}
+
+.founder-icon {
+    display: block;
+    width: 3.9rem;
+    height: 3.9rem;
+    filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.36)) brightness(1.1) saturate(1.08);
+}
+
+.chat-avatar-icon {
+    width: 1.45rem;
+    height: 1.45rem;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25));
+}
+
+.inline-hello-icon {
+    width: 1.15em;
+    height: 1.15em;
+    margin-left: 0.18em;
+    vertical-align: -0.22em;
+    filter: none;
+}
+
+.about-check-icon {
+    position: relative;
+    display: block;
+    width: 0.86rem;
+    height: 0.86rem;
+    border-radius: 999px;
+    background: radial-gradient(circle at 35% 30%, #d9fff7 0 12%, #00e5b0 13% 48%, #046b5a 100%);
+    box-shadow: 0 0 12px rgba(0, 229, 176, 0.28);
+}
+
+.about-check-icon::after {
+    content: "";
+    position: absolute;
+    left: 0.31rem;
+    top: 0.18rem;
+    width: 0.24rem;
+    height: 0.42rem;
+    border-right: 2px solid #061014;
+    border-bottom: 2px solid #061014;
+    transform: rotate(45deg);
+}
+
+.modal-close-icon {
+    width: 1.2rem;
+    height: 1.2rem;
+    filter: none;
+}
+
+.icon-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+}
+
+.icon-list li::before {
+    content: "";
+    position: relative;
+    width: 0.72rem;
+    height: 0.72rem;
+    margin-top: 0.12rem;
+    flex: 0 0 0.72rem;
+    border-radius: 999px;
+    background:
+        radial-gradient(circle at 35% 30%, #eafffb 0 13%, #00e5b0 14% 44%, rgba(0, 229, 176, 0.34) 45% 100%);
+    box-shadow: 0 0 10px rgba(0, 229, 176, 0.24);
+}

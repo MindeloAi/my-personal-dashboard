@@ -23,7 +23,7 @@ async function signIn(formData: FormData) {
   // Distinguishing them would let anyone enumerate who has access.
   if (error) redirect("/login?error=invalid");
 
-  redirect("/overview");
+  redirect("/admin/overview");
 }
 
 export default async function LoginPage({
@@ -35,7 +35,7 @@ export default async function LoginPage({
 
   // Already signed in and authorised: skip the form.
   const admin = await getAdmin();
-  if (admin) redirect("/overview");
+  if (admin) redirect("/admin/overview");
 
   return (
     <div className="min-h-screen bg-[#0b0d10] text-white flex items-center justify-center p-6">

@@ -1,8 +1,17 @@
+import type { Metadata } from "next";
 import { format } from "date-fns";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { getClients, getProjects } from "@/lib/db";
 import { getAdmin } from "@/lib/auth";
+
+// Never index the dashboard. There is deliberately no link to /admin from the
+// public site, but a stray referrer or a shared URL would otherwise be enough
+// for a crawler to find it. /admin is also excluded from sitemap.ts.
+export const metadata: Metadata = {
+  title: "Mindelo Dashboard",
+  robots: { index: false, follow: false, nocache: true },
+};
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

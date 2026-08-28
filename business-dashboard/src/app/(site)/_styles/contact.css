@@ -1,0 +1,123 @@
+/* Ported from contact.html. Scoped to the marketing site so it cannot
+   reach the dashboard, which shares the same <body>. */
+
+body:has(.site-root) {
+            --bg: #06090d; --surface: #0c1018; --surface-light: #111827;
+            --teal: #00e5b0; --blue: #3b9eff; --purple: #8b5cf6; --orange: #ff6b35;
+        }
+        body:has(.site-root) {
+            background-color: var(--bg);
+            color: #f3f4f6;
+            font-family: var(--font-jakarta), sans-serif;
+        }/* --- BACKGROUND GRAIN --- */
+
+        
+        body:has(.site-root)::before {
+            content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.03; z-index: 9999; pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }/* --- ORBITAL RINGS --- */
+
+        
+        .site-root .orbital-ring {
+            position: absolute; border: 1px solid rgba(0, 229, 176, 0.1);
+            border-radius: 50%; animation: rotate 60s linear infinite; pointer-events: none;
+        }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }/* --- NAVIGATION --- */
+
+        
+        .site-root .glass-nav { background: rgba(6, 9, 13, 0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .site-root .pulsing-dot { width: 8px; height: 8px; background: var(--teal); border-radius: 50%; box-shadow: 0 0 10px var(--teal); animation: pulse 2s infinite; flex-shrink: 0; }
+        @keyframes pulse { 0%, 100% { opacity: 0.5; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.2); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .site-root .btn-spinner { width: 18px; height: 18px; border: 2px solid rgba(0,0,0,0.25); border-top-color: #000; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; vertical-align: middle; margin-right: 6px; }
+        .site-root .nav-link { transition: color 0.2s; }
+        .site-root .nav-link.active { color: white; }
+        .site-root .nav-link.active::after { content: ''; display: block; height: 2px; background: var(--teal); border-radius: 99px; margin-top: 2px; }/* --- MOBILE MENU --- */
+
+        
+        .site-root #mobile-menu { display: none; }
+        .site-root #mobile-menu.open { display: flex; }/* --- REVEAL ANIMATIONS --- */
+
+        
+        .site-root .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.8s ease-out, transform 0.8s ease-out; }
+        .site-root .reveal.active { opacity: 1; transform: translateY(0); }
+        .site-root .delay-100 { transition-delay: 0.1s; }
+        .site-root .delay-200 { transition-delay: 0.2s; }
+        .site-root .delay-300 { transition-delay: 0.3s; }
+        .site-root .delay-400 { transition-delay: 0.4s; }
+        .site-root .delay-500 { transition-delay: 0.5s; }
+
+        .site-root .heading-heavy { letter-spacing: -0.04em; font-weight: 800; }/* --- PROGRESS BARS --- */
+
+        
+        .site-root .progress-bar { width: 0; transition: width 1.8s cubic-bezier(0.1, 0.5, 0.5, 1); }
+        .site-root .reveal.active .progress-bar { width: var(--bar-width); }/* --- SERVICE CARDS --- */
+
+        
+        .site-root .service-card { transition: all 0.3s ease; border-top: 4px solid transparent; }
+        .site-root .service-card:hover { transform: translateY(-8px); background: var(--surface-light); }/* --- PORTFOLIO CARDS --- */
+
+        
+        .site-root .portfolio-card { transition: all 0.4s ease; }
+        .site-root .portfolio-card:hover { transform: translateY(-6px); }
+        .site-root .portfolio-card:hover .card-border { border-color: var(--card-accent); }/* --- FAQ ACCORDION --- */
+
+        
+        .site-root .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, padding 0.3s ease; }
+        .site-root .faq-answer.open { max-height: 400px; }
+        .site-root .faq-item.open .faq-icon { transform: rotate(45deg); color: var(--teal); }
+        .site-root .faq-icon { transition: transform 0.3s ease, color 0.3s ease; }/* --- ABOUT --- */
+
+        
+        .site-root .founder-card { background: linear-gradient(135deg, #0c1018 60%, #0a1a14); border: 1px solid rgba(0, 229, 176, 0.15); }/* --- SELECT FIX --- */
+
+        
+        .site-root select { background-color: #0a0e16; color: #f3f4f6; }
+        .site-root select option { background-color: #0c1018; }/* --- MODAL --- */
+
+        
+        .site-root .modal-overlay {
+            display: none; position: fixed; inset: 0; z-index: 9998;
+            background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+            align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        .site-root .modal-overlay.open { display: flex; opacity: 1; }
+        .site-root .modal-panel {
+            transform: scale(0.95); transition: transform 0.3s ease;
+            max-height: 90vh; overflow-y: auto;
+        }
+        .site-root .modal-overlay.open .modal-panel { transform: scale(1); }/* --- HERO CARD GLOW --- */
+
+        
+        @keyframes card-glow {
+            0%, 100% { box-shadow: 0 0 30px rgba(0, 229, 176, 0.04); }
+            50% { box-shadow: 0 0 50px rgba(0, 229, 176, 0.10); }
+        }
+        .site-root .hero-card { animation: card-glow 4s ease-in-out infinite; }/* --- SOCIAL ICON BUTTONS --- */
+
+        
+        .site-root .social-btn { transition: all 0.2s ease; }
+        .site-root .social-btn-linkedin:hover { border-color: #0A66C2; color: #0A66C2; }
+        .site-root .social-btn-initials {
+            position: absolute; top: 2px; right: 3px;
+            font-size: 7px; font-weight: 800; line-height: 1; letter-spacing: 0.02em;
+            color: inherit; pointer-events: none; transition: color 0.2s ease;
+        }
+        .site-root .social-btn-instagram:hover { border-color: #e1306c; color: #e1306c; }
+        .site-root .social-btn-facebook:hover { border-color: #1877F2; color: #1877F2; }/* --- PAGE TRANSITIONS --- */
+
+
+
+        
+        body:has(.site-root) { animation: pageIn 0.4s ease; }
+        @keyframes pageIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        body:has(.site-root).page-exit { animation: pageOut 0.3s ease forwards; }
+        @keyframes pageOut {
+            from { opacity: 1; transform: translateY(0); }
+            to   { opacity: 0; transform: translateY(-12px); }
+        }

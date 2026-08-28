@@ -24,8 +24,8 @@ with sync_playwright() as p:
     page = ctx.new_page()
 
     # 1. Logged out, a protected route must bounce to /login.
-    page.goto(f"{BASE}/overview", wait_until="networkidle")
-    check("logged out: /overview redirects to /login", "/login" in page.url, page.url)
+    page.goto(f"{BASE}/admin/overview", wait_until="networkidle")
+    check("logged out: /admin/overview redirects to /login", "/login" in page.url, page.url)
 
     # 2. The form must actually be there.
     has_email = page.locator('input[name="email"]').count() == 1
@@ -49,8 +49,8 @@ with sync_playwright() as p:
     page.fill('input[name="email"]', EMAIL)
     page.fill('input[name="password"]', PASSWORD)
     page.click('button[type="submit"]')
-    page.wait_for_url("**/overview", timeout=15000)
-    check("correct password lands on /overview", page.url.rstrip("/").endswith("/overview"), page.url)
+    page.wait_for_url("**/admin/overview", timeout=15000)
+    check("correct password lands on /admin/overview", page.url.rstrip("/").endswith("/admin/overview"), page.url)
 
     # 5. A Supabase session cookie must have been written.
     cookies = ctx.cookies()
@@ -64,27 +64,27 @@ with sync_playwright() as p:
     check("renders real figures", has_money)
 
     # 7. Navigating to another protected route stays authenticated.
-    page.goto(f"{BASE}/finance", wait_until="networkidle")
-    check("session persists across navigation", page.url.rstrip("/").endswith("/finance"), page.url)
+    page.goto(f"{BASE}/admin/finance", wait_until="networkidle")
+    check("session persists across navigation", page.url.rstrip("/").endswith("/admin/finance"), page.url)
     fin = page.content()
     check("finance page renders invoice data", "Invoice" in fin or "Expenses" in fin)
 
     # 7b. The sign-out button must exist and actually end the session.
-    page.goto(f"{BASE}/overview", wait_until="domcontentloaded")
+    page.goto(f"{BASE}/admin/overview", wait_until="domcontentloaded")
     page.wait_for_timeout(1500)
     check("sign out button present", page.locator('button:has-text("Sign out")').count() >= 1)
     check("signed-in email shown", EMAIL in page.content())
     page.click('button:has-text("Sign out")')
     page.wait_for_timeout(3500)
     check("sign out lands on /login", "/login" in page.url, page.url)
-    page.goto(f"{BASE}/overview", wait_until="domcontentloaded")
+    page.goto(f"{BASE}/admin/overview", wait_until="domcontentloaded")
     page.wait_for_timeout(1200)
     check("after sign out the gate is closed", "/login" in page.url, page.url)
 
     # 8. Clearing cookies must re-close the gate (proves the guard is real,
     #    not a one-time redirect).
     ctx.clear_cookies()
-    page.goto(f"{BASE}/overview", wait_until="networkidle")
+    page.goto(f"{BASE}/admin/overview", wait_until="networkidle")
     check("gate re-closes when the session is cleared", "/login" in page.url, page.url)
 
     page.screenshot(path="/tmp/auth_final.png")

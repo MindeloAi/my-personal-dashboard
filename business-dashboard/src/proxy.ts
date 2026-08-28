@@ -64,9 +64,16 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Guard everything EXCEPT: the login page, the public lead-capture form, the
-  // health check, Next's internals, and any path with a file extension.
+  // Guard the dashboard and nothing else. Since the marketing site moved into
+  // this app, the default is now PUBLIC: every route under (site), plus /login,
+  // /intake and /healthz, must render to a signed-out visitor.
   //
-  // /intake must stay public: it is the form prospects fill in.
-  matcher: ["/((?!login|intake|healthz|_next/static|_next/image|.*\\..*).*)"],
+  // Inverting the matcher this way means a new public page is public by default.
+  // The previous deny-by-default matcher would have silently gated each one.
+  //
+  // /vault-preview is named explicitly. It is an untracked local scratch page
+  // that renders vault data, and the old deny-by-default matcher covered it for
+  // free. It is listed here so that inverting the default does not quietly put
+  // it on the public internet.
+  matcher: ["/admin/:path*", "/vault-preview/:path*"],
 };

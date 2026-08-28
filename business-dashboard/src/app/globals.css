@@ -149,3 +149,52 @@
     animation: none;
   }
 }
+/* ───────────────────────────────────────────────────────────────────────────
+   Marketing site: Tailwind v3 compatibility
+
+   The pages under (site) were written against the Tailwind v3 Play CDN and are
+   ported verbatim. Three v3 defaults changed in v4, and every one of them is
+   load-bearing somewhere in those pages. Each shim below is scoped or additive
+   so the dashboard is unaffected.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* v4 ships a reworked OKLCH palette whose grays differ slightly from v3's.
+     The site uses gray-100 through gray-900 in 430 places; the dashboard uses
+     the scale zero times, so pinning it to v3's values is free fidelity. */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  --color-gray-950: #030712;
+}
+
+/* v3 preflight gave every element a gray-200 default border colour, so a bare
+   `border` class drew a visible line. v4 defaults to currentColor, and this
+   app's own base layer overrides that again with a faint white. The site uses
+   bare `border`, `border-b`, `border-t` and `border-y` 153 times. Kept in
+   @layer base so an explicit `border-gray-800` still wins. */
+@layer base {
+  .site-root,
+  .site-root *,
+  .site-root *::before,
+  .site-root *::after {
+    border-color: #e5e7eb;
+  }
+}
+
+/* Dropped in v4 in favour of `shrink-0` / `grow-0`. Re-added rather than
+   rewritten in the markup, so the ported pages stay a faithful copy. */
+@utility flex-shrink-0 {
+  flex-shrink: 0;
+}
+
+@utility flex-grow-0 {
+  flex-grow: 0;
+}

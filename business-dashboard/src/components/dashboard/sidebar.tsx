@@ -10,11 +10,11 @@ import { signOutAction } from "@/app/actions";
  * this rail mounted across navigations.
  */
 const NAV = [
-  { href: "/overview", label: "Overview" },
-  { href: "/finance", label: "Finance" },
-  { href: "/projects", label: "Projects" },
-  { href: "/clients", label: "Clients" },
-  { href: "/leads", label: "Leads" },
+  { href: "/admin/overview", label: "Overview" },
+  { href: "/admin/finance", label: "Finance" },
+  { href: "/admin/projects", label: "Projects" },
+  { href: "/admin/clients", label: "Clients" },
+  { href: "/admin/leads", label: "Leads" },
 ] as const;
 
 export function Sidebar({
