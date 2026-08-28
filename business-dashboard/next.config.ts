@@ -23,11 +23,22 @@ const nextConfig: NextConfig = {
       "/contact.html": "/contact",
       "/linktree.html": "/links",
     };
-    return Object.entries(legacy).map(([source, destination]) => ({
-      source,
-      destination,
-      permanent: true,
-    }));
+    return [
+      ...Object.entries(legacy).map(([source, destination]) => ({
+        source,
+        destination,
+        permanent: true,
+      })),
+      // www served the site on Netlify and redirected to the apex. Keeping that
+      // here rather than in the Vercel dashboard means it is version controlled
+      // and survives the project being recreated.
+      {
+        source: "/:path*",
+        has: [{ type: "host" as const, value: "www.mindelo.site" }],
+        destination: "https://mindelo.site/:path*",
+        permanent: true,
+      },
+    ];
   },
 };
 
