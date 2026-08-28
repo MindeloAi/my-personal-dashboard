@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "../_styles/contact.css";
 
 export const metadata: Metadata = {
@@ -115,12 +116,7 @@ export default function ContactPage() {
         }
       ]
     }
-    ` }} /><script src="https://www.googletagmanager.com/gtag/js?id=G-HTZGZJDKC0" async /><script dangerouslySetInnerHTML={{ __html: `
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-HTZGZJDKC0');
-  ` }} />
+    ` }} />
       
     {/* ===== NAVIGATION ===== */}
     <nav className="fixed top-0 w-full z-50 glass-nav h-20 flex items-center px-6 md:px-12 justify-between">
@@ -273,7 +269,7 @@ export default function ContactPage() {
             </div>
         </div>
     </footer>
-    <script dangerouslySetInnerHTML={{ __html: `
+    <Script id="contact-0" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
         // --- REVEAL ON SCROLL ---
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -323,7 +319,7 @@ export default function ContactPage() {
             });
         });
     ` }} />
-    <script dangerouslySetInnerHTML={{ __html: `
+    <Script id="contact-1" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
         // --- NETLIFY FORMS AJAX SUBMIT ---
         const form = document.getElementById('contact-form');
         const successMsg = document.getElementById('form-success');
@@ -359,7 +355,7 @@ export default function ContactPage() {
             }
         });
     ` }} />
-    <script dangerouslySetInnerHTML={{ __html: `document.querySelector('.nav-link[href="/contact"]')?.classList.add('active');` }} />
+    <Script id="contact-2" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `document.querySelector('.nav-link[href="/contact"]')?.classList.add('active');` }} />
 
     </>
   );

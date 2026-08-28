@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "../_styles/demo.css";
 
 export const metadata: Metadata = {
@@ -115,12 +116,7 @@ export default function DemoPage() {
         }
       ]
     }
-    ` }} /><script src="https://www.googletagmanager.com/gtag/js?id=G-HTZGZJDKC0" async /><script dangerouslySetInnerHTML={{ __html: `
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-HTZGZJDKC0');
-  ` }} />
+    ` }} />
       
     {/* ===== NAVIGATION ===== */}
     <nav className="fixed top-0 w-full z-50 glass-nav h-20 flex items-center px-6 md:px-12 justify-between">
@@ -253,7 +249,7 @@ export default function DemoPage() {
             </div>
         </div>
     </footer>
-    <script dangerouslySetInnerHTML={{ __html: `
+    <Script id="demo-0" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
         // --- REVEAL ON SCROLL ---
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -311,9 +307,9 @@ export default function DemoPage() {
             }
         });
     ` }} />
-    <script dangerouslySetInnerHTML={{ __html: `document.querySelector('.nav-link[href="/demo"]')?.classList.add('active');` }} />
-    <script dangerouslySetInnerHTML={{ __html: `
-        document.addEventListener('DOMContentLoaded', function () {
+    <Script id="demo-1" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `document.querySelector('.nav-link[href="/demo"]')?.classList.add('active');` }} />
+    <Script id="demo-2" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
+        (function (f) { f(); })(function () {
             const WEBHOOK_URL = '/api/chat';
 
             const demoMessages = document.getElementById('demo-chat-messages');

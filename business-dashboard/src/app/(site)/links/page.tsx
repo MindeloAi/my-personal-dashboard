@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "../_styles/links.css";
 
 export const metadata: Metadata = {
@@ -125,9 +126,9 @@ export default function LinksPage() {
         </footer>
     </main>
 
-    <script dangerouslySetInnerHTML={{ __html: `
+    <Script id="links-0" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
         // Reveal on load (elements are above the fold, so trigger shortly after paint)
-        window.addEventListener('load', () => {
+        (function (f) { f(); })(() => {
             requestAnimationFrame(() => document.querySelectorAll('.reveal').forEach(el => el.classList.add('active')));
         });
 

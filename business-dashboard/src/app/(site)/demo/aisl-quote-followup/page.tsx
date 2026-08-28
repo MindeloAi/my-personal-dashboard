@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "../../_styles/demo-aisl-quote-followup.css";
 
 export const metadata: Metadata = {
@@ -30,12 +31,7 @@ export const metadata: Metadata = {
 export default function AislQuoteFollowupDemoPage() {
   return (
     <>
-      <script src="https://www.googletagmanager.com/gtag/js?id=G-HTZGZJDKC0" async /><script dangerouslySetInnerHTML={{ __html: `
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-HTZGZJDKC0');
-  ` }} />
+      
       
     {/* ===== TOP BAR ===== */}
     <header className="demo-topbar">
@@ -118,7 +114,7 @@ export default function AislQuoteFollowupDemoPage() {
     {/* ===== FLOATING DEMO PILL ===== */}
     <div className="demo-pill"><span className="pulse-dot"></span> Demo &middot; Live data is illustrative</div>
 
-    <script dangerouslySetInnerHTML={{ __html: `
+    <Script id="demo-aisl-quote-followup-0" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
     /* =========================================================================
        HARDCODED DUMMY DATA — nothing here is real or persisted.
        Customers are drawn only from Mindelo's existing client roster.

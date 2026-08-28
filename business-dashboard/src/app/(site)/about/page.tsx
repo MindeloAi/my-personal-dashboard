@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "../_styles/about.css";
 
 export const metadata: Metadata = {
@@ -79,12 +80,7 @@ export default function AboutPage() {
         }
       ]
     }
-    ` }} /><script src="https://www.googletagmanager.com/gtag/js?id=G-HTZGZJDKC0" async /><script dangerouslySetInnerHTML={{ __html: `
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-HTZGZJDKC0');
-  ` }} />
+    ` }} />
       
     {/* ===== NAVIGATION ===== */}
     <nav className="fixed top-0 w-full z-50 glass-nav h-20 flex items-center px-6 md:px-12 justify-between">
@@ -306,7 +302,7 @@ export default function AboutPage() {
             </div>
         </div>
     </footer>
-    <script dangerouslySetInnerHTML={{ __html: `
+    <Script id="about-0" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
         // --- REVEAL ON SCROLL ---
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -356,7 +352,7 @@ export default function AboutPage() {
             });
         });
     ` }} />
-    <script dangerouslySetInnerHTML={{ __html: `
+    <Script id="about-1" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
         // --- FAQ ACCORDION ---
         document.querySelectorAll('.faq-trigger').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -378,7 +374,7 @@ export default function AboutPage() {
             });
         });
     ` }} />
-    <script dangerouslySetInnerHTML={{ __html: `
+    <Script id="about-2" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
         // --- FOUNDER MODAL ---
         const founderModal = document.getElementById('founder-modal');
         const founderPhoto = document.getElementById('founder-modal-photo');
@@ -422,7 +418,7 @@ export default function AboutPage() {
         founderModal.addEventListener('click', e => { if (e.target === founderModal) closeFounderModal(); });
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFounderModal(); });
     ` }} />
-    <script dangerouslySetInnerHTML={{ __html: `document.querySelector('.nav-link[href="/about"]')?.classList.add('active');` }} />
+    <Script id="about-3" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `document.querySelector('.nav-link[href="/about"]')?.classList.add('active');` }} />
 
     </>
   );

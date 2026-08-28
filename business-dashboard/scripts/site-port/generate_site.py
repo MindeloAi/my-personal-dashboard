@@ -279,18 +279,47 @@ def ts_literal(v, indent=2):
 
 # ── main ─────────────────────────────────────────────────────────────────────
 
+DOM_READY = (
+    r"document\s*\.\s*addEventListener\s*\(\s*['\"]DOMContentLoaded['\"]\s*,\s*",
+    r"window\s*\.\s*addEventListener\s*\(\s*['\"]load['\"]\s*,\s*",
+)
+
+
+def dom_ready_to_immediate(code):
+    """Run DOM-ready callbacks straight away.
+
+    These scripts now execute after hydration, by which point DOMContentLoaded
+    and load have both already fired, so a handler registered for them would
+    never run. Replacing the registration with an immediate call keeps the
+    argument list and the closing paren balanced, so the surrounding code is
+    untouched.
+    """
+    for pattern in DOM_READY:
+        code = re.sub(pattern, "(function (f) { f(); })(", code)
+    return code
+
+
 def js_template(s):
     """Embed raw JS in a TS template literal without it being re-parsed."""
     return s.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
 
 
 def build_page(src_name, route):
+    slug = route.replace("/", "-") or "home"
     html = io.open(os.path.join(SRC, src_name), encoding="utf-8").read()
 
     body_m = re.search(r"<body[^>]*>", html)
     head = html[:body_m.start()]
     body_inner = html[body_m.end():]
-    body_inner = re.sub(r"</body\s*>.*$", "", body_inner, flags=re.S)
+    # The LAST closing tag, not the first. demo-hyline-job-tracker.html builds a
+    # whole HTML document inside a JavaScript template literal for its
+    # end-of-shift report, so `</body></html>` appears mid-script. Cutting at the
+    # first occurrence silently truncated that script, and the page shipped with
+    # an empty job board and a syntax error. Nothing downstream could have caught
+    # it: the visible markup was complete, so a text diff passes either way.
+    closes = list(re.finditer(r"</body\s*>", body_inner, re.I))
+    if closes:
+        body_inner = body_inner[:closes[-1].start()]
 
     # Head scripts that must survive: the ld+json blocks and the analytics pair.
     head_jsx, head_scripts, head_styles = convert(head[head.index(">", head.index("<head")) + 1:]
@@ -326,25 +355,39 @@ def build_page(src_name, route):
     # ---- assemble the JSX ----
     def script_jsx(attrs, code, key):
         a = dict(attrs)
-        parts = []
-        if "type" in a:
-            parts.append('type="%s"' % a["type"])
-        if "src" in a:
-            parts.append('src="%s"' % a["src"])
-        if "async" in a:
-            parts.append("async")
-        if "defer" in a:
-            parts.append("defer")
-        attr_s = (" " + " ".join(parts)) if parts else ""
+        stype = a.get("type", "")
+
         if "src" in a:
             if "cdn.tailwindcss.com" in a["src"]:
                 # Replaced by the app's own Tailwind v4 build. See globals.css.
                 return ""
-            return "<script%s />" % attr_s
+            return ('<Script src="%s" strategy="afterInteractive" id="%s-%d" />'
+                    % (a["src"], slug, key))
+
         if not code.strip():
             return ""
-        return ('<script%s dangerouslySetInnerHTML={{ __html: `%s` }} />'
-                % (attr_s, js_template(code)))
+
+        # ld+json is data, not code. It has to stay in the server-rendered HTML
+        # for crawlers, and it never touches the DOM, so it stays a plain tag.
+        if stype and "json" in stype:
+            return ('<script type="%s" dangerouslySetInnerHTML={{ __html: `%s` }} />'
+                    % (stype, js_template(code)))
+
+        # Everything else runs AFTER hydration.
+        #
+        # These scripts ran at parse time on Netlify, and several of them mutate
+        # the DOM immediately: the quote demo rewrites a counter from 5 to 7, the
+        # job tracker fills an empty board element. Running them at parse time
+        # inside a React tree means React hydrates, finds markup that no longer
+        # matches what the server sent, and regenerates the subtree, throwing the
+        # mutation away. The page then diffs clean and is visibly wrong.
+        #
+        # afterInteractive sidesteps that entirely. The DOM is fully present by
+        # then, so nothing else about these scripts has to change except the two
+        # DOM-ready wrappers, which are rewritten below.
+        return ('<Script id="%s-%d" strategy="afterInteractive"'
+                ' dangerouslySetInnerHTML={{ __html: `%s` }} />'
+                % (slug, key, js_template(dom_ready_to_immediate(code))))
 
     def splice(jsx, scripts):
         def sub(m):
@@ -406,6 +449,7 @@ def main():
 
         page = (
             'import type { Metadata } from "next";\n'
+            'import Script from "next/script";\n'
             'import "%s";\n\n'
             "export const metadata: Metadata = %s;\n\n"
             "export default function %s() {\n"

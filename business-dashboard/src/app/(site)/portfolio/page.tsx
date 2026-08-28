@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "../_styles/portfolio.css";
 
 export const metadata: Metadata = {
@@ -115,12 +116,7 @@ export default function PortfolioPage() {
         }
       ]
     }
-    ` }} /><script src="https://www.googletagmanager.com/gtag/js?id=G-HTZGZJDKC0" async /><script dangerouslySetInnerHTML={{ __html: `
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-HTZGZJDKC0');
-  ` }} />
+    ` }} />
       
     {/* ===== NAVIGATION ===== */}
     <nav className="fixed top-0 w-full z-50 glass-nav h-20 flex items-center px-6 md:px-12 justify-between">
@@ -594,7 +590,7 @@ export default function PortfolioPage() {
             </div>
         </div>
     </div>
-    <script dangerouslySetInnerHTML={{ __html: `
+    <Script id="portfolio-0" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
         // --- REVEAL ON SCROLL ---
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -652,7 +648,7 @@ export default function PortfolioPage() {
             }
         });
     ` }} />
-    <script dangerouslySetInnerHTML={{ __html: `
+    <Script id="portfolio-1" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
         // --- PROJECT MODAL ---
         const modal = document.getElementById('project-modal');
         const modalImg = document.getElementById('modal-img');
@@ -709,7 +705,7 @@ export default function PortfolioPage() {
         modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
     ` }} />
-    <script dangerouslySetInnerHTML={{ __html: `document.querySelector('.nav-link[href="/portfolio"]')?.classList.add('active');` }} />
+    <Script id="portfolio-2" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `document.querySelector('.nav-link[href="/portfolio"]')?.classList.add('active');` }} />
 <script dangerouslySetInnerHTML={{ __html: `document.querySelectorAll('[data-stop-propagation]').forEach(function (el) { el.addEventListener('click', function (e) { e.stopPropagation(); }); });` }} />
     </>
   );
