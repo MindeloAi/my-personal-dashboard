@@ -32,8 +32,14 @@ if (!url || !serviceKey || !dbUrl) {
 
 const reset = process.argv.includes("--reset");
 
+// --password <value> sets an explicit password for every account instead of
+// generating one. Chosen deliberately by the founders; anything typed here is
+// only as strong as they make it.
+const pwFlag = process.argv.indexOf("--password");
+const fixedPassword = pwFlag !== -1 ? process.argv[pwFlag + 1] : null;
+
 // 24 bytes of base64url. Long and random enough that no rotation policy is needed.
-const makePassword = () => randomBytes(24).toString("base64url");
+const makePassword = () => fixedPassword ?? randomBytes(24).toString("base64url");
 
 const admin = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
