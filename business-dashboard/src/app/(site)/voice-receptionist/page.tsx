@@ -239,9 +239,9 @@ export default function VoiceReceptionistPage() {
                         </div>
                         {/* Transcript */}
                         <div style={{padding: "16px", display: "flex", flexDirection: "column", gap: "10px"}}>
-                            <div className="vt-msg bot"><div className="vt-bubble">Thanks for calling Mindelo AI, this is Rick. How can I help you today?</div></div>
+                            <div className="vt-msg bot"><div className="vt-bubble">Thanks for calling Mindelo, this is Rick. How can I help you today?</div></div>
                             <div className="vt-msg user"><div className="vt-bubble">Hi, what kind of work do you guys do?</div></div>
-                            <div className="vt-msg bot"><div className="vt-bubble">We build custom AI tools for businesses: website chatbots, voice receptionists like me, and workflow automations. Are you looking for something in particular?</div></div>
+                            <div className="vt-msg bot"><div className="vt-bubble">We build custom software for businesses: website chatbots, voice receptionists like me, and workflow automations. Are you looking for something in particular?</div></div>
                             <div className="vt-msg user"><div className="vt-bubble">Maybe a chatbot for my site. Can I talk to someone?</div></div>
                             <div className="vt-msg bot"><div className="vt-bubble">Absolutely. I can set you up with a free consultation. What's the best name and number to reach you?</div></div>
                             <div className="vt-msg user"><div className="vt-bubble">Sure, it's Andre, 868-555-0142.</div></div>

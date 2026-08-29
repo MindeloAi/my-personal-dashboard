@@ -3,7 +3,7 @@ import Script from "next/script";
 import "../_styles/links.css";
 
 export const metadata: Metadata = {
-    title: "Mindelo AI | Links",
+    title: "Mindelo | Links",
     description: "All of Mindelo's links in one place: book a call, visit our site, and connect with us. Custom software solutions in Trinidad and Tobago.",
     alternates: {
       canonical: "/links",
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     openGraph: {
       type: "website",
       siteName: "Mindelo",
-      title: "Mindelo AI | Links",
+      title: "Mindelo | Links",
       description: "All of Mindelo's links in one place: book a call, visit our site, and connect with us.",
       url: "https://mindelo.site/links",
       locale: "en_TT",
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     },
     twitter: {
       card: "summary_large_image",
-      title: "Mindelo AI | Links",
+      title: "Mindelo | Links",
       description: "All of Mindelo's links in one place.",
       images: ["https://mindelo.site/assets/img/og-image.jpg"],
     },
@@ -47,7 +47,7 @@ export default function LinksPage() {
             </div>
             <div className="flex items-center gap-2.5 mb-2">
                 <span className="pulsing-dot"></span>
-                <h1 className="text-3xl heading-heavy">Mindelo AI</h1>
+                <h1 className="text-3xl heading-heavy">Mindelo</h1>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed max-w-[300px]">Custom software for Trinidad &amp; Tobago businesses.</p>
         </div>
