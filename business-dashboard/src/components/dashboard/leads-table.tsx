@@ -70,7 +70,7 @@ function StatusSelect({
         const next = e.target.value as LeadStatus;
         if (next !== current) onSelect(next);
       }}
-      className={`text-xs px-2 py-1 rounded-full border font-medium cursor-pointer disabled:opacity-40 focus:outline-none ${style.badge}`}
+      className={`min-h-11 sm:min-h-0 text-xs px-3 py-1 rounded-full border font-medium cursor-pointer disabled:opacity-40 focus:outline-none ${style.badge}`}
     >
       {STATUSES.map((s) => (
         <option key={s} value={s} className="bg-[#14181d] text-white">
@@ -219,7 +219,7 @@ export function LeadsTable({ leads }: Props) {
   return (
     <div
       id="leads"
-      className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform"
+      className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-4 sm:p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform"
     >
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <p className="text-xs text-zinc-500 uppercase tracking-wider">Leads</p>

@@ -34,7 +34,7 @@ export default async function AppLayout({
   return (
     <div className="min-h-screen bg-[#0b0d10] text-white">
       <Sidebar adminEmail={admin?.email}>
-        <div className="p-5 max-w-[1400px] mx-auto space-y-3 dashboard-fade-in">
+        <div className="p-3 sm:p-5 max-w-[1400px] mx-auto space-y-3 dashboard-fade-in">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-1">
             <div>
               <p className="text-xl font-bold text-[#f5f5f5]">Mindelo Dashboard</p>
