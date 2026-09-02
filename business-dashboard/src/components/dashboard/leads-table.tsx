@@ -96,20 +96,28 @@ function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     setError(false);
+    // An edit has to be able to BLANK a field, and the two empties are not
+    // interchangeable: db.ts's toColumns treats `undefined` as a no-op that
+    // leaves the column alone, and `""` as "clear it". Sending `undefined` for
+    // an emptied input would keep the old value while still reporting success.
+    // On create there is nothing to clear, so undefined is right there.
+    const blank = lead ? "" : undefined;
+    const str = (v: FormDataEntryValue | null) => (v as string) || blank;
+
     const payload = {
       Name: (fd.get("name") as string) || undefined,
-      "Business Name": (fd.get("businessName") as string) || undefined,
-      Email: (fd.get("email") as string) || undefined,
-      "Phone/WhatsApp": (fd.get("phone") as string) || undefined,
-      "Service Interest": (fd.get("serviceInterest") as string) || undefined,
-      "Budget Range": (fd.get("budgetRange") as string) || undefined,
-      Source: (fd.get("source") as string) || undefined,
-      "Current Website": (fd.get("currentWebsite") as string) || undefined,
-      "Follow-up Date": (fd.get("followUpDate") as string) || undefined,
+      "Business Name": str(fd.get("businessName")),
+      Email: str(fd.get("email")),
+      "Phone/WhatsApp": str(fd.get("phone")),
+      "Service Interest": str(fd.get("serviceInterest")),
+      "Budget Range": str(fd.get("budgetRange")),
+      Source: str(fd.get("source")),
+      "Current Website": str(fd.get("currentWebsite")),
+      "Follow-up Date": str(fd.get("followUpDate")),
       Status: (fd.get("status") as LeadStatus) || "New",
-      Message: (fd.get("message") as string) || undefined,
-      Notes: (fd.get("notes") as string) || undefined,
-      "Proposal Draft": (fd.get("proposalDraft") as string) || undefined,
+      Message: str(fd.get("message")),
+      Notes: str(fd.get("notes")),
+      "Proposal Draft": str(fd.get("proposalDraft")),
     };
     start(async () => {
       try {

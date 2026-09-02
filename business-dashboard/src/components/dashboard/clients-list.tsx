@@ -179,14 +179,21 @@ function ClientModal({
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     setError(false);
+    // See the same note in leads-table.tsx: db.ts's toColumns treats `undefined`
+    // as a no-op and `""` as "clear this column", so an edit that blanks a field
+    // must send `""` or the old value silently survives. Create has nothing to
+    // clear, so undefined is correct there.
+    const blank = client ? "" : undefined;
+    const str = (v: FormDataEntryValue | null) => (v as string) || blank;
+
     const payload = {
       Name: (fd.get("name") as string) || undefined,
-      Company: (fd.get("company") as string) || undefined,
-      Email: (fd.get("email") as string) || undefined,
-      Phone: (fd.get("phone") as string) || undefined,
+      Company: str(fd.get("company")),
+      Email: str(fd.get("email")),
+      Phone: str(fd.get("phone")),
       Status: (fd.get("status") as ClientStatus) || "Active",
-      Owner: (fd.get("owner") as string) || undefined,
-      Notes: (fd.get("notes") as string) || undefined,
+      Owner: str(fd.get("owner")),
+      Notes: str(fd.get("notes")),
     };
     start(async () => {
       try {
