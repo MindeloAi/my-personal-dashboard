@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -8,6 +8,7 @@ import {
   createExpenseAction,
   createProjectAction,
 } from "@/app/actions";
+import { ModalShell } from "@/components/ui/modal-shell";
 import type { Client, Project } from "@/lib/airtable";
 
 type ModalKind = "invoice" | "expense" | "project" | null;
@@ -16,47 +17,6 @@ type Props = {
   clients?: Client[];
   projects?: Project[];
 };
-
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
-    >
-      <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6 w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between mb-5">
-          <p className="text-sm font-semibold text-white">{title}</p>
-          <button
-            onClick={onClose}
-            className="text-zinc-500 hover:text-white transition-colors text-lg leading-none"
-          >
-            ✕
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -139,7 +99,7 @@ function InvoiceModal({
   }
 
   return (
-    <Modal title="New Invoice" onClose={onClose}>
+    <ModalShell title="New Invoice" onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Field label="Project">
           <select name="projectId" className={selectCls} defaultValue="">
@@ -203,7 +163,7 @@ function InvoiceModal({
         </Field>
         <SubmitRow pending={pending} onClose={onClose} accent="#bfff3a" />
       </form>
-    </Modal>
+    </ModalShell>
   );
 }
 
@@ -238,7 +198,7 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="New Expense" onClose={onClose}>
+    <ModalShell title="New Expense" onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Name">
@@ -307,7 +267,7 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
         </Field>
         <SubmitRow pending={pending} onClose={onClose} accent="#ff4d8b" />
       </form>
-    </Modal>
+    </ModalShell>
   );
 }
 
@@ -366,7 +326,7 @@ function ProjectModal({
   }
 
   return (
-    <Modal title="New Project" onClose={onClose}>
+    <ModalShell title="New Project" onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Field label="Project Name">
           <input
@@ -485,7 +445,7 @@ function ProjectModal({
         </Field>
         <SubmitRow pending={pending} onClose={onClose} accent="#c44dff" />
       </form>
-    </Modal>
+    </ModalShell>
   );
 }
 

@@ -1,9 +1,10 @@
 "use client";
 
-import { useOptimistic, useState, useTransition, useEffect } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { deleteExpenseAction, updateExpenseAction } from "@/app/actions";
+import { ModalShell } from "@/components/ui/modal-shell";
 import type { Expense } from "@/lib/airtable";
 
 type Props = {
@@ -36,12 +37,6 @@ function EditModal({ expense, onClose }: { expense: Expense; onClose: () => void
   const [pending, start] = useTransition();
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -71,17 +66,8 @@ function EditModal({ expense, onClose }: { expense: Expense; onClose: () => void
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
-    >
-      <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6 w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between mb-5">
-          <p className="text-sm font-semibold text-white">Edit Expense</p>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors text-lg leading-none">✕</button>
-        </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <ModalShell title="Edit Expense" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Name</label>
@@ -138,8 +124,7 @@ function EditModal({ expense, onClose }: { expense: Expense; onClose: () => void
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 }
 
