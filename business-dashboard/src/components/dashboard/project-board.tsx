@@ -69,7 +69,7 @@ const inputCls =
   "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
 const selectCls = inputCls + " cursor-pointer";
 
-type Props = { projects: Project[]; clients?: Client[] };
+type Props = { projects: Project[]; clients?: Client[]; initialClientId?: string | null };
 type Status = "Lead" | "In Progress" | "Review" | "Done";
 type ProjectStatusValue = Status | "Cancelled";
 type PaymentStructureValue =
@@ -602,10 +602,11 @@ type OptimisticAction =
   | { kind: "status"; id: string; status: Status }
   | { kind: "delete"; id: string };
 
-export function ProjectBoard({ projects, clients = [] }: Props) {
+export function ProjectBoard({ projects, clients = [], initialClientId = null }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [detailProject, setDetailProject] = useState<Project | null>(null);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("All");
+  const [clientFilter, setClientFilter] = useState<string | null>(initialClientId);
   const [, startTransition] = useTransition();
 
   // useOptimistic gives us a derived view that resets to the latest server prop
@@ -632,7 +633,8 @@ export function ProjectBoard({ projects, clients = [] }: Props) {
 
   const visible = optimisticProjects
     .filter((p) => p.Status !== "Cancelled")
-    .filter((p) => (ownerFilter === "All" ? true : p.Owner === ownerFilter));
+    .filter((p) => (ownerFilter === "All" ? true : p.Owner === ownerFilter))
+    .filter((p) => (clientFilter === null ? true : p.Client?.[0] === clientFilter));
 
   function handleDragStart({ active }: DragStartEvent) {
     setActiveId(active.id as string);
@@ -695,6 +697,17 @@ export function ProjectBoard({ projects, clients = [] }: Props) {
               );
             })}
           </div>
+        )}
+        {clientFilter && (
+          <button
+            onClick={() => setClientFilter(null)}
+            className="text-[10px] px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/30 hover:bg-[#bfff3a]/20 transition-colors"
+          >
+            {clients.find((c) => c.id === clientFilter)?.Company ??
+              clients.find((c) => c.id === clientFilter)?.Name ??
+              "Client"}{" "}
+            ✕
+          </button>
         )}
       </div>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>

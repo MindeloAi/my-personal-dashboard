@@ -4,7 +4,12 @@ import { getProjects, getClients } from "@/lib/db";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ client?: string }>;
+}) {
+  const { client } = await searchParams;
   const [projects, clients] = await Promise.all([getProjects(), getClients()]);
-  return <ProjectBoard projects={projects} clients={clients} />;
+  return <ProjectBoard projects={projects} clients={clients} initialClientId={client ?? null} />;
 }

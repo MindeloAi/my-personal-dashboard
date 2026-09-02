@@ -28,7 +28,7 @@ export function OverviewView({ clients, projects, invoices, expenses }: Props) {
           clients={clients}
           projects={projects}
           invoices={invoices}
-          onJumpToOverdue={() => router.push("/finance?status=Overdue")}
+          onJumpToOverdue={() => router.push("/admin/finance?status=Overdue")}
         />
         <div className="grid grid-cols-1 gap-3">
           <MrrCard projects={projects} invoices={invoices} />
