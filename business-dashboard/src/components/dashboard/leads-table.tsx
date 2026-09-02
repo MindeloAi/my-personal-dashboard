@@ -4,13 +4,14 @@ import { Fragment, useOptimistic, useState, useTransition } from "react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import {
+  createClientAction,
   createLeadAction,
   updateLeadAction,
   updateLeadStatusAction,
   deleteLeadAction,
 } from "@/app/actions";
 import { ModalShell } from "@/components/ui/modal-shell";
-import type { Lead } from "@/lib/airtable";
+import type { Client, Lead } from "@/lib/airtable";
 
 const STATUSES = ["New", "Contacted", "Proposal Sent", "Won", "Lost"] as const;
 type LeadStatus = (typeof STATUSES)[number];
@@ -51,6 +52,24 @@ function statusOf(lead: Lead): LeadStatus {
   return (STATUSES as readonly string[]).includes(lead.Status ?? "")
     ? (lead.Status as LeadStatus)
     : "New";
+}
+
+/**
+ * Find a client that already represents this lead. Email is the strong signal;
+ * name is the fallback when the lead has no email. Prevents a second Won flip
+ * from silently creating a duplicate client.
+ */
+function findExistingClient(lead: Lead, clients: Client[]): Client | undefined {
+  const email = lead.Email?.trim().toLowerCase();
+  if (email) {
+    const byEmail = clients.find((c) => c.Email?.trim().toLowerCase() === email);
+    if (byEmail) return byEmail;
+  }
+  const name = (lead["Business Name"] || lead.Name)?.trim().toLowerCase();
+  if (!name) return undefined;
+  return clients.find(
+    (c) => c.Company?.trim().toLowerCase() === name || c.Name.trim().toLowerCase() === name,
+  );
 }
 
 // ─── Inline status selector ───────────────────────────────────────────────────
@@ -230,13 +249,14 @@ function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
 }
 
 // ─── Pipeline ──────────────────────────────────────────────────────────────────
-type Props = { leads: Lead[] };
+type Props = { leads: Lead[]; clients: Client[] };
 
-export function LeadsTable({ leads }: Props) {
+export function LeadsTable({ leads, clients }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Lead | null>(null);
+  const [convertLead, setConvertLead] = useState<Lead | null>(null);
   const [pending, startTransition] = useTransition();
 
   // Optimistic status moves; resets to the latest server prop automatically.
@@ -252,6 +272,10 @@ export function LeadsTable({ leads }: Props) {
       try {
         await updateLeadStatusAction(lead.id, next);
         toast.success(`Moved to ${next}`);
+        // Won is the only status that offers conversion, and it only ever
+        // offers — never converts automatically. A second Won flip would
+        // otherwise create a duplicate client with no warning.
+        if (next === "Won") setConvertLead(lead);
       } catch {
         // The transition tears down on throw; the next server render replaces
         // the optimistic state with whatever is now in Airtable.
@@ -447,6 +471,89 @@ export function LeadsTable({ leads }: Props) {
           </div>
         </ModalShell>
       )}
+      {convertLead && (
+        <ConvertLeadModal
+          lead={convertLead}
+          existing={findExistingClient(convertLead, clients)}
+          onClose={() => setConvertLead(null)}
+        />
+      )}
     </div>
+  );
+}
+
+// ─── Won → client conversion ──────────────────────────────────────────────────
+function ConvertLeadModal({
+  lead,
+  existing,
+  onClose,
+}: {
+  lead: Lead;
+  existing?: Client;
+  onClose: () => void;
+}) {
+  const [pending, start] = useTransition();
+
+  if (existing) {
+    return (
+      <ModalShell title="Client already exists" onClose={onClose}>
+        <p className="text-sm text-zinc-300 leading-relaxed">
+          <span className="font-medium text-white">{existing.Company || existing.Name}</span> already
+          matches this lead, so no new client was created.
+        </p>
+        <div className="flex justify-end mt-5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  return (
+    <ModalShell title="Create client from this lead?" onClose={onClose}>
+      <p className="text-sm text-zinc-300 leading-relaxed">
+        Create a client record for{" "}
+        <span className="font-medium text-white">{lead["Business Name"] || lead.Name}</span>? Name,
+        business, email and phone are copied across. The lead itself is left as it is.
+      </p>
+      <div className="flex gap-2 justify-end mt-5">
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+        >
+          Not now
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              try {
+                await createClientAction({
+                  Name: lead.Name,
+                  Company: lead["Business Name"] || undefined,
+                  Email: lead.Email || undefined,
+                  Phone: lead["Phone/WhatsApp"] || undefined,
+                  Status: "Active",
+                });
+                toast.success("Client created");
+                onClose();
+              } catch {
+                toast.error("Failed to create client");
+              }
+            })
+          }
+          className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80"
+        >
+          {pending ? "Creating…" : "Create client"}
+        </button>
+      </div>
+    </ModalShell>
   );
 }
