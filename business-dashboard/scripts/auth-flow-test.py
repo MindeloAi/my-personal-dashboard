@@ -92,6 +92,45 @@ with sync_playwright() as p:
     check("gate re-closes when the session is cleared", "/login" in page.url, page.url)
 
     page.screenshot(path="/tmp/auth_final.png")
+
+    # ── Mobile: a modal must be reachable and submittable at phone size ────────
+    # Regression test for the pre-2026-09 shell, which centred an overflowing
+    # modal with no scroll, leaving the submit button permanently offscreen.
+    # READ-ONLY: this opens the modal and measures it. It must never submit —
+    # the local dev server writes to the live production database.
+    mobile = browser.new_context(viewport={"width": 375, "height": 667})
+    mpage = mobile.new_page()
+    mpage.goto(f"{BASE}/login", wait_until="networkidle")
+    mpage.fill('input[name="email"]', EMAIL)
+    mpage.fill('input[name="password"]', PASSWORD)
+    mpage.click('button[type="submit"]')
+    mpage.wait_for_url("**/admin/overview", timeout=15000)
+
+    mpage.goto(f"{BASE}/admin/leads", wait_until="networkidle")
+    mpage.click('button:has-text("New lead")')
+    mpage.wait_for_selector('[role="dialog"]', timeout=5000)
+
+    submit = mpage.locator('[role="dialog"] button[type="submit"]')
+    check("mobile: new-lead modal opens", submit.count() == 1)
+
+    submit.scroll_into_view_if_needed()
+    box = submit.bounding_box()
+    check(
+        "mobile: submit button is reachable inside the viewport",
+        box is not None and 0 <= box["y"] <= 667 - box["height"],
+        f"y={box['y'] if box else 'none'}",
+    )
+
+    # The page behind the modal must not scroll while it is open.
+    body_overflow = mpage.evaluate("getComputedStyle(document.body).overflow")
+    check("mobile: body scroll locked while modal open", body_overflow == "hidden")
+
+    mpage.keyboard.press("Escape")
+    mpage.wait_for_timeout(300)
+    check("mobile: Escape closes the modal", mpage.locator('[role="dialog"]').count() == 0)
+
+    mobile.close()
+
     browser.close()
 
 passed = sum(1 for _, ok, _ in results if ok)
