@@ -15,10 +15,15 @@ import {
   deleteExpense,
   createLead,
   updateLead,
+  deleteLead,
+  createClient as createClientRow,
+  updateClient,
+  deleteClient,
   type InvoiceWrite,
   type ProjectWrite,
   type ExpenseWrite,
   type LeadWrite,
+  type ClientWrite,
 } from "@/lib/airtable";
 
 export async function markInvoicePaid(invoiceId: string) {
@@ -115,6 +120,40 @@ export async function updateLeadStatusAction(
 ) {
   await requireAdmin();
   await updateLead(id, { Status: status });
+  revalidatePath("/", "layout");
+}
+
+export async function updateLeadAction(id: string, data: LeadWrite) {
+  await requireAdmin();
+  await updateLead(id, data);
+  revalidatePath("/", "layout");
+}
+
+export async function deleteLeadAction(id: string) {
+  await requireAdmin();
+  await deleteLead(id);
+  revalidatePath("/", "layout");
+}
+
+// ─── Clients ────────────────────────────────────────────────────────────────
+
+export async function createClientAction(data: ClientWrite) {
+  await requireAdmin();
+  await createClientRow(data);
+  revalidatePath("/", "layout");
+}
+
+export async function updateClientAction(id: string, data: ClientWrite) {
+  await requireAdmin();
+  await updateClient(id, data);
+  revalidatePath("/", "layout");
+}
+
+// Detaches linked projects and invoices (ON DELETE SET NULL). The UI warns with
+// exact counts before calling this.
+export async function deleteClientAction(id: string) {
+  await requireAdmin();
+  await deleteClient(id);
   revalidatePath("/", "layout");
 }
 
