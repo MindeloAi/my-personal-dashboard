@@ -988,6 +988,14 @@ async function deleteRow(table: string, id: string): Promise<{ id: string }> {
 export const createClient = (payload: ClientWrite) =>
   createRow("clients", ClientWriteSchema, payload, CLIENT_COLS);
 
+export const updateClient = (id: string, payload: ClientWrite) =>
+  updateRow("clients", ClientWriteSchema, id, payload, CLIENT_COLS);
+
+// Every FK into clients is ON DELETE SET NULL (schema.sql:11), so this detaches
+// projects and invoices rather than deleting them. The caller MUST warn first —
+// see clients-list.tsx.
+export const deleteClient = (id: string) => deleteRow("clients", id);
+
 export const createProject = (payload: ProjectWrite) =>
   createRow("projects", ProjectWriteSchema, payload, PROJECT_COLS, PROJECT_LINKS);
 
@@ -1015,6 +1023,9 @@ export const createLead = (payload: LeadWrite) =>
 
 export const updateLead = (id: string, payload: LeadWrite) =>
   updateRow("leads", LeadWriteSchema, id, payload, LEAD_COLS);
+
+// Nothing in the schema references leads, so a delete orphans nothing.
+export const deleteLead = (id: string) => deleteRow("leads", id);
 
 export const createTask = (payload: TaskWrite) =>
   createRow("tasks", TaskWriteSchema, payload, TASK_COLS, TASK_LINKS);
