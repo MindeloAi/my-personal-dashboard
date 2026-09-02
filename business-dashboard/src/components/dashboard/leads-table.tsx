@@ -3,7 +3,12 @@
 import { Fragment, useOptimistic, useState, useTransition } from "react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
-import { createLeadAction, updateLeadStatusAction } from "@/app/actions";
+import {
+  createLeadAction,
+  updateLeadAction,
+  updateLeadStatusAction,
+  deleteLeadAction,
+} from "@/app/actions";
 import { ModalShell } from "@/components/ui/modal-shell";
 import type { Lead } from "@/lib/airtable";
 
@@ -81,8 +86,9 @@ function StatusSelect({
   );
 }
 
-// ─── New lead modal ────────────────────────────────────────────────────────────
-function NewLeadModal({ onClose }: { onClose: () => void }) {
+// ─── Create / edit lead modal ─────────────────────────────────────────────────
+// One component serves both modes so the two forms cannot drift apart.
+function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState(false);
 
@@ -90,69 +96,79 @@ function NewLeadModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     setError(false);
+    const payload = {
+      Name: (fd.get("name") as string) || undefined,
+      "Business Name": (fd.get("businessName") as string) || undefined,
+      Email: (fd.get("email") as string) || undefined,
+      "Phone/WhatsApp": (fd.get("phone") as string) || undefined,
+      "Service Interest": (fd.get("serviceInterest") as string) || undefined,
+      "Budget Range": (fd.get("budgetRange") as string) || undefined,
+      Source: (fd.get("source") as string) || undefined,
+      "Current Website": (fd.get("currentWebsite") as string) || undefined,
+      "Follow-up Date": (fd.get("followUpDate") as string) || undefined,
+      Status: (fd.get("status") as LeadStatus) || "New",
+      Message: (fd.get("message") as string) || undefined,
+      Notes: (fd.get("notes") as string) || undefined,
+      "Proposal Draft": (fd.get("proposalDraft") as string) || undefined,
+    };
     start(async () => {
       try {
-        await createLeadAction({
-          Name: (fd.get("name") as string) || undefined,
-          "Business Name": (fd.get("businessName") as string) || undefined,
-          Email: (fd.get("email") as string) || undefined,
-          "Phone/WhatsApp": (fd.get("phone") as string) || undefined,
-          "Service Interest": (fd.get("serviceInterest") as string) || undefined,
-          "Budget Range": (fd.get("budgetRange") as string) || undefined,
-          Source: (fd.get("source") as string) || undefined,
-          Status: (fd.get("status") as LeadStatus) || "New",
-          Message: (fd.get("message") as string) || undefined,
-        });
-        toast.success("Lead created");
+        if (lead) {
+          await updateLeadAction(lead.id, payload);
+          toast.success("Lead updated");
+        } else {
+          await createLeadAction(payload);
+          toast.success("Lead created");
+        }
         onClose();
       } catch {
         setError(true);
-        toast.error("Failed to create lead");
+        toast.error(lead ? "Failed to update lead" : "Failed to create lead");
       }
     });
   }
 
   return (
-    <ModalShell title="New Lead" onClose={onClose}>
+    <ModalShell title={lead ? "Edit lead" : "New Lead"} onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Name</label>
-              <input name="name" className={inputCls} required />
+              <input name="name" defaultValue={lead?.Name ?? ""} className={inputCls} required />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Business</label>
-              <input name="businessName" className={inputCls} />
+              <input name="businessName" defaultValue={lead?.["Business Name"] ?? ""} className={inputCls} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Email</label>
-              <input name="email" type="email" className={inputCls} />
+              <input name="email" type="email" defaultValue={lead?.Email ?? ""} className={inputCls} />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Phone/WhatsApp</label>
-              <input name="phone" className={inputCls} />
+              <input name="phone" defaultValue={lead?.["Phone/WhatsApp"] ?? ""} className={inputCls} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Service Interest</label>
-              <input name="serviceInterest" placeholder="Web Dev, Automation…" className={inputCls} />
+              <input name="serviceInterest" defaultValue={lead?.["Service Interest"] ?? ""} placeholder="Web Dev, Automation…" className={inputCls} />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Budget Range</label>
-              <input name="budgetRange" placeholder="e.g. $1k–$3k" className={inputCls} />
+              <input name="budgetRange" defaultValue={lead?.["Budget Range"] ?? ""} placeholder="e.g. $1k–$3k" className={inputCls} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Source</label>
-              <input name="source" placeholder="Referral, Instagram…" className={inputCls} />
+              <input name="source" defaultValue={lead?.Source ?? ""} placeholder="Referral, Instagram…" className={inputCls} />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Status</label>
-              <select name="status" defaultValue="New" className={selectCls}>
+              <select name="status" defaultValue={lead?.Status ?? "New"} className={selectCls}>
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -161,11 +177,29 @@ function NewLeadModal({ onClose }: { onClose: () => void }) {
               </select>
             </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-zinc-400">Current Website</label>
+              <input name="currentWebsite" defaultValue={lead?.["Current Website"] ?? ""} className={inputCls} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-zinc-400">Follow-up Date</label>
+              <input name="followUpDate" type="date" defaultValue={lead?.["Follow-up Date"] ?? ""} className={inputCls} />
+            </div>
+          </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-zinc-400">Message</label>
-            <textarea name="message" rows={3} placeholder="Optional" className={inputCls} />
+            <textarea name="message" rows={3} defaultValue={lead?.Message ?? ""} placeholder="Optional" className={inputCls} />
           </div>
-          {error && <p className="text-xs text-[#ff4d8b]">Failed to create. Try again.</p>}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-zinc-400">Notes</label>
+            <textarea name="notes" rows={2} defaultValue={lead?.Notes ?? ""} className={inputCls} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-zinc-400">Proposal Draft</label>
+            <textarea name="proposalDraft" rows={4} defaultValue={lead?.["Proposal Draft"] ?? ""} className={inputCls} />
+          </div>
+          {error && <p className="text-xs text-[#ff4d8b]">Failed to save. Try again.</p>}
           <div className="flex gap-2 justify-end mt-2">
             <button
               type="button"
@@ -179,7 +213,7 @@ function NewLeadModal({ onClose }: { onClose: () => void }) {
               disabled={pending}
               className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80"
             >
-              {pending ? "Saving…" : "Create lead"}
+              {pending ? "Saving…" : lead ? "Save changes" : "Create lead"}
             </button>
           </div>
         </form>
@@ -193,6 +227,8 @@ type Props = { leads: Lead[] };
 export function LeadsTable({ leads }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
+  const [editing, setEditing] = useState<Lead | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Lead | null>(null);
   const [pending, startTransition] = useTransition();
 
   // Optimistic status moves; resets to the latest server prop automatically.
@@ -330,6 +366,28 @@ export function LeadsTable({ leads }: Props) {
                                       </p>
                                     </div>
                                   )}
+                                  <div className="mt-3 flex gap-2 pt-3 border-t border-[#2a2e34]">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditing(lead);
+                                      }}
+                                      className="text-xs px-3 py-2 rounded-lg border border-[#2a2e34] text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setConfirmDelete(lead);
+                                      }}
+                                      className="text-xs px-3 py-2 rounded-lg border border-[#ff4d8b]/30 text-[#ff4d8b] hover:bg-[#ff4d8b]/10 transition-colors"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             )}
@@ -345,7 +403,42 @@ export function LeadsTable({ leads }: Props) {
         </div>
       )}
 
-      {newOpen && <NewLeadModal onClose={() => setNewOpen(false)} />}
+      {newOpen && <LeadModal onClose={() => setNewOpen(false)} />}
+      {editing && <LeadModal lead={editing} onClose={() => setEditing(null)} />}
+      {confirmDelete && (
+        <ModalShell title="Delete lead" onClose={() => setConfirmDelete(null)}>
+          <p className="text-sm text-zinc-300">
+            Delete <span className="font-medium text-white">{confirmDelete.Name}</span>? This cannot be undone.
+          </p>
+          <div className="flex gap-2 justify-end mt-5">
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(null)}
+              className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const target = confirmDelete;
+                setConfirmDelete(null);
+                startTransition(async () => {
+                  try {
+                    await deleteLeadAction(target.id);
+                    toast.success("Lead deleted");
+                  } catch {
+                    toast.error("Failed to delete lead");
+                  }
+                });
+              }}
+              className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#ff4d8b] text-black transition-colors hover:bg-[#ff4d8b]/80"
+            >
+              Delete
+            </button>
+          </div>
+        </ModalShell>
+      )}
     </div>
   );
 }
