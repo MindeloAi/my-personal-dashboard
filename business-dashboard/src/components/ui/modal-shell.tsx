@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type Props = {
   /** Shown in the header and used as the dialog's accessible name. */
@@ -28,8 +29,24 @@ type Props = {
  *
  * `100dvh`, never `100vh`. Mobile Safari's `vh` measures the viewport *behind*
  * the URL bar, so a vh-based cap reintroduces the exact clipping being fixed.
+ *
+ * RENDERED THROUGH A PORTAL, and that is load-bearing. `position: fixed` is
+ * resolved against the nearest ancestor carrying a transform, filter or
+ * backdrop-filter — not against the viewport. This app has two such ancestors
+ * on every dashboard screen: `.dashboard-fade-in` (whose animation uses
+ * fill-mode `both`, so `transform: translateY(0)` sticks permanently after it
+ * finishes) and the panels' `hover:-translate-y-0.5`, which is active precisely
+ * because the cursor is over the button that opened the modal. Rendered in
+ * place, `inset-0` resolved to a tall scrolled container while `max-h` still
+ * measured the viewport, so the card hung off the top of the screen on every
+ * size. Portalling to `document.body` puts it beyond the reach of any of that.
  */
 export function ModalShell({ title, onClose, children, maxWidthClass = "max-w-md", headerExtra }: Props) {
+  // The portal target only exists in the browser. Modals open on interaction,
+  // so rendering nothing during SSR costs nothing.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -46,7 +63,9 @@ export function ModalShell({ title, onClose, children, maxWidthClass = "max-w-md
     };
   }, [onClose]);
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -76,6 +95,7 @@ export function ModalShell({ title, onClose, children, maxWidthClass = "max-w-md
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

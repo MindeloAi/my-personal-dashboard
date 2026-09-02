@@ -93,43 +93,85 @@ with sync_playwright() as p:
 
     page.screenshot(path="/tmp/auth_final.png")
 
-    # ── Mobile: a modal must be reachable and submittable at phone size ────────
-    # Regression test for the pre-2026-09 shell, which centred an overflowing
-    # modal with no scroll, leaving the submit button permanently offscreen.
-    # READ-ONLY: this opens the modal and measures it. It must never submit —
-    # the local dev server writes to the live production database.
-    mobile = browser.new_context(viewport={"width": 375, "height": 667})
-    mpage = mobile.new_page()
-    mpage.goto(f"{BASE}/login", wait_until="networkidle")
-    mpage.fill('input[name="email"]', EMAIL)
-    mpage.fill('input[name="password"]', PASSWORD)
-    mpage.click('button[type="submit"]')
-    mpage.wait_for_url("**/admin/overview", timeout=15000)
+    # ── A modal must fit the viewport at every size ────────────────────────────
+    #
+    # Two separate bugs live here, and the second one hid behind a weak version
+    # of this test.
+    #
+    #  1. The original shell had no height cap and no scroll, so a tall modal
+    #     was clipped with its submit button unreachable.
+    #  2. `position: fixed` resolves against the nearest ancestor carrying a
+    #     transform, NOT the viewport. `.dashboard-fade-in` used fill-mode
+    #     `both`, which leaves `transform: translateY(0)` applied forever, and
+    #     the panels' `hover:-translate-y-0.5` is active exactly when you click
+    #     the button that opens a modal. So `inset-0` resolved to a tall scrolled
+    #     container and the card hung off the TOP of the screen — on desktop too.
+    #     ModalShell now portals to document.body.
+    #
+    # Asserting "the submit button is visible" missed bug 2 completely: the
+    # button was on screen while the top of the card was 214px above it. The
+    # real invariant is that the whole card fits, so assert THAT.
+    #
+    # READ-ONLY: opens the modal and measures it, never submits — the local
+    # server writes to the live production database.
+    CARD_RECT_JS = """() => {
+        const dlg = document.querySelector('[role="dialog"]');
+        if (!dlg) return null;
+        const r = dlg.firstElementChild.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, vh: window.innerHeight };
+    }"""
 
-    mpage.goto(f"{BASE}/admin/leads", wait_until="networkidle")
-    mpage.click('button:has-text("New lead")')
-    mpage.wait_for_selector('[role="dialog"]', timeout=5000)
+    for label, vw, vh in (("mobile", 375, 667), ("desktop", 1280, 600)):
+        mctx = browser.new_context(viewport={"width": vw, "height": vh})
+        mpage = mctx.new_page()
+        mpage.goto(f"{BASE}/login", wait_until="networkidle")
+        mpage.fill('input[name="email"]', EMAIL)
+        mpage.fill('input[name="password"]', PASSWORD)
+        mpage.click('button[type="submit"]')
+        mpage.wait_for_url("**/admin/overview", timeout=15000)
 
-    submit = mpage.locator('[role="dialog"] button[type="submit"]')
-    check("mobile: new-lead modal opens", submit.count() == 1)
+        mpage.goto(f"{BASE}/admin/leads", wait_until="networkidle")
+        mpage.click('button:has-text("New lead")')
+        mpage.wait_for_selector('[role="dialog"]', timeout=5000)
+        mpage.wait_for_timeout(250)
 
-    submit.scroll_into_view_if_needed()
-    box = submit.bounding_box()
-    check(
-        "mobile: submit button is reachable inside the viewport",
-        box is not None and 0 <= box["y"] <= 667 - box["height"],
-        f"y={box['y'] if box else 'none'}",
-    )
+        submit = mpage.locator('[role="dialog"] button[type="submit"]')
+        check(f"{label}: new-lead modal opens", submit.count() == 1)
 
-    # The page behind the modal must not scroll while it is open.
-    body_overflow = mpage.evaluate("getComputedStyle(document.body).overflow")
-    check("mobile: body scroll locked while modal open", body_overflow == "hidden")
+        rect = mpage.evaluate(CARD_RECT_JS)
+        check(
+            f"{label}: modal card fits the viewport, top edge on screen",
+            rect is not None and rect["top"] >= 0 and rect["bottom"] <= rect["vh"] + 1,
+            f"top={round(rect['top'])} bottom={round(rect['bottom'])} vh={rect['vh']}"
+            if rect
+            else "no dialog",
+        )
 
-    mpage.keyboard.press("Escape")
-    mpage.wait_for_timeout(300)
-    check("mobile: Escape closes the modal", mpage.locator('[role="dialog"]').count() == 0)
+        # The header must stay reachable — it carries the close button.
+        check(
+            f"{label}: modal title and close button visible",
+            mpage.locator('[role="dialog"] button[aria-label="Close"]').is_visible(),
+        )
 
-    mobile.close()
+        submit.scroll_into_view_if_needed()
+        box = submit.bounding_box()
+        check(
+            f"{label}: submit button is reachable inside the viewport",
+            box is not None and 0 <= box["y"] <= vh - box["height"],
+            f"y={round(box['y']) if box else 'none'}",
+        )
+
+        # The page behind the modal must not scroll while it is open.
+        body_overflow = mpage.evaluate("getComputedStyle(document.body).overflow")
+        check(f"{label}: body scroll locked while modal open", body_overflow == "hidden")
+
+        mpage.keyboard.press("Escape")
+        mpage.wait_for_timeout(300)
+        check(
+            f"{label}: Escape closes the modal",
+            mpage.locator('[role="dialog"]').count() == 0,
+        )
+        mctx.close()
 
     browser.close()
 
