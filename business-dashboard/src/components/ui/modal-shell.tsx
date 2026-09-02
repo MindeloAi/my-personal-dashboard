@@ -9,6 +9,8 @@ type Props = {
   children: React.ReactNode;
   /** Override for denser forms. Every existing modal used max-w-md. */
   maxWidthClass?: string;
+  /** Optional control rendered to the left of the close button, e.g. an Edit/View toggle. */
+  headerExtra?: React.ReactNode;
 };
 
 /**
@@ -27,7 +29,7 @@ type Props = {
  * `100dvh`, never `100vh`. Mobile Safari's `vh` measures the viewport *behind*
  * the URL bar, so a vh-based cap reintroduces the exact clipping being fixed.
  */
-export function ModalShell({ title, onClose, children, maxWidthClass = "max-w-md" }: Props) {
+export function ModalShell({ title, onClose, children, maxWidthClass = "max-w-md", headerExtra }: Props) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -58,16 +60,19 @@ export function ModalShell({ title, onClose, children, maxWidthClass = "max-w-md
       <div
         className={`bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-4 sm:p-6 w-full ${maxWidthClass} shadow-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto`}
       >
-        <div className="flex items-center justify-between mb-5">
-          <p className="text-sm font-semibold text-white">{title}</p>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex h-11 w-11 items-center justify-center text-lg leading-none text-zinc-500 transition-colors hover:text-white sm:h-6 sm:w-6"
-          >
-            ✕
-          </button>
+        <div className="flex items-start justify-between mb-5 gap-3">
+          <p className="text-sm font-semibold text-white leading-snug">{title}</p>
+          <div className="flex items-center gap-2 shrink-0">
+            {headerExtra}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="flex h-11 w-11 items-center justify-center text-lg leading-none text-zinc-500 transition-colors hover:text-white sm:h-6 sm:w-6"
+            >
+              ✕
+            </button>
+          </div>
         </div>
         {children}
       </div>

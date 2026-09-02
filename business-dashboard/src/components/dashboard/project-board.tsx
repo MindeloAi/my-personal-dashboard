@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
+import { useMemo, useOptimistic, useState, useTransition } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -18,6 +18,7 @@ import {
   updateProjectAction,
   updateProjectStatus,
 } from "@/app/actions";
+import { ModalShell } from "@/components/ui/modal-shell";
 import type { Client, Project } from "@/lib/airtable";
 
 function TrashIcon({ className }: { className?: string }) {
@@ -210,14 +211,6 @@ function ProjectDetailModal({
     paymentStructure === "recurring_monthly" || paymentStructure === "recurring_custom";
   const isDepositFinal = paymentStructure === "deposit_final";
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -261,31 +254,19 @@ function ProjectDetailModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+    <ModalShell
+      title={project.Name}
+      onClose={onClose}
+      maxWidthClass="max-w-sm"
+      headerExtra={
+        <button
+          onClick={() => setEditMode(!editMode)}
+          className="text-xs text-zinc-500 hover:text-white transition-colors"
+        >
+          {editMode ? "View" : "Edit"}
+        </button>
+      }
     >
-      <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6 w-full max-w-sm shadow-2xl">
-        <div className="flex items-start justify-between mb-4">
-          <p className="text-sm font-semibold text-white leading-snug pr-4">{project.Name}</p>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setEditMode(!editMode)}
-              className="text-xs text-zinc-500 hover:text-white transition-colors"
-            >
-              {editMode ? "View" : "Edit"}
-            </button>
-            <button
-              onClick={onClose}
-              className="text-zinc-500 hover:text-white transition-colors text-lg leading-none"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
 
         {editMode ? (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -542,8 +523,7 @@ function ProjectDetailModal({
             )}
           </>
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }
 
