@@ -478,19 +478,19 @@ export function QuickActions({ clients = [], projects = [] }: Props) {
       <div className="flex flex-wrap gap-1.5">
         <button
           onClick={() => setOpen("invoice")}
-          className="text-xs px-3 py-1.5 bg-[#1a1d22] text-[#bfff3a] border border-[#2a2e34] rounded-full font-medium hover:bg-[#2a2e34] transition-colors"
+          className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 bg-[#1a1d22] text-[#bfff3a] border border-[#2a2e34] rounded-full font-medium hover:bg-[#2a2e34] transition-colors"
         >
           + Invoice
         </button>
         <button
           onClick={() => setOpen("expense")}
-          className="text-xs px-3 py-1.5 bg-[#1a1d22] text-zinc-400 border border-[#2a2e34] rounded-full hover:text-white hover:bg-[#2a2e34] transition-colors"
+          className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 bg-[#1a1d22] text-zinc-400 border border-[#2a2e34] rounded-full hover:text-white hover:bg-[#2a2e34] transition-colors"
         >
           + Expense
         </button>
         <button
           onClick={() => setOpen("project")}
-          className="text-xs px-3 py-1.5 bg-[#1a1d22] text-zinc-400 border border-[#2a2e34] rounded-full hover:text-white hover:bg-[#2a2e34] transition-colors"
+          className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 bg-[#1a1d22] text-zinc-400 border border-[#2a2e34] rounded-full hover:text-white hover:bg-[#2a2e34] transition-colors"
         >
           + Project
         </button>

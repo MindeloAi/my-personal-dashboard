@@ -138,7 +138,7 @@ function ProjectCard({
                 e.stopPropagation();
                 onDelete();
               }}
-              className="p-1 rounded-md text-zinc-500 opacity-0 group-hover:opacity-100 hover:text-[#ff4d8b] hover:bg-[#ff4d8b]/10 transition-all"
+              className="p-1 rounded-md text-zinc-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-[#ff4d8b] hover:bg-[#ff4d8b]/10 transition-all"
               aria-label="Delete project"
               title="Delete project"
             >

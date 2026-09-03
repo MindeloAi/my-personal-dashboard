@@ -225,13 +225,13 @@ export function ExpensesList({ expenses, categoryFilter, onClearCategoryFilter }
                       <div className="flex items-center gap-1 justify-end">
                         <button
                           onClick={() => setEditing(exp)}
-                          className="text-xs px-2.5 py-1 rounded-lg bg-white/0 text-zinc-600 border border-transparent hover:bg-white/[0.04] hover:text-zinc-300 hover:border-[#2a2e34] opacity-0 group-hover:opacity-100 transition-all"
+                          className="text-xs px-2.5 py-1 rounded-lg bg-white/0 text-zinc-600 border border-transparent hover:bg-white/[0.04] hover:text-zinc-300 hover:border-[#2a2e34] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(exp)}
-                          className="text-xs px-2.5 py-1 rounded-lg bg-white/0 text-zinc-600 border border-transparent hover:bg-[#ff4d8b]/10 hover:text-[#ff4d8b] hover:border-[#ff4d8b]/30 opacity-0 group-hover:opacity-100 transition-all"
+                          className="text-xs px-2.5 py-1 rounded-lg bg-white/0 text-zinc-600 border border-transparent hover:bg-[#ff4d8b]/10 hover:text-[#ff4d8b] hover:border-[#ff4d8b]/30 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                         >
                           Delete
                         </button>

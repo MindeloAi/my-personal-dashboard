@@ -58,7 +58,7 @@ export function ClientsList({ clients, invoices, projects }: Props) {
         <p className="text-xs text-zinc-500 uppercase tracking-wider">All clients</p>
         <button
           onClick={() => setCreating(true)}
-          className="text-xs px-3 py-2 rounded-lg font-semibold bg-[#bfff3a] text-black hover:bg-[#bfff3a]/80 transition-colors"
+          className="min-h-11 sm:min-h-0 text-xs px-3 py-2 rounded-lg font-semibold bg-[#bfff3a] text-black hover:bg-[#bfff3a]/80 transition-colors"
         >
           + New client
         </button>

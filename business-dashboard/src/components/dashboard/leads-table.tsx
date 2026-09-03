@@ -293,7 +293,7 @@ export function LeadsTable({ leads, clients }: Props) {
         <p className="text-xs text-zinc-500 uppercase tracking-wider">Leads</p>
         <button
           onClick={() => setNewOpen(true)}
-          className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-[#bfff3a] text-black hover:bg-[#bfff3a]/80 transition-colors"
+          className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-lg font-semibold bg-[#bfff3a] text-black hover:bg-[#bfff3a]/80 transition-colors"
         >
           + New lead
         </button>
