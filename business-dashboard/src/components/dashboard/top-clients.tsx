@@ -88,7 +88,7 @@ export function TopClients({ clients, invoices, projects, selectedClientId, onSe
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
+              className={`min-h-11 sm:min-h-0 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
                 range === r ? "bg-[#bfff3a] text-black" : "text-zinc-400 hover:text-white"
               }`}
             >

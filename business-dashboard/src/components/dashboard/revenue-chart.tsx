@@ -254,7 +254,7 @@ export function RevenueChart({ invoices, expenses }: Props) {
             <button
               key={r}
               onClick={() => { setRange(r); setDrillDown(null); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 range === r ? "bg-[#bfff3a] text-black" : "text-zinc-400 hover:text-white"
               }`}
             >

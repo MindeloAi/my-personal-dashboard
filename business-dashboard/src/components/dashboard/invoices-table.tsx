@@ -68,7 +68,7 @@ function MarkPaidButton({ invoiceId }: { invoiceId: string }) {
             }
           });
         }}
-        className="text-xs px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 hover:bg-[#bfff3a]/20 disabled:opacity-40 transition-colors"
+        className="min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 hover:bg-[#bfff3a]/20 disabled:opacity-40 transition-colors"
       >
         {pending ? "Saving…" : "Mark paid"}
       </button>
@@ -137,7 +137,7 @@ export function InvoicesTable({
             <button
               key={f}
               onClick={() => onStatusFilterChange(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 statusFilter === f ? "bg-[#bfff3a] text-black" : "text-zinc-400 hover:text-white"
               }`}
             >
@@ -231,7 +231,7 @@ export function InvoicesTable({
                                 e.stopPropagation();
                                 setEditingInvoice(inv);
                               }}
-                              className="ml-auto text-xs px-2.5 py-1 rounded-lg border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+                              className="ml-auto min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-lg border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
                             >
                               Edit
                             </button>

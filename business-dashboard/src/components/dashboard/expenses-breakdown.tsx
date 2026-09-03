@@ -52,7 +52,7 @@ export function ExpensesBreakdown({ expenses, selectedCategory, onSelectCategory
               key={name}
               onClick={isClickable ? () => onSelectCategory?.(isSelected ? null : name) : undefined}
               disabled={!isClickable}
-              className={`w-full text-left rounded-lg -mx-1 px-1 py-0.5 transition-colors disabled:cursor-default ${
+              className={`w-full text-left rounded-lg -mx-1 px-1 py-2 sm:py-0.5 transition-colors disabled:cursor-default ${
                 isSelected ? "bg-white/[0.04]" : isClickable ? "hover:bg-white/[0.02]" : ""
               }`}
             >

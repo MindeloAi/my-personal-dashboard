@@ -138,7 +138,7 @@ function ProjectCard({
                 e.stopPropagation();
                 onDelete();
               }}
-              className="p-1 rounded-md text-zinc-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-[#ff4d8b] hover:bg-[#ff4d8b]/10 transition-all"
+              className="min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1 rounded-md text-zinc-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-[#ff4d8b] hover:bg-[#ff4d8b]/10 transition-all"
               aria-label="Delete project"
               title="Delete project"
             >
@@ -687,7 +687,7 @@ export function ProjectBoard({ projects, clients = [], initialClientId = null }:
                 <button
                   key={f}
                   onClick={() => setOwnerFilter(f)}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
+                  className={`min-h-11 sm:min-h-0 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
                     ownerFilter === f ? "bg-[#bfff3a] text-black" : "text-zinc-400 hover:text-white"
                   }`}
                   title={f === "All" ? "All owners" : `Owner: ${f}`}
@@ -701,7 +701,7 @@ export function ProjectBoard({ projects, clients = [], initialClientId = null }:
         {clientFilter && (
           <button
             onClick={() => setClientFilter(null)}
-            className="text-[10px] px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/30 hover:bg-[#bfff3a]/20 transition-colors"
+            className="min-h-11 sm:min-h-0 text-[10px] px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/30 hover:bg-[#bfff3a]/20 transition-colors"
           >
             {clients.find((c) => c.id === clientFilter)?.Company ??
               clients.find((c) => c.id === clientFilter)?.Name ??
