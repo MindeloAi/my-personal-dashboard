@@ -6,13 +6,14 @@ import { toast } from "sonner";
 import { markInvoicePaid } from "@/app/actions";
 import { EditInvoiceModal } from "@/components/dashboard/edit-invoice-modal";
 import { effectiveStatus, isOverdue } from "@/lib/invoices";
-import type { Invoice, Project } from "@/lib/airtable";
+import type { Invoice, Project, Subscription } from "@/lib/airtable";
 
 export type InvoiceStatusFilter = "All" | "Sent" | "Overdue" | "Paid" | "Draft";
 
 type Props = {
   invoices: Invoice[];
   projects?: Project[];
+  subscriptions?: Subscription[];
   statusFilter: InvoiceStatusFilter;
   onStatusFilterChange: (f: InvoiceStatusFilter) => void;
   clientFilter?: string | null;
@@ -80,6 +81,7 @@ function MarkPaidButton({ invoiceId }: { invoiceId: string }) {
 export function InvoicesTable({
   invoices,
   projects,
+  subscriptions,
   statusFilter,
   onStatusFilterChange,
   clientFilter,
@@ -250,6 +252,7 @@ export function InvoicesTable({
         <EditInvoiceModal
           invoice={editingInvoice}
           projects={projects}
+          subscriptions={subscriptions}
           onClose={() => setEditingInvoice(null)}
         />
       )}

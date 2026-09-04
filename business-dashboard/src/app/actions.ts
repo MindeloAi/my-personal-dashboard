@@ -19,11 +19,15 @@ import {
   createClient as createClientRow,
   updateClient,
   deleteClient,
+  createSubscription,
+  updateSubscription,
+  deleteSubscription,
   type InvoiceWrite,
   type ProjectWrite,
   type ExpenseWrite,
   type LeadWrite,
   type ClientWrite,
+  type SubscriptionWrite,
 } from "@/lib/airtable";
 
 export async function markInvoicePaid(invoiceId: string) {
@@ -154,6 +158,29 @@ export async function updateClientAction(id: string, data: ClientWrite) {
 export async function deleteClientAction(id: string) {
   await requireAdmin();
   await deleteClient(id);
+  revalidatePath("/", "layout");
+}
+
+// ─── Subscriptions ──────────────────────────────────────────────────────────
+
+export async function createSubscriptionAction(data: SubscriptionWrite) {
+  await requireAdmin();
+  await createSubscription(data);
+  revalidatePath("/", "layout");
+}
+
+export async function updateSubscriptionAction(id: string, data: SubscriptionWrite) {
+  await requireAdmin();
+  await updateSubscription(id, data);
+  revalidatePath("/", "layout");
+}
+
+// invoices.subscription_id is ON DELETE SET NULL, so invoices already raised
+// survive and keep counting as revenue — they just stop being attributable to a
+// retainer, which resets nothing but the derived schedule. The UI warns first.
+export async function deleteSubscriptionAction(id: string) {
+  await requireAdmin();
+  await deleteSubscription(id);
   revalidatePath("/", "layout");
 }
 

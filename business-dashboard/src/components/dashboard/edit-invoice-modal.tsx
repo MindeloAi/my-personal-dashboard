@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { updateInvoiceAction } from "@/app/actions";
 import { ModalShell } from "@/components/ui/modal-shell";
-import type { Invoice, Project } from "@/lib/airtable";
+import type { Invoice, Project, Subscription } from "@/lib/airtable";
 
 const inputCls =
   "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
@@ -16,10 +16,12 @@ type InvoiceStatusValue = "Draft" | "Sent" | "Paid" | "Overdue" | "Void";
 export function EditInvoiceModal({
   invoice,
   projects = [],
+  subscriptions = [],
   onClose,
 }: {
   invoice: Invoice;
   projects?: Project[];
+  subscriptions?: Subscription[];
   onClose: () => void;
 }) {
   const [pending, start] = useTransition();
@@ -30,6 +32,7 @@ export function EditInvoiceModal({
     const fd = new FormData(e.currentTarget);
     const amount = fd.get("amount") as string;
     const projectId = (fd.get("projectId") as string) || "";
+    const subscriptionId = (fd.get("subscriptionId") as string) || "";
     const invoiceType = (fd.get("invoiceType") as string) || "";
     const status = (fd.get("status") as string) || "";
     setError(false);
@@ -45,6 +48,11 @@ export function EditInvoiceModal({
           "Paid Date": (fd.get("paidDate") as string) || undefined,
           Notes: (fd.get("notes") as string) || undefined,
           Project: projectId ? [projectId] : undefined,
+          // Unlike Project above, "— None" here sends [] and genuinely unlinks.
+          // The link decides which period lib/subscriptions.ts thinks has been
+          // billed, so a misattributed invoice has to be detachable — otherwise
+          // it silently suppresses a reminder for ever.
+          Subscription: subscriptionId ? [subscriptionId] : [],
         });
         toast.success("Invoice saved");
         onClose();
@@ -58,6 +66,23 @@ export function EditInvoiceModal({
   return (
     <ModalShell title="Edit Invoice" onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {subscriptions.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-zinc-400">Subscription</label>
+              <select
+                name="subscriptionId"
+                defaultValue={invoice.Subscription?.[0] ?? ""}
+                className={selectCls}
+              >
+                <option value="">— None</option>
+                {subscriptions.map((sub) => (
+                  <option key={sub.id} value={sub.id}>
+                    {sub.Name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {projects.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Project</label>

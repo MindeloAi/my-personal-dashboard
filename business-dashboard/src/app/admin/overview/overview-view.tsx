@@ -6,16 +6,23 @@ import { MrrCard } from "@/components/dashboard/mrr-card";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { BusinessCounters } from "@/components/dashboard/business-counters";
 import { ServiceTypeSplit } from "@/components/dashboard/service-type-split";
-import type { Client, Project, Invoice, Expense } from "@/lib/db";
+import type { Client, Project, Invoice, Expense, Subscription } from "@/lib/db";
 
 type Props = {
   clients: Client[];
   projects: Project[];
   invoices: Invoice[];
   expenses: Expense[];
+  subscriptions: Subscription[];
 };
 
-export function OverviewView({ clients, projects, invoices, expenses }: Props) {
+export function OverviewView({
+  clients,
+  projects,
+  invoices,
+  expenses,
+  subscriptions,
+}: Props) {
   const router = useRouter();
 
   return (
@@ -31,7 +38,11 @@ export function OverviewView({ clients, projects, invoices, expenses }: Props) {
           onJumpToOverdue={() => router.push("/admin/finance?status=Overdue")}
         />
         <div className="grid grid-cols-1 gap-3">
-          <MrrCard projects={projects} invoices={invoices} />
+          <MrrCard
+            subscriptions={subscriptions}
+            invoices={invoices}
+            onJumpToRecurring={() => router.push("/admin/finance")}
+          />
           <ServiceTypeSplit projects={projects} invoices={invoices} />
         </div>
       </div>

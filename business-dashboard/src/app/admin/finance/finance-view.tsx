@@ -5,13 +5,15 @@ import { InvoicesTable, type InvoiceStatusFilter } from "@/components/dashboard/
 import { Cashflow } from "@/components/dashboard/cashflow";
 import { ExpensesBreakdown } from "@/components/dashboard/expenses-breakdown";
 import { ExpensesList } from "@/components/dashboard/expenses-list";
-import type { Client, Project, Invoice, Expense } from "@/lib/db";
+import { SubscriptionsList } from "@/components/dashboard/subscriptions-list";
+import type { Client, Project, Invoice, Expense, Subscription } from "@/lib/db";
 
 type Props = {
   clients: Client[];
   projects: Project[];
   invoices: Invoice[];
   expenses: Expense[];
+  subscriptions: Subscription[];
   initialStatus: InvoiceStatusFilter;
   initialClientId: string | null;
 };
@@ -21,6 +23,7 @@ export function FinanceView({
   projects,
   invoices,
   expenses,
+  subscriptions,
   initialStatus,
   initialClientId,
 }: Props) {
@@ -38,6 +41,7 @@ export function FinanceView({
           <InvoicesTable
             invoices={invoices}
             projects={projects}
+            subscriptions={subscriptions}
             statusFilter={invoiceStatus}
             onStatusFilterChange={setInvoiceStatus}
             clientFilter={invoiceClient}
@@ -47,6 +51,13 @@ export function FinanceView({
         </div>
         <Cashflow invoices={invoices} projects={projects} />
       </div>
+
+      <SubscriptionsList
+        subscriptions={subscriptions}
+        invoices={invoices}
+        clients={clients}
+        projects={projects}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <ExpensesBreakdown

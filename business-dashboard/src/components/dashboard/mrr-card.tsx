@@ -3,14 +3,13 @@
 import { useMemo } from "react";
 import { format, startOfMonth, endOfMonth, subMonths, parseISO, isBefore, isAfter } from "date-fns";
 import { useCountUp } from "@/hooks/use-count-up";
-import type { Project, Invoice } from "@/lib/airtable";
+import { mrr, dueSubscriptions } from "@/lib/subscriptions";
+import type { Invoice, Subscription } from "@/lib/airtable";
 
-type Props = { projects: Project[]; invoices: Invoice[] };
-
-const FREQUENCY_DIVISOR: Record<string, number> = {
-  monthly: 1,
-  quarterly: 3,
-  yearly: 12,
+type Props = {
+  subscriptions: Subscription[];
+  invoices: Invoice[];
+  onJumpToRecurring: () => void;
 };
 
 function inRange(dateStr: string | undefined, start: Date, end: Date) {
@@ -19,24 +18,17 @@ function inRange(dateStr: string | undefined, start: Date, end: Date) {
   return !isBefore(d, start) && !isAfter(d, end);
 }
 
-export function MrrCard({ projects, invoices }: Props) {
+export function MrrCard({ subscriptions, invoices, onJumpToRecurring }: Props) {
   const stats = useMemo(() => {
-    // MRR from active recurring projects
-    const recurringActive = projects.filter(
-      (p) =>
-        (p["Payment Structure"] === "recurring_monthly" ||
-          p["Payment Structure"] === "recurring_custom") &&
-        p.Status === "In Progress"
-    );
-
-    const mrr = recurringActive.reduce((sum, p) => {
-      const amount = p["Recurring Amount"] ?? 0;
-      const divisor = FREQUENCY_DIVISOR[p["Recurring Frequency"] ?? "monthly"] ?? 1;
-      return sum + amount / divisor;
-    }, 0);
-
-    const arr = mrr * 12;
-    const activeCount = recurringActive.length;
+    // MRR comes from `subscriptions`, not projects. The old version summed
+    // projects whose Payment Structure was recurring_* AND whose Status was
+    // "In Progress" — which excluded every retainer on a delivered project
+    // (those are Done) and every retainer with no project at all, so this card
+    // read $0 while money was recurring. See lib/subscriptions.ts.
+    const monthly = mrr(subscriptions);
+    const arr = monthly * 12;
+    const activeCount = subscriptions.filter((s) => s.Status === "Active").length;
+    const due = dueSubscriptions(subscriptions, invoices);
 
     // Last 6 months of paid recurring invoice revenue
     const now = new Date();
@@ -63,8 +55,8 @@ export function MrrCard({ projects, invoices }: Props) {
 
     const peak = Math.max(...monthlyRecurring.map((m) => m.total), 1);
 
-    return { mrr, arr, activeCount, monthlyRecurring, momPct, peak };
-  }, [projects, invoices]);
+    return { mrr: monthly, arr, activeCount, due, monthlyRecurring, momPct, peak };
+  }, [subscriptions, invoices]);
 
   const animatedMrr = useCountUp(stats.mrr);
 
@@ -92,6 +84,16 @@ export function MrrCard({ projects, invoices }: Props) {
       <p className="text-xs text-zinc-500 mt-0.5">
         ${Math.round(stats.arr).toLocaleString()} ARR · {stats.activeCount} active
       </p>
+
+      {stats.due.length > 0 && (
+        <button
+          type="button"
+          onClick={onJumpToRecurring}
+          className="mt-2 w-full text-left text-xs px-2.5 py-1.5 rounded-lg border border-[#fbbf24]/30 bg-[#fbbf24]/10 text-[#fbbf24] hover:bg-[#fbbf24]/20 transition-colors"
+        >
+          {stats.due.length} due to invoice →
+        </button>
+      )}
 
       {/* Mini bar chart */}
       <div className="mt-4 flex items-end gap-1 h-12">

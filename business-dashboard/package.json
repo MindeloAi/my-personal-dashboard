@@ -11,7 +11,8 @@
     "db:migrate": "node --env-file=.env.local scripts/db-migrate.mjs",
     "db:export": "node --env-file=.env.local scripts/export-airtable.mjs",
     "db:import": "node --env-file=.env.local scripts/import-supabase.mjs",
-    "db:verify": "bun --env-file=.env.local scripts/verify-migration.mjs"
+    "db:verify": "bun --env-file=.env.local scripts/verify-migration.mjs",
+    "test:subscriptions": "bun scripts/subscriptions.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",

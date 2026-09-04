@@ -36,6 +36,7 @@ create sequence if not exists milestones_sort_seq as bigint start 1000 increment
 create sequence if not exists leads_sort_seq      as bigint start 1000 increment 1000;
 create sequence if not exists tasks_sort_seq      as bigint start 1000 increment 1000;
 create sequence if not exists ideas_sort_seq      as bigint start 1000 increment 1000;
+create sequence if not exists subscriptions_sort_seq as bigint start 1000 increment 1000;
 
 -- ─── clients ────────────────────────────────────────────────────────────────
 create table if not exists clients (
@@ -84,6 +85,38 @@ create table if not exists projects (
 );
 create index if not exists projects_client_id_idx on projects (client_id);
 
+-- ─── subscriptions ────────────────────────────────────────────────────────
+-- The single source of recurring revenue (migration 007). Defined before
+-- invoices because invoices.subscription_id references it.
+--
+-- Retainers used to be modelled as a `projects` row with payment_structure =
+-- 'recurring_*'. That excluded every retainer with no build behind it, and MRR
+-- only counted projects still 'In Progress' — so a delivered project on a
+-- maintenance retainer contributed nothing. projects.recurring_amount /
+-- recurring_frequency still exist but are no longer read or written.
+create table if not exists subscriptions (
+  id          uuid primary key default gen_random_uuid(),
+  sort_key    bigint not null default nextval('subscriptions_sort_seq'),
+
+  name        text not null default '',
+  client_id   uuid references clients(id)  on delete set null,
+  project_id  uuid references projects(id) on delete set null,
+
+  -- The amount charged EACH period, not per month. lib/subscriptions.ts divides
+  -- by the frequency to reach MRR.
+  amount      numeric,
+  frequency   text check (frequency in ('monthly','quarterly','yearly')),
+  status      text check (status in ('Active','Paused','Cancelled')),
+
+  -- start_date doubles as the first-invoice anchor: a subscription that has
+  -- never been invoiced is due on its start date.
+  start_date  date,
+  end_date    date,
+  notes       text,
+  created     timestamptz not null default now()
+);
+create index if not exists subscriptions_client_id_idx on subscriptions (client_id);
+
 -- ─── invoices ───────────────────────────────────────────────────────────────
 create table if not exists invoices (
   id             uuid primary key default gen_random_uuid(),
@@ -109,10 +142,15 @@ create table if not exists invoices (
   paid_date      date,
   payment_method text check (payment_method in ('Bank','PayPal','Stripe','Cash','Other')),
   pdf_url        text,
-  notes          text
+  notes          text,
+  -- Set when an invoice bills a retainer. lib/subscriptions.ts derives the
+  -- next invoice date from the latest issue_date carrying this id, so an
+  -- invoice raised out of band corrects the schedule instead of drifting.
+  subscription_id uuid references subscriptions(id) on delete set null
 );
 create index if not exists invoices_project_id_idx on invoices (project_id);
 create index if not exists invoices_paid_idx on invoices (project_id) where status = 'Paid';
+create index if not exists invoices_subscription_id_idx on invoices (subscription_id);
 
 -- ─── expenses ───────────────────────────────────────────────────────────────
 create table if not exists expenses (
@@ -250,6 +288,7 @@ alter table milestones enable row level security;
 alter table leads      enable row level security;
 alter table tasks      enable row level security;
 alter table ideas      enable row level security;
+alter table subscriptions enable row level security;
 
 revoke all on all tables    in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;

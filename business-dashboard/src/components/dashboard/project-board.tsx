@@ -78,7 +78,6 @@ type PaymentStructureValue =
   | "milestones"
   | "recurring_monthly"
   | "recurring_custom";
-type RecurringFrequencyValue = "monthly" | "quarterly" | "yearly";
 
 const PAYMENT_LABELS: Record<string, string> = {
   one_time: "One-time",
@@ -177,11 +176,6 @@ function ProjectCard({
             ${(project["Total Value"] ?? 0).toLocaleString()}
           </span>
         )}
-        {project["Recurring Amount"] && (
-          <span className="text-[10px] text-zinc-500">
-            ${project["Recurring Amount"].toLocaleString()}/mo
-          </span>
-        )}
       </div>
       {project["Start Date"] && (
         <p className="text-[10px] text-zinc-600 mt-2">{project["Start Date"]}</p>
@@ -215,12 +209,10 @@ function ProjectDetailModal({
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const totalValue = fd.get("totalValue") as string;
-    const recurringAmount = fd.get("recurringAmount") as string;
     const depositPct = fd.get("depositPct") as string;
     const clientId = (fd.get("clientId") as string) || "";
     const status = (fd.get("status") as string) || "";
     const paymentStructureField = (fd.get("paymentStructure") as string) || "";
-    const recurringFreq = (fd.get("recurringFreq") as string) || "";
 
     setError(false);
     start(async () => {
@@ -232,10 +224,6 @@ function ProjectDetailModal({
             ? (paymentStructureField as PaymentStructureValue)
             : undefined,
           "Total Value": totalValue ? parseFloat(totalValue) : undefined,
-          "Recurring Amount": recurringAmount ? parseFloat(recurringAmount) : undefined,
-          "Recurring Frequency": recurringFreq
-            ? (recurringFreq as RecurringFrequencyValue)
-            : undefined,
           "Deposit Percentage": depositPct ? parseFloat(depositPct) : undefined,
           "Start Date": (fd.get("startDate") as string) || undefined,
           "End Date": (fd.get("endDate") as string) || undefined,
@@ -331,31 +319,9 @@ function ProjectDetailModal({
               </select>
             </div>
             {isRecurring && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-zinc-400">Recurring Amount ($)</label>
-                  <input
-                    name="recurringAmount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    defaultValue={project["Recurring Amount"] ?? ""}
-                    className={inputCls}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-zinc-400">Frequency</label>
-                  <select
-                    name="recurringFreq"
-                    defaultValue={project["Recurring Frequency"] ?? "monthly"}
-                    className={selectCls}
-                  >
-                    <option value="monthly">Monthly</option>
-                    <option value="quarterly">Quarterly</option>
-                    <option value="yearly">Yearly</option>
-                  </select>
-                </div>
-              </div>
+              <p className="text-xs text-[#3affd1] bg-[#3affd1]/10 border border-[#3affd1]/20 rounded-xl px-3 py-2 leading-relaxed">
+                Recurring revenue is tracked separately, in Finance → Recurring. Add a subscription there so it counts toward MRR and gets an invoice reminder.
+              </p>
             )}
             {isDepositFinal && (
               <div className="flex flex-col gap-1.5">
@@ -474,19 +440,6 @@ function ProjectDetailModal({
                   <span className="text-zinc-500">Total value</span>
                   <span className="text-white font-semibold">
                     ${(project["Total Value"] ?? 0).toLocaleString()}
-                  </span>
-                </div>
-              )}
-              {project["Recurring Amount"] && (
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Recurring</span>
-                  <span className="text-zinc-300">
-                    ${project["Recurring Amount"].toLocaleString()}
-                    {project["Recurring Frequency"] === "yearly"
-                      ? "/yr"
-                      : project["Recurring Frequency"] === "quarterly"
-                      ? "/qtr"
-                      : "/mo"}
                   </span>
                 </div>
               )}

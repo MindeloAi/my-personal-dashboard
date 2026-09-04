@@ -290,12 +290,10 @@ function ProjectModal({
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const totalValue = fd.get("totalValue") as string;
-    const recurringAmount = fd.get("recurringAmount") as string;
     const depositPct = fd.get("depositPct") as string;
     const clientId = (fd.get("clientId") as string) || "";
     const status = (fd.get("status") as string) || "Lead";
     const paymentStructureField = (fd.get("paymentStructure") as string) || "";
-    const recurringFreq = (fd.get("recurringFreq") as string) || "";
 
     start(async () => {
       try {
@@ -306,10 +304,6 @@ function ProjectModal({
             ? (paymentStructureField as PaymentStructureValue)
             : undefined,
           "Total Value": totalValue ? parseFloat(totalValue) : undefined,
-          "Recurring Amount": recurringAmount ? parseFloat(recurringAmount) : undefined,
-          "Recurring Frequency": recurringFreq
-            ? (recurringFreq as RecurringFrequencyValue)
-            : undefined,
           "Deposit Percentage": depositPct ? parseFloat(depositPct) : undefined,
           "Start Date": (fd.get("startDate") as string) || undefined,
           Notes: (fd.get("notes") as string) || undefined,
@@ -389,25 +383,9 @@ function ProjectModal({
           </Field>
         </div>
         {isRecurring && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Recurring Amount ($)">
-              <input
-                name="recurringAmount"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Frequency">
-              <select name="recurringFreq" className={selectCls} defaultValue="monthly">
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="yearly">Yearly</option>
-              </select>
-            </Field>
-          </div>
+          <p className="text-xs text-[#3affd1] bg-[#3affd1]/10 border border-[#3affd1]/20 rounded-xl px-3 py-2 leading-relaxed">
+            Recurring revenue is tracked separately, in Finance → Recurring. Add a subscription there so it counts toward MRR and gets an invoice reminder.
+          </p>
         )}
         {isDepositFinal && (
           <Field label="Deposit Percentage (e.g. 50)">
@@ -468,7 +446,6 @@ type PaymentStructureValue =
   | "milestones"
   | "recurring_monthly"
   | "recurring_custom";
-type RecurringFrequencyValue = "monthly" | "quarterly" | "yearly";
 
 export function QuickActions({ clients = [], projects = [] }: Props) {
   const [open, setOpen] = useState<ModalKind>(null);

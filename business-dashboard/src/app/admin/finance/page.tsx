@@ -1,4 +1,10 @@
-import { getClients, getProjects, getInvoices, getExpenses } from "@/lib/db";
+import {
+  getClients,
+  getProjects,
+  getInvoices,
+  getExpenses,
+  getSubscriptions,
+} from "@/lib/db";
 import type { InvoiceStatusFilter } from "@/components/dashboard/invoices-table";
 import { FinanceView } from "./finance-view";
 
@@ -16,11 +22,12 @@ export default async function FinancePage({
 }) {
   const { status, client } = await searchParams;
 
-  const [clients, projects, invoices, expenses] = await Promise.all([
+  const [clients, projects, invoices, expenses, subscriptions] = await Promise.all([
     getClients(),
     getProjects(),
     getInvoices(),
     getExpenses(),
+    getSubscriptions(),
   ]);
 
   const initialStatus = STATUSES.includes(status as InvoiceStatusFilter)
@@ -33,6 +40,7 @@ export default async function FinancePage({
       projects={projects}
       invoices={invoices}
       expenses={expenses}
+      subscriptions={subscriptions}
       initialStatus={initialStatus}
       initialClientId={client ?? null}
     />

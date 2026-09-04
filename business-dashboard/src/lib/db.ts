@@ -181,6 +181,7 @@ export const InvoiceSchema = z.object({
   "Invoice Number": z.string().optional(),
   Project: z.array(z.string()).optional(),
   Client: z.array(z.string()).optional(),
+  Subscription: z.array(z.string()).optional(),
   Amount: z.number().optional(),
   "Invoice Type": z
     .enum(["deposit", "milestone", "final", "recurring", "one_off"])
@@ -196,6 +197,24 @@ export const InvoiceSchema = z.object({
   Notes: z.string().optional(),
 });
 export type Invoice = z.infer<typeof InvoiceSchema>;
+
+// The single source of recurring revenue (migration 007). `Amount` is what is
+// charged EACH period — lib/subscriptions.ts divides by Frequency to reach MRR.
+// A subscription may hang off a client, a project, both, or neither.
+export const SubscriptionSchema = z.object({
+  id: z.string(),
+  Name: z.string(),
+  Client: z.array(z.string()).optional(),
+  Project: z.array(z.string()).optional(),
+  Amount: z.number().optional(),
+  Frequency: z.enum(["monthly", "quarterly", "yearly"]).optional(),
+  Status: z.enum(["Active", "Paused", "Cancelled"]).optional(),
+  "Start Date": z.string().optional(),
+  "End Date": z.string().optional(),
+  Notes: z.string().optional(),
+  Created: z.string().optional(),
+});
+export type Subscription = z.infer<typeof SubscriptionSchema>;
 
 export const ExpenseSchema = z.object({
   id: z.string(),
@@ -351,6 +370,7 @@ export const InvoiceWriteSchema = z.object({
   "Invoice Number": z.string().optional(),
   Project: z.array(z.string()).optional(),
   Client: z.array(z.string()).optional(),
+  Subscription: z.array(z.string()).optional(),
   Amount: z.number().optional(),
   "Invoice Type": z
     .enum(["deposit", "milestone", "final", "recurring", "one_off"])
@@ -366,6 +386,19 @@ export const InvoiceWriteSchema = z.object({
   Notes: z.string().optional(),
 });
 export type InvoiceWrite = z.infer<typeof InvoiceWriteSchema>;
+
+export const SubscriptionWriteSchema = z.object({
+  Name: z.string().optional(),
+  Client: z.array(z.string()).optional(),
+  Project: z.array(z.string()).optional(),
+  Amount: z.number().optional(),
+  Frequency: z.enum(["monthly", "quarterly", "yearly"]).optional(),
+  Status: z.enum(["Active", "Paused", "Cancelled"]).optional(),
+  "Start Date": z.string().optional(),
+  "End Date": z.string().optional(),
+  Notes: z.string().optional(),
+});
+export type SubscriptionWrite = z.infer<typeof SubscriptionWriteSchema>;
 
 export const ExpenseWriteSchema = z.object({
   Name: z.string().optional(),
@@ -495,7 +528,22 @@ const INVOICE_COLS: ColMap = {
 };
 // `Client` is stored when written. Reads coalesce it with the project's client,
 // reproducing Airtable's lookup semantics when it is null.
-const INVOICE_LINKS: ColMap = { Project: "project_id", Client: "client_id" };
+const INVOICE_LINKS: ColMap = {
+  Project: "project_id",
+  Client: "client_id",
+  Subscription: "subscription_id",
+};
+
+const SUBSCRIPTION_COLS: ColMap = {
+  Name: "name",
+  Amount: "amount",
+  Frequency: "frequency",
+  Status: "status",
+  "Start Date": "start_date",
+  "End Date": "end_date",
+  Notes: "notes",
+};
+const SUBSCRIPTION_LINKS: ColMap = { Client: "client_id", Project: "project_id" };
 
 const EXPENSE_COLS: ColMap = {
   Name: "name",
@@ -621,6 +669,23 @@ function shapeInvoice(r: Row) {
     "Payment Method": r.payment_method,
     "PDF URL": r.pdf_url,
     Notes: r.notes,
+    Subscription: link(r.subscription_id),
+  };
+}
+
+function shapeSubscription(r: Row) {
+  return {
+    id: String(r.id),
+    Name: r.name,
+    Client: link(r.client_id),
+    Project: link(r.project_id),
+    Amount: r.amount,
+    Frequency: r.frequency,
+    Status: r.status,
+    "Start Date": r.start_date,
+    "End Date": r.end_date,
+    Notes: r.notes,
+    Created: r.created,
   };
 }
 
@@ -800,6 +865,12 @@ export async function getInvoices(): Promise<Invoice[]> {
      order by i.sort_key asc, i.id asc
   `;
   return parseRows("Invoices", rows, shapeInvoice, InvoiceSchema);
+}
+
+export async function getSubscriptions(): Promise<Subscription[]> {
+  const sql = getSql();
+  const rows = await sql`select * from subscriptions order by sort_key asc, id asc`;
+  return parseRows("Subscriptions", rows, shapeSubscription, SubscriptionSchema);
 }
 
 export async function getExpenses(): Promise<Expense[]> {
@@ -1004,6 +1075,19 @@ export const createInvoice = (payload: InvoiceWrite) =>
 
 export const createExpense = (payload: ExpenseWrite) =>
   createRow("expenses", ExpenseWriteSchema, payload, EXPENSE_COLS);
+
+export const createSubscription = (payload: SubscriptionWrite) =>
+  createRow("subscriptions", SubscriptionWriteSchema, payload,
+    SUBSCRIPTION_COLS, SUBSCRIPTION_LINKS);
+
+export const updateSubscription = (id: string, payload: SubscriptionWrite) =>
+  updateRow("subscriptions", SubscriptionWriteSchema, id, payload,
+    SUBSCRIPTION_COLS, SUBSCRIPTION_LINKS);
+
+// invoices.subscription_id is ON DELETE SET NULL, so past invoices survive and
+// keep their money on the books — they simply stop being attributable to a
+// retainer. The UI warns with the exact count first. See subscriptions-list.tsx.
+export const deleteSubscription = (id: string) => deleteRow("subscriptions", id);
 
 export const updateInvoice = (id: string, payload: InvoiceWrite) =>
   updateRow("invoices", InvoiceWriteSchema, id, payload, INVOICE_COLS, INVOICE_LINKS);
