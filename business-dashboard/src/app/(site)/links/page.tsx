@@ -91,6 +91,15 @@ export default function LinksPage() {
                 <span className="text-gray-500 text-xs font-medium">@mindelo_solutions</span>
             </a>
 
+            {/* CariPromos */}
+            <a href="https://caripromos.com" target="_blank" rel="noopener noreferrer" className="link-btn link-secondary reveal d5 flex items-center gap-4 w-full rounded-2xl px-5 py-4 font-semibold text-white">
+                <span className="w-10 h-10 rounded-xl bg-[#f59e0b]/12 flex items-center justify-center text-[#f59e0b] shrink-0">
+                    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+                </span>
+                <span className="flex-1">CariPromos</span>
+                <span className="text-gray-500 text-xs font-medium">caripromos.com</span>
+            </a>
+
             {/* Email */}
             <a href="mailto:admin@mindelo.site" className="link-btn link-secondary reveal d5 flex items-center gap-4 w-full rounded-2xl px-5 py-4 font-semibold text-white">
                 <span className="w-10 h-10 rounded-xl bg-[#00e5b0]/12 flex items-center justify-center text-[#00e5b0] shrink-0">
