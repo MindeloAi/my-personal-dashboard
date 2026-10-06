@@ -20,7 +20,7 @@ export const websites: Website[] = [
     client: "Retro Closet",
     industry: "Retail",
     url: "https://retrocloset.org",
-    built: "An online jersey store with a full product catalogue, a shopping cart, and a storefront that matches the brand.",
+    built: "An online jersey store with a product catalogue and a shopping cart.",
     image: "/assets/websites/retro-closet.webp",
   },
   {
