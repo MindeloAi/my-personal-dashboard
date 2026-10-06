@@ -72,3 +72,10 @@ test("websites: slugs are unique and URLs are https", () => {
     assert.equal(new URL(site.url).protocol, "https:", `${site.client}: not https`);
   }
 });
+
+test("websites: every screenshot exists and matches its slug", () => {
+  for (const site of websites) {
+    assert.equal(site.image, `/assets/websites/${site.slug}.webp`, `${site.client}: image path`);
+    assert.ok(existsSync(path.join(ROOT, "public", site.image)), `${site.client}: missing ${site.image}`);
+  }
+});
