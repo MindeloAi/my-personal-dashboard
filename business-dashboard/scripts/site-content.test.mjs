@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { websites } from "../src/app/(site)/websites/_data.ts";
+import { toJsonLd } from "../src/app/(site)/_components/json-ld.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const EM_DASH = "\u2014";
@@ -78,4 +79,11 @@ test("websites: every screenshot exists and matches its slug", () => {
     assert.equal(site.image, `/assets/websites/${site.slug}.webp`, `${site.client}: image path`);
     assert.ok(existsSync(path.join(ROOT, "public", site.image)), `${site.client}: missing ${site.image}`);
   }
+});
+
+test("toJsonLd escapes < so copy cannot close the script tag", () => {
+  const data = { headline: "a </script><script>alert(1)</script> b" };
+  const out = toJsonLd(data);
+  assert.ok(!out.includes("<"), "raw < in output");
+  assert.deepEqual(JSON.parse(out), data);
 });
