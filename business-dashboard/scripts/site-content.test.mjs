@@ -87,3 +87,8 @@ test("toJsonLd escapes < so copy cannot close the script tag", () => {
   assert.ok(!out.includes("<"), "raw < in output");
   assert.deepEqual(JSON.parse(out), data);
 });
+
+test("llms.txt lists the websites page", () => {
+  const llms = readFileSync(path.join(ROOT, "public", "llms.txt"), "utf8");
+  assert.ok(llms.includes("https://mindelo.site/websites"), "llms.txt does not list /websites");
+});
