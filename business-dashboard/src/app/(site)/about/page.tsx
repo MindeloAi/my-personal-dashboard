@@ -283,7 +283,10 @@ export default function AboutPage() {
                 <div className="pulsing-dot"></div>
                 <span className="font-extrabold tracking-tighter text-lg">Mindelo</span>
             </div>
-            <p className="text-[10px] text-gray-600 font-bold uppercase">© 2026 Mindelo. Built in Trinidad.</p>
+            <div className="flex items-center gap-4 text-[10px] font-bold uppercase">
+                <span className="text-gray-600">© 2026 Mindelo. Built in Trinidad.</span>
+                <a href="/websites" className="text-gray-500 hover:text-white transition">Websites</a>
+            </div>
             <div className="flex items-center gap-3">
                 <a href="https://www.linkedin.com/in/michael-taylor-walker-3b64a73b9/" target="_blank" rel="noopener noreferrer" aria-label="Michael Taylor Walker on LinkedIn" title="Michael Taylor Walker on LinkedIn" className="social-btn social-btn-linkedin relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#0c1018] border border-gray-800 text-gray-500">
                     <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.76-1.95C20.6 8.75 21 11.1 21 14.2V21h-4v-6c0-1.43-.03-3.27-2-3.27-2 0-2.3 1.56-2.3 3.17V21H9z" /></svg>
