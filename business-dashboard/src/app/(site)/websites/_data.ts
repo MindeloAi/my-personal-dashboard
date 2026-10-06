@@ -28,7 +28,7 @@ export const websites: Website[] = [
     client: "Decle Realty",
     industry: "Real estate",
     url: "https://declerealty.net",
-    built: "A real estate site with property listings and agent contact details, built to show available homes to buyers and renters.",
+    built: "A real estate site with property listings and agent contact details.",
     image: "/assets/websites/decle-realty.webp",
   },
   {

@@ -105,9 +105,9 @@ export default function WebsitesPage() {
                   <div className="p-8">
                     <span className="text-[#00e5b0] text-[10px] font-bold uppercase tracking-widest">{site.industry}</span>
                     <h2 className="text-xl font-bold mt-1 mb-3">{site.client}</h2>
-                    <p className="text-gray-500 text-sm">{site.built}</p>
+                    <p className="text-gray-400 text-sm">{site.built}</p>
                     <span className="inline-flex items-center gap-1.5 mt-5 text-[#00e5b0] text-xs font-bold uppercase tracking-widest group-hover:opacity-70 transition-opacity">
-                      {new URL(site.url).hostname}
+                      {new URL(site.url).hostname.replace(/^www\./, "")}
                       <span aria-hidden="true">↗</span>
                     </span>
                   </div>
