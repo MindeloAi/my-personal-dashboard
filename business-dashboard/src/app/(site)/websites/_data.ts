@@ -59,7 +59,7 @@ export const websites: Website[] = [
     slug: "trinity-property",
     client: "Trinity Property Solutions",
     industry: "Real estate and property management",
-    url: "https://trinity-property-solutions.vercel.app",
+    url: "https://www.trinitypropertysolutions.net",
     built: "A site for a Trinidad and Tobago real estate and property management firm.",
     image: "/assets/websites/trinity-property.webp",
   },
