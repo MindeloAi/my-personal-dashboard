@@ -1,4 +1,4 @@
-// Live websites Mindelo built for paying clients, shown on /websites.
+// Live websites Mindelo built for paying clients, shown on /portfolio/websites.
 // Only paying clients with a live site belong here. Run
 // `npm run test:content` after any edit, and `node scripts/capture-websites.mjs`
 // after adding a site.

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import "../_styles/portfolio.css";
-import { SiteChrome } from "../_components/site-chrome";
-import { toJsonLd } from "../_components/json-ld";
+import "../../_styles/portfolio.css";
+import { SiteChrome } from "../../_components/site-chrome";
+import { toJsonLd } from "../../_components/json-ld";
 import { websites } from "./_data";
 
-const PAGE_URL = "https://mindelo.site/websites";
+const PAGE_URL = "https://mindelo.site/portfolio/websites";
 const OG_IMAGE = "https://mindelo.site/assets/img/og-image.jpg";
 const TITLE = "Websites We've Built | Mindelo Trinidad & Tobago";
 const DESCRIPTION =
@@ -14,7 +14,7 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
-  alternates: { canonical: "/websites" },
+  alternates: { canonical: "/portfolio/websites" },
   openGraph: {
     type: "website",
     siteName: "Mindelo",
@@ -61,7 +61,8 @@ const structuredData = {
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "Home", item: "https://mindelo.site/" },
-        { "@type": "ListItem", position: 2, name: "Websites", item: PAGE_URL },
+        { "@type": "ListItem", position: 2, name: "Portfolio", item: "https://mindelo.site/portfolio" },
+        { "@type": "ListItem", position: 3, name: "Websites", item: PAGE_URL },
       ],
     },
   ],
@@ -74,7 +75,8 @@ export default function WebsitesPage() {
       <main className="pt-36 pb-24 px-6 md:px-12">
         <div className="max-w-7xl mx-auto">
           <header className="mb-16 reveal">
-            <span className="text-[#3b9eff] text-sm font-bold uppercase tracking-widest">Our Work</span>
+            <a href="/portfolio" className="text-gray-500 text-xs font-bold uppercase tracking-widest hover:text-white transition">&larr; Portfolio</a>
+            <span className="block mt-8 text-[#3b9eff] text-sm font-bold uppercase tracking-widest">Our Work</span>
             <h1 className="text-4xl md:text-6xl heading-heavy mt-2">Websites we&apos;ve built</h1>
             <p className="text-gray-400 mt-4 max-w-2xl">
               Every site on this page is live and was built for a business in Trinidad and Tobago. Open any one to see it working.

@@ -109,7 +109,7 @@ export function SiteChrome({ active, children }: { active: string; children: Rea
           </div>
           <div className="flex items-center gap-4 text-[10px] font-bold uppercase">
             <span className="text-gray-600">© 2026 Mindelo. Built in Trinidad.</span>
-            <a href="/websites" className="text-gray-500 hover:text-white transition">Websites</a>
+            <a href="/portfolio/websites" className="text-gray-500 hover:text-white transition">Websites</a>
           </div>
           <div className="flex items-center gap-3">
             <a href="https://www.linkedin.com/in/michael-taylor-walker-3b64a73b9/" target="_blank" rel="noopener noreferrer" aria-label="Michael Taylor Walker on LinkedIn" title="Michael Taylor Walker on LinkedIn" className="social-btn social-btn-linkedin relative flex items-center justify-center w-9 h-9 rounded-lg bg-[#0c1018] border border-gray-800 text-gray-500">

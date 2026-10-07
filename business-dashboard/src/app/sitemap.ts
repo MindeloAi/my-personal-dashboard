@@ -19,7 +19,7 @@ const ROUTES: Array<{ path: string; priority: number; lastModified: string }> = 
   { path: "/services", priority: 0.9, lastModified: "2026-08-28" },
   { path: "/voice-receptionist", priority: 0.9, lastModified: "2026-08-28" },
   { path: "/portfolio", priority: 0.8, lastModified: "2026-08-28" },
-  { path: "/websites", priority: 0.8, lastModified: "2026-10-06" },
+  { path: "/portfolio/websites", priority: 0.8, lastModified: "2026-10-07" },
   { path: "/contact", priority: 0.8, lastModified: "2026-08-28" },
   { path: "/demo", priority: 0.7, lastModified: "2026-08-28" },
   { path: "/demo/aisl-quote-followup", priority: 0.6, lastModified: "2026-08-28" },

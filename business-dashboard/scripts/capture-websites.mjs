@@ -1,4 +1,4 @@
-// Captures a 1440x900 screenshot of every site in websites/_data.ts and saves
+// Captures a 1440x900 screenshot of every site in portfolio/websites/_data.ts and saves
 // it as WebP in public/assets/websites/. Re-run after adding a site.
 //
 //   node scripts/capture-websites.mjs            (all sites)
@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import sharp from "sharp";
-import { websites } from "../src/app/(site)/websites/_data.ts";
+import { websites } from "../src/app/(site)/portfolio/websites/_data.ts";
 
 const CHROME = process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const OUT = path.resolve(import.meta.dirname, "..", "public", "assets", "websites");

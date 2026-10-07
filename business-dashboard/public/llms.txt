@@ -12,7 +12,7 @@ Mindelo was founded by Zane Adams and Michael Taylor Walker. It builds for how C
 ## Work
 
 - [Portfolio](https://mindelo.site/portfolio): selected projects for Trinidad and Tobago businesses.
-- [Websites](https://mindelo.site/websites): live websites Mindelo built for Trinidad and Tobago businesses.
+- [Websites](https://mindelo.site/portfolio/websites): live websites Mindelo built for Trinidad and Tobago businesses.
 - [Demos](https://mindelo.site/demo): interactive demos of Mindelo systems.
 
 ## About and contact

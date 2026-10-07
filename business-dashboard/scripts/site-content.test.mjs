@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { websites } from "../src/app/(site)/websites/_data.ts";
+import { websites } from "../src/app/(site)/portfolio/websites/_data.ts";
 import { toJsonLd } from "../src/app/(site)/_components/json-ld.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -90,5 +90,5 @@ test("toJsonLd escapes < so copy cannot close the script tag", () => {
 
 test("llms.txt lists the websites page", () => {
   const llms = readFileSync(path.join(ROOT, "public", "llms.txt"), "utf8");
-  assert.ok(llms.includes("https://mindelo.site/websites"), "llms.txt does not list /websites");
+  assert.ok(llms.includes("https://mindelo.site/portfolio/websites"), "llms.txt does not list /portfolio/websites");
 });
