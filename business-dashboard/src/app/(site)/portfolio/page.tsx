@@ -1,3 +1,5 @@
+import Image from "next/image";
+import { websites } from "./websites/_data";
 import type { Metadata } from "next";
 import Script from "next/script";
 import "../_styles/portfolio.css";
@@ -171,75 +173,28 @@ export default function PortfolioPage() {
                 <div className="md:col-span-2 reveal">
                     <span className="text-[#f43f5e] text-xs font-bold uppercase tracking-widest">Section 01</span>
                     <h3 className="text-2xl md:text-4xl heading-heavy mt-2">Websites</h3>
-                    <p className="text-gray-500 mt-2 text-sm">Custom-built websites for clients across e-commerce and real estate.</p>
+                    <p className="text-gray-500 mt-2 text-sm">Live websites we built for Trinidad and Tobago businesses.</p>
                 </div>
-                {/* Project 07 -- Retro Closet E-Commerce Website */}
-                <div className="portfolio-card reveal delay-200 cursor-pointer group" style={{"--card-accent": "#f43f5e"} as React.CSSProperties} data-accent="#f43f5e" data-badge="Client Project" data-category="E-Commerce / Web Design" data-title="Retro Closet - E-Commerce Website" data-description="Custom e-commerce website built for Retro Closet, a vintage clothing brand. Features a full product catalogue, shopping cart, and a branded storefront designed to match the store's retro aesthetic." data-image="/assets/portfolio/port-1.jpg" data-tags="HTML|CSS|JavaScript|E-Commerce|Web Design" data-url="https://retrocloset.org">
-                    <div className="card-border bg-[#0c1018] border border-gray-800 rounded-3xl overflow-hidden transition-all duration-500">
-                        <div className="relative h-48 overflow-hidden border-b border-gray-800">
-                            <img src="/assets/portfolio/port-1.jpg" alt="Retro Closet E-Commerce Website" className="w-full h-full object-cover object-top opacity-80 group-hover:opacity-100 transition-opacity duration-500" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#0c1018]/80 to-transparent"></div>
-                            <div className="absolute top-4 left-4">
-                                <div className="inline-flex items-center gap-2 bg-[#f43f5e]/10 border border-[#f43f5e]/20 text-[#f43f5e] text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#f43f5e]"></span> Client Project
-                                </div>
+                {/* All client websites live on /portfolio/websites. This card is a plain link, not a .portfolio-card, so the modal script ignores it. */}
+                <a href="/portfolio/websites" className="md:col-span-2 reveal delay-200 group block bg-[#0c1018] border border-gray-800 hover:border-[#00e5b0]/50 rounded-3xl overflow-hidden transition-colors duration-500">
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-gray-800 border-b border-gray-800">
+                        {websites.map((site) => (
+                            <div key={site.slug} className="relative aspect-[16/10] overflow-hidden bg-[#0c1018]">
+                                <Image src={site.image} alt="" width={400} height={250} sizes="(min-width: 768px) 16vw, 33vw" className="w-full h-full object-cover object-top opacity-80 group-hover:opacity-100 transition-opacity duration-500" />
                             </div>
-                        </div>
-                        <div className="p-7">
-                            <span className="text-[#f43f5e] text-[10px] font-bold uppercase tracking-widest">E-Commerce / Web Design</span>
-                            <h4 className="text-xl font-bold mt-1 mb-3">Retro Closet: E-Commerce Website</h4>
-                            <p className="text-gray-500 text-sm">Custom e-commerce website built for Retro Closet, a vintage clothing brand. Features a full product catalogue, shopping cart, and a branded storefront designed to match the store's retro aesthetic.</p>
-                            <div className="flex flex-wrap gap-2 mt-4">
-                                <span className="text-[10px] text-gray-600 bg-gray-800/60 px-2 py-1 rounded font-bold uppercase">HTML</span>
-                                <span className="text-[10px] text-gray-600 bg-gray-800/60 px-2 py-1 rounded font-bold uppercase">CSS</span>
-                                <span className="text-[10px] text-gray-600 bg-gray-800/60 px-2 py-1 rounded font-bold uppercase">JavaScript</span>
-                                <span className="text-[10px] text-gray-600 bg-gray-800/60 px-2 py-1 rounded font-bold uppercase">E-Commerce</span>
-                                <span className="text-[10px] text-gray-600 bg-gray-800/60 px-2 py-1 rounded font-bold uppercase">Web Design</span>
-                            </div>
-                            <a href="https://retrocloset.org" target="_blank" rel="noopener noreferrer" data-stop-propagation="" className="inline-flex items-center gap-1.5 mt-5 text-[#f43f5e] text-xs font-bold uppercase tracking-widest hover:opacity-70 transition-opacity">
-                                retrocloset.org
-                                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
-                            </a>
-                        </div>
+                        ))}
                     </div>
-                </div>
-
-                {/* Project 08 -- Decle Reality Real Estate Website */}
-                <div className="portfolio-card reveal delay-300 cursor-pointer group" style={{"--card-accent": "#10b981"} as React.CSSProperties} data-accent="#10b981" data-badge="Client Project" data-category="Real Estate / Web Design" data-title="Decle Reality - Real Estate Website" data-description="Custom website built for Decle Reality, a real estate agent. Features property listings, agent contact details, and a clean professional design tailored to showcase available properties to potential buyers and renters." data-image="/assets/portfolio/port-2.jpg" data-tags="HTML|CSS|JavaScript|Real Estate|Web Design" data-url="https://declerealty.net">
-                    <div className="card-border bg-[#0c1018] border border-gray-800 rounded-3xl overflow-hidden transition-all duration-500">
-                        <div className="relative h-48 overflow-hidden border-b border-gray-800">
-                            <img src="/assets/portfolio/port-2.jpg" alt="Decle Reality Real Estate Website" className="w-full h-full object-cover object-top opacity-80 group-hover:opacity-100 transition-opacity duration-500" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#0c1018]/80 to-transparent"></div>
-                            <div className="absolute top-4 left-4">
-                                <div className="inline-flex items-center gap-2 bg-[#10b981]/10 border border-[#10b981]/20 text-[#10b981] text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]"></span> Client Project
-                                </div>
-                            </div>
+                    <div className="p-7 md:p-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                        <div>
+                            <span className="text-[#f43f5e] text-[10px] font-bold uppercase tracking-widest">Client Websites</span>
+                            <h4 className="text-xl font-bold mt-1 mb-2">{websites.length} live sites, from retail to recruitment</h4>
+                            <p className="text-gray-400 text-sm">{websites.map((site) => site.client).join(", ")}.</p>
                         </div>
-                        <div className="p-7">
-                            <span className="text-[#10b981] text-[10px] font-bold uppercase tracking-widest">Real Estate / Web Design</span>
-                            <h4 className="text-xl font-bold mt-1 mb-3">Decle Reality: Real Estate Website</h4>
-                            <p className="text-gray-500 text-sm">Custom website built for Decle Reality, a real estate agent. Features property listings, agent contact, and a clean professional design tailored to showcase available properties.</p>
-                            <div className="flex flex-wrap gap-2 mt-4">
-                                <span className="text-[10px] text-gray-600 bg-gray-800/60 px-2 py-1 rounded font-bold uppercase">HTML</span>
-                                <span className="text-[10px] text-gray-600 bg-gray-800/60 px-2 py-1 rounded font-bold uppercase">CSS</span>
-                                <span className="text-[10px] text-gray-600 bg-gray-800/60 px-2 py-1 rounded font-bold uppercase">JavaScript</span>
-                                <span className="text-[10px] text-gray-600 bg-gray-800/60 px-2 py-1 rounded font-bold uppercase">Real Estate</span>
-                                <span className="text-[10px] text-gray-600 bg-gray-800/60 px-2 py-1 rounded font-bold uppercase">Web Design</span>
-                            </div>
-                            <a href="https://declerealty.net" target="_blank" rel="noopener noreferrer" data-stop-propagation="" className="inline-flex items-center gap-1.5 mt-5 text-[#10b981] text-xs font-bold uppercase tracking-widest hover:opacity-70 transition-opacity">
-                                declerealty.net
-                                <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
-                            </a>
-                        </div>
+                        <span className="inline-flex items-center gap-2 text-[#00e5b0] text-xs font-bold uppercase tracking-widest whitespace-nowrap group-hover:opacity-70 transition-opacity">
+                            See every website &rarr;
+                        </span>
                     </div>
-                </div>
-
-                <div className="md:col-span-2 reveal">
-                    <a href="/portfolio/websites" className="inline-flex items-center gap-2 text-[#00e5b0] text-xs font-bold uppercase tracking-widest hover:opacity-70 transition-opacity">
-                        See all websites we&apos;ve built &rarr;
-                    </a>
-                </div>
+                </a>
 
                 {/* ===== CUSTOM APPS SUBSECTION ===== */}
                 <div className="md:col-span-2 reveal mt-16">
