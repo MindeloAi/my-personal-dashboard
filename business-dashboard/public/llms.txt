@@ -1,0 +1,24 @@
+# Mindelo
+
+> Mindelo is a custom software studio in Port of Spain, Trinidad and Tobago. It finds the work a business still does by hand, then automates it or connects it to the software the business already uses, and stays on to keep it running.
+
+Mindelo was founded by Zane Adams and Michael Taylor Walker. It builds for how Caribbean businesses operate, including WhatsApp Business, WiPay, and Trinidad and Tobago phone formats. Clients start with a free 30-minute consult, and most continue on a monthly partnership.
+
+## Services
+
+- [Services](https://mindelo.site/services): business dashboards, custom operations software, job and production tracking, quoting and follow-up systems, systems integration, document data capture, websites, bookings and inboxes, customer portals, and automated reporting.
+- [Voice receptionist](https://mindelo.site/voice-receptionist): a phone receptionist that answers calls, books appointments, and answers customer questions.
+
+## Work
+
+- [Portfolio](https://mindelo.site/portfolio): selected projects for Trinidad and Tobago businesses.
+- [Websites](https://mindelo.site/portfolio/websites): live websites Mindelo built for Trinidad and Tobago businesses.
+- [Demos](https://mindelo.site/demo): interactive demos of Mindelo systems.
+
+## About and contact
+
+- [About](https://mindelo.site/about): the founders and how Mindelo works.
+- [Contact](https://mindelo.site/contact): book a free 30-minute consult.
+- Email: admin@mindelo.site
+- Phone: +1 (868) 361-2254
+- Address: 19 Stanmore Avenue, Port of Spain, Trinidad and Tobago
