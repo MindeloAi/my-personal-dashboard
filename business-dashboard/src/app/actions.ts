@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin, createClient } from "@/lib/auth";
-import { format } from "date-fns";
+import { today } from "@/lib/subscriptions";
 import {
   updateInvoice,
   updateProject,
@@ -34,7 +34,7 @@ export async function markInvoicePaid(invoiceId: string) {
   await requireAdmin();
   await updateInvoice(invoiceId, {
     Status: "Paid",
-    "Paid Date": format(new Date(), "yyyy-MM-dd"),
+    "Paid Date": today(),
   });
   revalidatePath("/", "layout");
 }
@@ -48,9 +48,16 @@ export async function updateProjectStatus(
   revalidatePath("/", "layout");
 }
 
+// Revenue/profit metrics require Status "Paid" + a Paid Date to both be set
+// (see hero-cards.tsx etc.), so an invoice saved as Paid without one gets
+// today's date rather than going "Paid" but invisible to those calculations.
+function withPaidDate(data: InvoiceWrite): InvoiceWrite {
+  return data.Status === "Paid" && !data["Paid Date"] ? { ...data, "Paid Date": today() } : data;
+}
+
 export async function createInvoiceAction(data: InvoiceWrite) {
   await requireAdmin();
-  await createInvoice(data);
+  await createInvoice(withPaidDate(data));
   revalidatePath("/", "layout");
 }
 
@@ -74,15 +81,7 @@ export async function updateExpenseAction(id: string, data: ExpenseWrite) {
 
 export async function updateInvoiceAction(id: string, data: InvoiceWrite) {
   await requireAdmin();
-  // Revenue/profit metrics require Status "Paid" + a Paid Date to both be
-  // set (see hero-cards.tsx etc.) — stamp today's date if the caller is
-  // flipping to Paid without supplying one, so an invoice never goes
-  // "Paid" but invisible to those calculations.
-  const payload =
-    data.Status === "Paid" && !data["Paid Date"]
-      ? { ...data, "Paid Date": format(new Date(), "yyyy-MM-dd") }
-      : data;
-  await updateInvoice(id, payload);
+  await updateInvoice(id, withPaidDate(data));
   revalidatePath("/", "layout");
 }
 
@@ -163,14 +162,18 @@ export async function deleteClientAction(id: string) {
 
 // ─── Subscriptions ──────────────────────────────────────────────────────────
 
+// Start date is required: without it a subscription is never live and has no
+// billing anchor. Create must send one; an edit may omit it but never clear it.
 export async function createSubscriptionAction(data: SubscriptionWrite) {
   await requireAdmin();
+  if (!data["Start Date"]) throw new Error("Start date is required");
   await createSubscription(data);
   revalidatePath("/", "layout");
 }
 
 export async function updateSubscriptionAction(id: string, data: SubscriptionWrite) {
   await requireAdmin();
+  if (data["Start Date"] === "") throw new Error("Start date is required");
   await updateSubscription(id, data);
   revalidatePath("/", "layout");
 }

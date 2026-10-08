@@ -49,7 +49,7 @@ export function FinanceView({
             clientName={selectedClientName}
           />
         </div>
-        <Cashflow invoices={invoices} projects={projects} />
+        <Cashflow invoices={invoices} projects={projects} subscriptions={subscriptions} />
       </div>
 
       <SubscriptionsList

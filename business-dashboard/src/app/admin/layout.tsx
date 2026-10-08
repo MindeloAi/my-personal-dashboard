@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { format } from "date-fns";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { getClients, getProjects } from "@/lib/db";
-import { getAdmin } from "@/lib/auth";
+import { requireAdminPage } from "@/lib/auth";
 
 // Never index the dashboard. There is deliberately no link to /admin from the
 // public site, but a stray referrer or a shared URL would otherwise be enough
@@ -27,13 +26,20 @@ export default async function AppLayout({
   const [clients, projects, admin] = await Promise.all([
     getClients(),
     getProjects(),
-    getAdmin(),
+    requireAdminPage(),
   ]);
-  const today = format(new Date(), "EEEE, MMMM d");
+  // Trinidad's date, not the server's: Vercel runs in UTC, which showed
+  // tomorrow from 8pm onwards.
+  const today = new Date().toLocaleDateString("en-US", {
+    timeZone: "America/Port_of_Spain",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
 
   return (
     <div className="min-h-screen bg-[#0b0d10] text-white">
-      <Sidebar adminEmail={admin?.email}>
+      <Sidebar adminEmail={admin.email}>
         <div className="p-3 sm:p-5 max-w-[1400px] mx-auto space-y-3 dashboard-fade-in">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-1">
             <div>

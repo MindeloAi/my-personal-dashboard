@@ -23,6 +23,13 @@ async function signIn(formData: FormData) {
   // Distinguishing them would let anyone enumerate who has access.
   if (error) redirect("/login?error=invalid");
 
+  // A valid account is not enough: without an admin profile the admin pages
+  // would bounce straight back here. Sign out so the form isn't stuck in a loop.
+  if (!(await getAdmin())) {
+    await supabase.auth.signOut();
+    redirect("/login?error=unauthorised");
+  }
+
   redirect("/admin/overview");
 }
 
@@ -52,6 +59,9 @@ export default async function LoginPage({
           <p className="text-xs text-[#ff4d8b]">
             That email and password combination was not recognised.
           </p>
+        )}
+        {error === "unauthorised" && (
+          <p className="text-xs text-[#ff4d8b]">This account does not have dashboard access.</p>
         )}
         {error === "missing" && (
           <p className="text-xs text-[#ff4d8b]">Enter both an email and a password.</p>

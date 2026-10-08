@@ -1,3 +1,4 @@
+import { requireAdminPage } from "@/lib/auth";
 import {
   getClients,
   getProjects,
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function OverviewPage() {
+  await requireAdminPage();
   const [clients, projects, invoices, expenses, subscriptions] = await Promise.all([
     getClients(),
     getProjects(),

@@ -27,12 +27,19 @@ function periodMonths(sub: Subscription): number {
   return FREQUENCY_MONTHS[(sub.Frequency ?? "monthly") as Frequency] ?? 1;
 }
 
-export function today(): string {
-  return format(new Date(), "yyyy-MM-dd");
+/**
+ * "YYYY-MM-DD" in Trinidad, not the process's zone. Vercel runs in UTC, so a
+ * bare format(new Date()) is tomorrow from 8pm AST: paid dates landed in the
+ * next month and server HTML disagreed with the browser.
+ */
+const TT_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Port_of_Spain" });
+export function today(at: Date = new Date()): string {
+  return TT_DATE.format(at);
 }
 
 /**
- * Earning money right now: Active, and not past its end date.
+ * Live — earning money right now: Active, started, and not past its end date.
+ * No start date means not live; the list flags those so they get fixed.
  *
  * Deliberately NOT "has a linked project that is In Progress". That test is what
  * made MRR read $0 — a delivered project on a maintenance retainer is Done, and
@@ -40,15 +47,37 @@ export function today(): string {
  */
 export function isActive(sub: Subscription, on = today()): boolean {
   if (sub.Status !== "Active") return false;
+  const start = sub["Start Date"];
+  if (!start || start > on) return false;
   const end = sub["End Date"];
   return !end || end >= on;
 }
 
-/** Monthly recurring revenue: each active subscription's amount, per month. */
+/** Active, but its start date is still ahead — signed, not yet earning. */
+export function startsLater(sub: Subscription, on = today()): boolean {
+  const start = sub["Start Date"];
+  return sub.Status === "Active" && !!start && start > on;
+}
+
+/** One subscription's amount as a per-month figure: monthly, /3, or /12. */
+export function monthlyAmount(sub: Subscription): number {
+  return (sub.Amount ?? 0) / periodMonths(sub);
+}
+
+/** Monthly recurring revenue: each live subscription's amount, per month. */
 export function mrr(subs: Subscription[], on = today()): number {
-  return subs
-    .filter((s) => isActive(s, on))
-    .reduce((sum, s) => sum + (s.Amount ?? 0) / periodMonths(s), 0);
+  return subs.filter((s) => isActive(s, on)).reduce((sum, s) => sum + monthlyAmount(s), 0);
+}
+
+/** Everything the MRR / ARR blocks show, so every block agrees. */
+export function recurringStats(subs: Subscription[], on = today()) {
+  const monthly = mrr(subs, on);
+  return {
+    mrr: monthly,
+    arr: monthly * 12,
+    live: subs.filter((s) => isActive(s, on)).length,
+    upcoming: subs.filter((s) => startsLater(s, on)).length,
+  };
 }
 
 /** Invoices raised against one subscription, oldest issue date first. */

@@ -38,21 +38,24 @@ export function EditInvoiceModal({
     setError(false);
     start(async () => {
       try {
+        // "" clears a column; undefined would leave the old value in place while
+        // reporting success (db.ts toColumns). Type/Status/Amount stay undefined
+        // when blank: "" fails their enum/number validation.
         await updateInvoiceAction(invoice.id, {
-          "Invoice Number": (fd.get("invoiceNumber") as string) || undefined,
+          "Invoice Number": (fd.get("invoiceNumber") as string) || "",
           Amount: amount ? parseFloat(amount) : undefined,
           "Invoice Type": invoiceType ? (invoiceType as InvoiceTypeValue) : undefined,
           Status: status ? (status as InvoiceStatusValue) : undefined,
-          "Issue Date": (fd.get("issueDate") as string) || undefined,
-          "Due Date": (fd.get("dueDate") as string) || undefined,
-          "Paid Date": (fd.get("paidDate") as string) || undefined,
-          Notes: (fd.get("notes") as string) || undefined,
-          Project: projectId ? [projectId] : undefined,
-          // Unlike Project above, "— None" here sends [] and genuinely unlinks.
-          // The link decides which period lib/subscriptions.ts thinks has been
-          // billed, so a misattributed invoice has to be detachable — otherwise
-          // it silently suppresses a reminder for ever.
-          Subscription: subscriptionId ? [subscriptionId] : [],
+          "Issue Date": (fd.get("issueDate") as string) || "",
+          "Due Date": (fd.get("dueDate") as string) || "",
+          "Paid Date": (fd.get("paidDate") as string) || "",
+          Notes: (fd.get("notes") as string) || "",
+          // "— None" sends [] and unlinks. But each select only renders when its
+          // list was passed in; a caller without the list must not unlink, or
+          // editing from a screen that omits it silently detaches the invoice
+          // (for a subscription, that re-raises a reminder already billed).
+          Project: projectId ? [projectId] : projects.length ? [] : undefined,
+          Subscription: subscriptionId ? [subscriptionId] : subscriptions.length ? [] : undefined,
         });
         toast.success("Invoice saved");
         onClose();

@@ -349,11 +349,14 @@ export const ProjectWriteSchema = z.object({
       "recurring_monthly",
       "recurring_custom",
     ])
+    // Nullable so an edit can clear it: "" fails the enum/number check and
+    // undefined is a no-op in toColumns; null is written as NULL.
+    .nullable()
     .optional(),
-  "Total Value": z.number().optional(),
+  "Total Value": z.number().nullable().optional(),
   "Recurring Amount": z.number().optional(),
   "Recurring Frequency": z.enum(["monthly", "quarterly", "yearly"]).optional(),
-  "Deposit Percentage": z.number().optional(),
+  "Deposit Percentage": z.number().nullable().optional(),
   "Start Date": z.string().optional(),
   "End Date": z.string().optional(),
   Notes: z.string().optional(),

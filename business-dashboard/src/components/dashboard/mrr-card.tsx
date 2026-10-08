@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { format, startOfMonth, endOfMonth, subMonths, parseISO, isBefore, isAfter } from "date-fns";
 import { useCountUp } from "@/hooks/use-count-up";
-import { mrr, dueSubscriptions } from "@/lib/subscriptions";
+import { recurringStats, dueSubscriptions } from "@/lib/subscriptions";
 import type { Invoice, Subscription } from "@/lib/airtable";
 
 type Props = {
@@ -25,9 +25,7 @@ export function MrrCard({ subscriptions, invoices, onJumpToRecurring }: Props) {
     // "In Progress" — which excluded every retainer on a delivered project
     // (those are Done) and every retainer with no project at all, so this card
     // read $0 while money was recurring. See lib/subscriptions.ts.
-    const monthly = mrr(subscriptions);
-    const arr = monthly * 12;
-    const activeCount = subscriptions.filter((s) => s.Status === "Active").length;
+    const { mrr, arr, live, upcoming } = recurringStats(subscriptions);
     const due = dueSubscriptions(subscriptions, invoices);
 
     // Last 6 months of paid recurring invoice revenue
@@ -55,7 +53,7 @@ export function MrrCard({ subscriptions, invoices, onJumpToRecurring }: Props) {
 
     const peak = Math.max(...monthlyRecurring.map((m) => m.total), 1);
 
-    return { mrr: monthly, arr, activeCount, due, monthlyRecurring, momPct, peak };
+    return { mrr, arr, live, upcoming, due, monthlyRecurring, momPct, peak };
   }, [subscriptions, invoices]);
 
   const animatedMrr = useCountUp(stats.mrr);
@@ -77,12 +75,22 @@ export function MrrCard({ subscriptions, invoices, onJumpToRecurring }: Props) {
         )}
       </div>
 
-      <p className="text-2xl font-bold text-white mt-1 tabular-nums">
-        ${Math.round(animatedMrr).toLocaleString()}
-        <span className="text-xs font-medium text-zinc-500 ml-1.5">MRR</span>
-      </p>
-      <p className="text-xs text-zinc-500 mt-0.5">
-        ${Math.round(stats.arr).toLocaleString()} ARR · {stats.activeCount} active
+      <div className="grid grid-cols-2 gap-3 mt-1">
+        <div>
+          <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">MRR</p>
+          <p className="text-2xl font-bold text-white tabular-nums">
+            TT${Math.round(animatedMrr).toLocaleString()}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">ARR</p>
+          <p className="text-2xl font-bold text-white tabular-nums">
+            TT${Math.round(stats.arr).toLocaleString()}
+          </p>
+        </div>
+      </div>
+      <p className="text-xs text-zinc-500 mt-1">
+        {stats.live} live · {stats.upcoming} starting later
       </p>
 
       {stats.due.length > 0 && (

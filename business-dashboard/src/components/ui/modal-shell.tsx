@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+
+// true in the browser, false during SSR, with no setState-in-effect re-render.
+const noopSubscribe = () => () => {};
 
 type Props = {
   /** Shown in the header and used as the dialog's accessible name. */
@@ -44,8 +47,10 @@ type Props = {
 export function ModalShell({ title, onClose, children, maxWidthClass = "max-w-md", headerExtra }: Props) {
   // The portal target only exists in the browser. Modals open on interaction,
   // so rendering nothing during SSR costs nothing.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  // A drag that starts inside the card and ends on the backdrop fires its
+  // click on the backdrop; only a press that began there should close.
+  const pressedBackdrop = useRef(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -71,8 +76,11 @@ export function ModalShell({ title, onClose, children, maxWidthClass = "max-w-md
       aria-modal="true"
       aria-label={title}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onPointerDown={(e) => {
+        pressedBackdrop.current = e.target === e.currentTarget;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (pressedBackdrop.current && e.target === e.currentTarget) onClose();
       }}
       style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
     >

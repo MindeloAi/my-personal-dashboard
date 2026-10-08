@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { getAdminProfile } from "@/lib/db";
 
 // ─── Authentication ───────────────────────────────────────────────────────────
@@ -81,5 +82,17 @@ export async function getAdmin(): Promise<AdminUser | null> {
 export async function requireAdmin(): Promise<AdminUser> {
   const admin = await getAdmin();
   if (!admin) throw new Error("Not authorised");
+  return admin;
+}
+
+/**
+ * Same check for READS. The proxy only proves a session exists, so a signed-in
+ * user with no profiles row could otherwise read every admin page. Call it in
+ * every admin page as well as the layout: a client-side navigation can render
+ * a page segment without re-running its layout.
+ */
+export async function requireAdminPage(): Promise<AdminUser> {
+  const admin = await getAdmin();
+  if (!admin) redirect("/login?error=unauthorised");
   return admin;
 }

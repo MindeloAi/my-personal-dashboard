@@ -270,7 +270,9 @@ export function RevenueChart({ invoices, expenses }: Props) {
           <XAxis dataKey="month" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
           <ReferenceLine y={0} stroke="#2a2e34" />
-          <Tooltip content={<CustomTooltip onDrillDown={setDrillDown} />} cursor={{ stroke: "#2a2e34", strokeWidth: 1 }} />
+          {/* Click, not hover: Recharts gives the hover tooltip pointer-events:none, so its
+              "View invoices" button could never be pressed (and hover never fires on touch). */}
+          <Tooltip trigger="click" wrapperStyle={{ pointerEvents: "auto" }} content={<CustomTooltip onDrillDown={setDrillDown} />} cursor={{ stroke: "#2a2e34", strokeWidth: 1 }} />
           <Line type="linear" dataKey="revenue" name="Revenue" stroke="#bfff3a" strokeWidth={2.5} dot={{ fill: "#bfff3a", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#bfff3a", cursor: "pointer" }} animationDuration={800} />
           <Line type="linear" dataKey="outstanding" name="Outstanding" stroke="#ff4d8b" strokeWidth={2} strokeDasharray="5 3" dot={{ fill: "#ff4d8b", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#ff4d8b", cursor: "pointer" }} animationDuration={1000} />
           <Line type="linear" dataKey="netProfit" name="Net Profit" stroke="#3affd1" strokeWidth={2} dot={{ fill: "#3affd1", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#3affd1", cursor: "pointer" }} animationDuration={1200} />

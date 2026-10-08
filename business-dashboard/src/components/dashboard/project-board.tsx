@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { useMemo, useOptimistic, useState, useSyncExternalStore, useTransition } from "react";
+import { createPortal } from "react-dom";
 import {
   DndContext,
   DragOverlay,
@@ -54,7 +55,8 @@ function ownerInitials(owner: string | undefined): string | null {
   if (!owner) return null;
   const trimmed = owner.trim();
   if (!trimmed) return null;
-  if (/^both$/i.test(trimmed)) return "MP";
+  const known: Record<string, string> = { m: "M", partner: "P", both: "MP" };
+  if (known[trimmed.toLowerCase()]) return known[trimmed.toLowerCase()];
   const words = trimmed.split(/[\s&/+,]+/).filter(Boolean);
   if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
   return words[0].slice(0, 2).toUpperCase();
@@ -137,7 +139,7 @@ function ProjectCard({
                 e.stopPropagation();
                 onDelete();
               }}
-              className="min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1 rounded-md text-zinc-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-[#ff4d8b] hover:bg-[#ff4d8b]/10 transition-all"
+              className="min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1 rounded-md text-zinc-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 hover:text-[#ff4d8b] hover:bg-[#ff4d8b]/10 transition-all"
               aria-label="Delete project"
               title="Delete project"
             >
@@ -215,6 +217,9 @@ function ProjectDetailModal({
     const paymentStructureField = (fd.get("paymentStructure") as string) || "";
 
     setError(false);
+    // An edit must send "" / null / [] to clear a field: db.ts's toColumns
+    // treats undefined as "leave untouched", so `|| undefined` silently kept the
+    // old value while reporting success. Status stays undefined (CHECK column).
     start(async () => {
       try {
         await updateProjectAction(project.id, {
@@ -222,15 +227,21 @@ function ProjectDetailModal({
           Status: status ? (status as ProjectStatusValue) : undefined,
           "Payment Structure": paymentStructureField
             ? (paymentStructureField as PaymentStructureValue)
+            : null,
+          "Total Value": totalValue ? parseFloat(totalValue) : null,
+          // The field only renders for Deposit + Final; absent means leave it.
+          "Deposit Percentage": fd.has("depositPct")
+            ? depositPct
+              ? parseFloat(depositPct)
+              : null
             : undefined,
-          "Total Value": totalValue ? parseFloat(totalValue) : undefined,
-          "Deposit Percentage": depositPct ? parseFloat(depositPct) : undefined,
-          "Start Date": (fd.get("startDate") as string) || undefined,
-          "End Date": (fd.get("endDate") as string) || undefined,
-          Notes: (fd.get("notes") as string) || undefined,
-          Owner: (fd.get("owner") as string) || undefined,
-          "Service Type": (fd.get("serviceType") as string) || undefined,
-          Client: clientId ? [clientId] : undefined,
+          "Start Date": (fd.get("startDate") as string) || "",
+          "End Date": (fd.get("endDate") as string) || "",
+          Notes: (fd.get("notes") as string) || "",
+          Owner: (fd.get("owner") as string) || "",
+          "Service Type": (fd.get("serviceType") as string) || "",
+          // The select only renders when there are clients to pick from.
+          Client: clientId ? [clientId] : clients.length ? [] : undefined,
         });
         toast.success("Project saved");
         onClose();
@@ -248,7 +259,11 @@ function ProjectDetailModal({
       maxWidthClass="max-w-sm"
       headerExtra={
         <button
-          onClick={() => setEditMode(!editMode)}
+          onClick={() => {
+            // The form remounts with the saved value, so the Deposit field must too.
+            setPaymentStructure(project["Payment Structure"] ?? "");
+            setEditMode(!editMode);
+          }}
           className="text-xs text-zinc-500 hover:text-white transition-colors"
         >
           {editMode ? "View" : "Edit"}
@@ -394,7 +409,10 @@ function ProjectDetailModal({
             <div className="flex gap-2 justify-end mt-1">
               <button
                 type="button"
-                onClick={() => setEditMode(false)}
+                onClick={() => {
+                  setPaymentStructure(project["Payment Structure"] ?? "");
+                  setEditMode(false);
+                }}
                 className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
               >
                 Cancel
@@ -495,6 +513,12 @@ function DraggableCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onDetail();
+        }
+      }}
       className="cursor-grab active:cursor-grabbing"
     >
       <ProjectCard
@@ -551,6 +575,9 @@ function Column({
 
 type OwnerFilter = "All" | string;
 
+// true in the browser, false during SSR, with no setState-in-effect re-render.
+const noopSubscribe = () => () => {};
+
 type OptimisticAction =
   | { kind: "status"; id: string; status: Status }
   | { kind: "delete"; id: string };
@@ -561,6 +588,8 @@ export function ProjectBoard({ projects, clients = [], initialClientId = null }:
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("All");
   const [clientFilter, setClientFilter] = useState<string | null>(initialClientId);
   const [, startTransition] = useTransition();
+  // The overlay's portal target only exists in the browser; see the DragOverlay below.
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
   // useOptimistic gives us a derived view that resets to the latest server prop
   // automatically; no setState-in-effect mirror needed.
@@ -579,7 +608,7 @@ export function ProjectBoard({ projects, clients = [], initialClientId = null }:
   const ownerOptions = useMemo(() => {
     const set = new Set<string>();
     for (const p of optimisticProjects) {
-      if (p.Owner) set.add(p.Owner);
+      if (p.Owner && p.Status !== "Cancelled") set.add(p.Owner);
     }
     return Array.from(set).sort();
   }, [optimisticProjects]);
@@ -677,7 +706,15 @@ export function ProjectBoard({ projects, clients = [], initialClientId = null }:
             ))}
           </div>
         </div>
-        <DragOverlay>{activeProject ? <ProjectCard project={activeProject} /> : null}</DragOverlay>
+        {/* Portalled for the same reason as ModalShell: DragOverlay is position:fixed,
+            and this panel's hover:-translate-y-0.5 (active for the whole drag, since
+            the cursor is over it) would make it resolve against the panel instead of
+            the viewport, so the card trails the cursor by the panel's page offset. */}
+        {mounted &&
+          createPortal(
+            <DragOverlay>{activeProject ? <ProjectCard project={activeProject} /> : null}</DragOverlay>,
+            document.body,
+          )}
       </DndContext>
       {detailProject && (
         <ProjectDetailModal

@@ -117,7 +117,7 @@ export function BusinessCounters({ clients, projects, invoices, onJumpToOverdue 
         {[
           { label: "Clients", value: String(stats.activeClients), color: "#3affd1" },
           { label: "Active projects", value: String(stats.activeProjects), color: "#bfff3a" },
-          { label: "Leads", value: String(stats.leads), color: "#c44dff" },
+          { label: "Project leads", value: String(stats.leads), color: "#c44dff" },
           { label: "Completed", value: String(stats.doneProjects), color: "#4d9fff" },
         ].map(({ label, value, color }) => (
           <div key={label} className="flex items-center justify-between">

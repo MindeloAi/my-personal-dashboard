@@ -41,7 +41,7 @@ export function OverviewView({
           <MrrCard
             subscriptions={subscriptions}
             invoices={invoices}
-            onJumpToRecurring={() => router.push("/admin/finance")}
+            onJumpToRecurring={() => router.push("/admin/finance#subscriptions")}
           />
           <ServiceTypeSplit projects={projects} invoices={invoices} />
         </div>

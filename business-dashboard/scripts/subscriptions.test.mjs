@@ -10,9 +10,12 @@ import assert from "node:assert/strict";
 import {
   isActive,
   mrr,
+  recurringStats,
   nextInvoiceDate,
   dueSubscriptions,
+  today,
 } from "../src/lib/subscriptions.ts";
+import { isOverdue } from "../src/lib/invoices.ts";
 
 const TODAY = "2026-09-03";
 
@@ -56,6 +59,24 @@ test("an end date in the past ends the subscription, today does not", () => {
   assert.equal(isActive(sub({ "End Date": "2026-09-02" }), TODAY), false);
   assert.equal(isActive(sub({ "End Date": TODAY }), TODAY), true);
   assert.equal(isActive(sub({ "End Date": "2026-09-04" }), TODAY), true);
+});
+
+test("live only once started; no start date is never live", () => {
+  assert.equal(isActive(sub({ "Start Date": TODAY }), TODAY), true);
+  assert.equal(isActive(sub({ "Start Date": "2026-09-04" }), TODAY), false);
+  assert.equal(isActive(sub({ "Start Date": undefined }), TODAY), false);
+});
+
+// ─── recurringStats ─────────────────────────────────────────────────────────
+test("a TT$6,000 yearly plan adds 500 to MRR and 6,000 to ARR", () => {
+  const s = recurringStats([sub({ Amount: 6000, Frequency: "yearly" })], TODAY);
+  assert.equal(s.mrr, 500);
+  assert.equal(s.arr, 6000);
+});
+
+test("a future start is excluded from MRR/ARR and counted as upcoming", () => {
+  const subs = [sub(), sub({ id: "s2", Amount: 6000, "Start Date": "2026-10-01" })];
+  assert.deepEqual(recurringStats(subs, TODAY), { mrr: 1200, arr: 14400, live: 1, upcoming: 1 });
 });
 
 // ─── mrr ────────────────────────────────────────────────────────────────────
@@ -135,6 +156,19 @@ test("most overdue comes first", () => {
     dueSubscriptions([a, b], [], TODAY).map((d) => d.sub.id),
     ["b", "a"],
   );
+});
+
+// ─── dates in Trinidad time ─────────────────────────────────────────────────
+test("today() is Trinidad's date, not UTC's", () => {
+  // 10pm on 7 Oct in Trinidad is already 8 Oct in UTC.
+  assert.equal(today(new Date("2026-10-08T02:00:00Z")), "2026-10-07");
+});
+
+test("an invoice is overdue the day after it falls due, not on it", () => {
+  const at = new Date("2026-10-07T15:00:00Z");
+  const sent = (due) => ({ id: "x", Status: "Sent", "Due Date": due });
+  assert.equal(isOverdue(sent("2026-10-07"), at), false);
+  assert.equal(isOverdue(sent("2026-10-06"), at), true);
 });
 
 if (process.exitCode) {

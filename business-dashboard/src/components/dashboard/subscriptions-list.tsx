@@ -12,8 +12,9 @@ import {
 } from "@/app/actions";
 import {
   dueSubscriptions,
-  mrr,
+  recurringStats,
   nextInvoiceDate,
+  today,
   FREQUENCY_LABEL,
   type Frequency,
 } from "@/lib/subscriptions";
@@ -36,7 +37,13 @@ const selectCls = inputCls + " cursor-pointer";
 /** Days after the period start that an auto-created draft invoice falls due. */
 const PAYMENT_TERMS_DAYS = 14;
 
-const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
+const money = (n: number) => `TT$${Math.round(n).toLocaleString()}`;
+
+const AMOUNT_LABEL: Record<Frequency, string> = {
+  monthly: "Amount per month (TT$)",
+  quarterly: "Amount per quarter (TT$)",
+  yearly: "Amount per year (TT$)",
+};
 const pretty = (d: string) => format(parseISO(d), "d MMM yyyy");
 
 type Props = {
@@ -54,7 +61,7 @@ export function SubscriptionsList({ subscriptions, invoices, clients, projects }
   const [, startTransition] = useTransition();
 
   const due = useMemo(() => dueSubscriptions(subscriptions, invoices), [subscriptions, invoices]);
-  const total = useMemo(() => mrr(subscriptions), [subscriptions]);
+  const stats = useMemo(() => recurringStats(subscriptions), [subscriptions]);
 
   const clientName = (id: string | undefined) => {
     if (!id) return null;
@@ -96,13 +103,22 @@ export function SubscriptionsList({ subscriptions, invoices, clients, projects }
   }
 
   return (
-    <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-4 sm:p-6">
+    <div id="subscriptions" className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-4 sm:p-6 scroll-mt-4">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div>
           <p className="text-xs text-zinc-500 uppercase tracking-wider">Recurring revenue</p>
-          <p className="text-lg font-bold text-white mt-0.5 tabular-nums">
-            {money(total)}
-            <span className="text-xs font-medium text-zinc-500 ml-1.5">MRR</span>
+          <div className="flex gap-5 mt-0.5">
+            <p className="text-lg font-bold text-white tabular-nums">
+              {money(stats.mrr)}
+              <span className="text-xs font-medium text-zinc-500 ml-1.5">MRR</span>
+            </p>
+            <p className="text-lg font-bold text-white tabular-nums">
+              {money(stats.arr)}
+              <span className="text-xs font-medium text-zinc-500 ml-1.5">ARR</span>
+            </p>
+          </div>
+          <p className="text-xs text-zinc-500">
+            {stats.live} live · {stats.upcoming} starting later
           </p>
         </div>
         <button
@@ -160,6 +176,8 @@ export function SubscriptionsList({ subscriptions, invoices, clients, projects }
               ? (sub.Status as SubStatus)
               : "Active";
             const next = nextInvoiceDate(sub, invoices);
+            const start = sub["Start Date"];
+            const end = sub["End Date"];
             const company = clientName(sub.Client?.[0]);
             return (
               <li key={sub.id} className="py-3">
@@ -172,7 +190,17 @@ export function SubscriptionsList({ subscriptions, invoices, clients, projects }
                     <p className="font-medium text-white leading-tight truncate">{sub.Name}</p>
                     <p className="text-xs text-zinc-500 truncate">
                       {company ? `${company} · ` : ""}
-                      {next ? `next ${pretty(next)}` : "no start date set"}
+                      {!start ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full border font-medium bg-[#fbbf24]/10 text-[#fbbf24] border-[#fbbf24]/30">
+                          Set start date
+                        </span>
+                      ) : end && end < today() ? (
+                        <span className="text-zinc-600">Ended {pretty(end)}</span>
+                      ) : start > today() ? (
+                        <span className="text-zinc-600">Starts {pretty(start)}</span>
+                      ) : (
+                        `Started ${pretty(start)}${next ? ` · next ${pretty(next)}` : ""}`
+                      )}
                     </p>
                   </button>
                   <div className="flex items-center gap-2 shrink-0">
@@ -254,7 +282,9 @@ function SubscriptionModal({
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState(false);
-  const today = format(new Date(), "yyyy-MM-dd");
+  const [frequency, setFrequency] = useState<Frequency>(
+    (subscription?.Frequency as Frequency) ?? "monthly",
+  );
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -349,7 +379,7 @@ function SubscriptionModal({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Amount per period ($)</label>
+            <label className="text-xs text-zinc-400">{AMOUNT_LABEL[frequency]}</label>
             <input
               name="amount"
               type="number"
@@ -362,10 +392,11 @@ function SubscriptionModal({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Billed</label>
+            <label className="text-xs text-zinc-400">Billing frequency</label>
             <select
               name="frequency"
-              defaultValue={subscription?.Frequency ?? "monthly"}
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value as Frequency)}
               className={selectCls}
             >
               {FREQUENCIES.map((f) => (
@@ -392,12 +423,15 @@ function SubscriptionModal({
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">First invoice date</label>
+            <label className="text-xs text-zinc-400">Start date</label>
+            {/* Required. Also the billing anchor: first invoice, then every period after.
+                An existing row with no start date opens blank so it must be chosen. */}
             <input
               name="startDate"
               type="date"
-              defaultValue={subscription?.["Start Date"] ?? today}
+              defaultValue={subscription ? (subscription["Start Date"] ?? "") : today()}
               className={inputCls}
+              required
             />
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { requireAdminPage } from "@/lib/auth";
 import { ProjectBoard } from "@/components/dashboard/project-board";
 import { getProjects, getClients } from "@/lib/db";
 
@@ -10,6 +11,7 @@ export default async function ProjectsPage({
   searchParams: Promise<{ client?: string }>;
 }) {
   const { client } = await searchParams;
+  await requireAdminPage();
   const [projects, clients] = await Promise.all([getProjects(), getClients()]);
   return <ProjectBoard projects={projects} clients={clients} initialClientId={client ?? null} />;
 }

@@ -1,5 +1,5 @@
-import { parseISO } from "date-fns";
 import type { Invoice } from "@/lib/airtable";
+import { today } from "@/lib/subscriptions";
 
 /**
  * Single source of truth for "is this invoice overdue?"
@@ -17,7 +17,8 @@ export function isOverdue(invoice: Invoice, now: Date = new Date()): boolean {
   if (invoice.Status !== "Sent") return false;
   const dueStr = invoice["Due Date"];
   if (!dueStr) return false;
-  return parseISO(dueStr) < now;
+  // Overdue the day AFTER it falls due, not from midnight on the due date.
+  return dueStr < today(now);
 }
 
 export type EffectiveStatus = "Paid" | "Overdue" | "Sent" | "Draft" | "Void";

@@ -1,15 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { parseISO, isAfter, addDays, format, isBefore } from "date-fns";
+import { parseISO, isAfter, addDays, format, isBefore, startOfDay } from "date-fns";
 import { EditInvoiceModal } from "@/components/dashboard/edit-invoice-modal";
-import type { Invoice, Project } from "@/lib/airtable";
+import type { Invoice, Project, Subscription } from "@/lib/airtable";
 
-type Props = { invoices: Invoice[]; projects?: Project[] };
+type Props = { invoices: Invoice[]; projects?: Project[]; subscriptions?: Subscription[] };
 
 const DOT_COLORS = ["#3affd1", "#bfff3a", "#c44dff", "#ff4d8b", "#4d9fff"];
 
-export function Cashflow({ invoices, projects = [] }: Props) {
+export function Cashflow({ invoices, projects = [], subscriptions = [] }: Props) {
   const [editing, setEditing] = useState<Invoice | null>(null);
 
   const { upcoming, total } = useMemo(() => {
@@ -20,7 +20,8 @@ export function Cashflow({ invoices, projects = [] }: Props) {
         if (i.Status !== "Sent" && i.Status !== "Overdue") return false;
         if (!i["Due Date"]) return false;
         const d = parseISO(i["Due Date"]);
-        return !isBefore(d, now) && !isAfter(d, cutoff);
+        // startOfDay: an invoice due today is still expected cash, not dropped.
+        return !isBefore(d, startOfDay(now)) && !isAfter(d, cutoff);
       })
       .sort((a, b) => parseISO(a["Due Date"]!).getTime() - parseISO(b["Due Date"]!).getTime());
     const total = upcoming.reduce((s, i) => s + (i.Amount ?? 0), 0);
@@ -86,7 +87,12 @@ export function Cashflow({ invoices, projects = [] }: Props) {
       )}
 
       {editing && (
-        <EditInvoiceModal invoice={editing} projects={projects} onClose={() => setEditing(null)} />
+        <EditInvoiceModal
+          invoice={editing}
+          projects={projects}
+          subscriptions={subscriptions}
+          onClose={() => setEditing(null)}
+        />
       )}
     </div>
   );

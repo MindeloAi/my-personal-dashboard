@@ -50,11 +50,12 @@ function EditModal({ expense, onClose }: { expense: Expense; onClose: () => void
           Name: (fd.get("name") as string) || undefined,
           Category: category ? (category as ExpenseCategoryValue) : undefined,
           Amount: amount ? parseFloat(amount) : undefined,
-          Date: (fd.get("date") as string) || undefined,
+          // "" clears; undefined would silently keep the old value.
+          Date: (fd.get("date") as string) || "",
           Recurring: fd.get("recurring") === "on",
-          Notes: (fd.get("notes") as string) || undefined,
+          Notes: (fd.get("notes") as string) || "",
           "USD Amount": usdAmount ? parseFloat(usdAmount) : undefined,
-          Reference: (fd.get("reference") as string) || undefined,
+          Reference: (fd.get("reference") as string) || "",
         });
         toast.success("Expense saved");
         onClose();

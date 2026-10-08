@@ -1,3 +1,4 @@
+import { requireAdminPage } from "@/lib/auth";
 import {
   getClients,
   getProjects,
@@ -22,6 +23,7 @@ export default async function FinancePage({
 }) {
   const { status, client } = await searchParams;
 
+  await requireAdminPage();
   const [clients, projects, invoices, expenses, subscriptions] = await Promise.all([
     getClients(),
     getProjects(),
