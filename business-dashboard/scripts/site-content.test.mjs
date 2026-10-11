@@ -92,3 +92,10 @@ test("llms.txt lists the websites page", () => {
   const llms = readFileSync(path.join(ROOT, "public", "llms.txt"), "utf8");
   assert.ok(llms.includes("https://mindelo.site/portfolio/websites"), "llms.txt does not list /portfolio/websites");
 });
+
+test("websites: every site has a full-page reel screenshot", () => {
+  for (const site of websites) {
+    const file = path.join(ROOT, "public", "assets", "websites", `${site.slug}-full.webp`);
+    assert.ok(existsSync(file), `${site.client}: missing /assets/websites/${site.slug}-full.webp`);
+  }
+});

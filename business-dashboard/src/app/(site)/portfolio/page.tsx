@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { SiteReel } from "../_components/site-reel";
 import { websites } from "./websites/_data";
 import type { Metadata } from "next";
 import Script from "next/script";
@@ -176,21 +176,17 @@ export default function PortfolioPage() {
                     <p className="text-gray-500 mt-2 text-sm">Live websites we built for Trinidad and Tobago businesses.</p>
                 </div>
                 {/* All client websites live on /portfolio/websites. This card is a plain link, not a .portfolio-card, so the modal script ignores it. */}
-                <a href="/portfolio/websites" className="md:col-span-2 reveal delay-200 group block bg-[#0c1018] border border-gray-800 hover:border-[#00e5b0]/50 rounded-3xl overflow-hidden transition-colors duration-500">
-                    <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-gray-800 border-b border-gray-800">
-                        {websites.map((site) => (
-                            <div key={site.slug} className="relative aspect-[16/10] overflow-hidden bg-[#0c1018]">
-                                <Image src={site.image} alt="" width={400} height={250} sizes="(min-width: 768px) 16vw, 33vw" className="w-full h-full object-cover object-top opacity-80 group-hover:opacity-100 transition-opacity duration-500" />
-                            </div>
-                        ))}
+                <a href="/portfolio/websites" className="md:col-span-2 reveal delay-200 group grid md:grid-cols-2 items-center bg-[#0c1018] border border-gray-800 hover:border-[#00e5b0]/50 rounded-3xl overflow-hidden transition-colors duration-500">
+                    <div className="p-4 md:p-6">
+                        <SiteReel sites={websites} />
                     </div>
-                    <div className="p-7 md:p-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                    <div className="p-7 md:p-10 flex flex-col gap-5">
                         <div>
                             <span className="text-[#f43f5e] text-[10px] font-bold uppercase tracking-widest">Client Websites</span>
-                            <h4 className="text-xl font-bold mt-1 mb-2">{websites.length} live sites, from retail to recruitment</h4>
+                            <h4 className="text-2xl font-bold mt-1 mb-3">{websites.length} live sites, from retail to recruitment</h4>
                             <p className="text-gray-400 text-sm">{websites.map((site) => site.client).join(", ")}.</p>
                         </div>
-                        <span className="inline-flex items-center gap-2 text-[#00e5b0] text-xs font-bold uppercase tracking-widest whitespace-nowrap group-hover:opacity-70 transition-opacity">
+                        <span className="inline-flex items-center gap-2 text-[#00e5b0] text-xs font-bold uppercase tracking-widest group-hover:opacity-70 transition-opacity">
                             See every website &rarr;
                         </span>
                     </div>
