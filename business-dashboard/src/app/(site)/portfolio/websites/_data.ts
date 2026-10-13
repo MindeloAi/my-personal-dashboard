@@ -12,6 +12,7 @@ export type Website = {
   url: string; // Live URL
   built: string; // One sentence: what Mindelo built
   image: string; // "/assets/websites/<slug>.webp"
+  reel?: boolean; // false leaves the site out of the /portfolio reel; it still shows on /portfolio/websites
 };
 
 export const websites: Website[] = [
@@ -22,6 +23,7 @@ export const websites: Website[] = [
     url: "https://retrocloset.org",
     built: "An online jersey store with a product catalogue and a shopping cart.",
     image: "/assets/websites/retro-closet.webp",
+    reel: false, // Left out of the /portfolio reel for now (Zane, 2026-10-13).
   },
   {
     slug: "decle-realty",

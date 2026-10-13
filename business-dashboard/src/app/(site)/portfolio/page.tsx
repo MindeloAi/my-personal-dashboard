@@ -178,7 +178,7 @@ export default function PortfolioPage() {
                 {/* All client websites live on /portfolio/websites. This card is a plain link, not a .portfolio-card, so the modal script ignores it. */}
                 <a href="/portfolio/websites" className="md:col-span-2 reveal delay-200 group grid md:grid-cols-2 items-center bg-[#0c1018] border border-gray-800 hover:border-[#00e5b0]/50 rounded-3xl overflow-hidden transition-colors duration-500">
                     <div className="p-4 md:p-6">
-                        <SiteReel sites={websites} />
+                        <SiteReel sites={websites.filter((site) => site.reel !== false)} />
                     </div>
                     <div className="p-7 md:p-10 flex flex-col gap-5">
                         <div>

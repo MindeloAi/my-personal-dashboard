@@ -51,6 +51,11 @@ function connect(url) {
     if (msg.error) pending.reject(new Error(msg.error.message));
     else pending.resolve(msg.result);
   });
+  const failAll = (reason) => {
+    for (const pending of waiting.values()) pending.reject(new Error(reason));
+    waiting.clear();
+  };
+  ws.addEventListener("close", () => failAll("DevTools connection closed"));
   const send = (method, params = {}, sessionId) =>
     new Promise((resolve, reject) => {
       const id = ++nextId;
@@ -59,7 +64,10 @@ function connect(url) {
     });
   return new Promise((resolve, reject) => {
     ws.addEventListener("open", () => resolve({ send, close: () => ws.close() }));
-    ws.addEventListener("error", () => reject(new Error(`Could not connect to ${url}`)));
+    ws.addEventListener("error", () => {
+      failAll("DevTools connection failed");
+      reject(new Error(`Could not connect to ${url}`));
+    });
   });
 }
 
@@ -69,7 +77,8 @@ async function capture(send, site) {
   const call = (method, params) => send(method, params, sessionId);
   try {
     await call("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: SCREEN, deviceScaleFactor: 1, mobile: false });
-    await call("Page.navigate", { url: site.url });
+    const { errorText } = await call("Page.navigate", { url: site.url });
+    if (errorText) throw new Error(`Could not load ${site.url}: ${errorText}`);
     await sleep(6000);
     // Some sites lock scrolling (overflow: hidden on the page, or one full-height
     // scrolling container). Unlock it so the page flows to its full height; the
@@ -94,7 +103,7 @@ async function capture(send, site) {
     await call("Runtime.evaluate", {
       awaitPromise: true,
       expression: `(async () => {
-        for (let y = 0; y < document.documentElement.scrollHeight; y += ${SCREEN / 2}) {
+        for (let y = 0; y < Math.min(document.documentElement.scrollHeight, ${SCREEN * 20}); y += ${SCREEN / 2}) {
           scrollTo(0, y);
           await new Promise((r) => setTimeout(r, 300));
         }

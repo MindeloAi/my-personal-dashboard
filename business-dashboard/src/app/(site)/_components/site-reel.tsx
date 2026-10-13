@@ -25,6 +25,7 @@ function reelCss(count: number): string {
 .site-reel-img { object-fit: cover; object-position: 50% 0%; animation: site-reel-scroll var(--reel-cycle) ease-in-out infinite; }
 @keyframes site-reel-show { 0% { opacity: 0; } ${pct(fade)} { opacity: 1; } ${pct(share)} { opacity: 1; } ${pct(share + fade)} { opacity: 0; } 100% { opacity: 0; } }
 @keyframes site-reel-scroll { 0%, ${pct(fade * 2)} { object-position: 50% 0%; } ${pct(share - fade)}, 100% { object-position: 50% 100%; } }
+.site-reel:hover .site-reel-slide, .site-reel:hover .site-reel-img { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
   .site-reel-slide, .site-reel-img { animation: none; }
   .site-reel-slide:first-child { opacity: 1; }
