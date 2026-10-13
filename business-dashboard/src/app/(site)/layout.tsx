@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import Script from "next/script";
 import "./_styles/icons.css";
 
 // The marketing pages used a Google Fonts <link>. Serving the face from the app
@@ -11,6 +12,9 @@ const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
   display: "swap",
 });
+
+// GA4 property from the static site, carried over so reporting continues.
+const GA_ID = "G-HTZGZJDKC0";
 
 export const metadata: Metadata = {
   // Lets each page declare `alternates.canonical` as a path, so the same tree
@@ -41,5 +45,18 @@ export default function SiteLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className={`site-root ${jakarta.variable}`}>{children}</div>;
+  return (
+    <div className={`site-root ${jakarta.variable}`}>
+      {children}
+      {/* Marketing pages only: /admin, /login, and /intake sit outside this
+          route group, so they never load the tag. */}
+      <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
+      <Script id="ga4" strategy="afterInteractive">
+        {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GA_ID}');`}
+      </Script>
+    </div>
+  );
 }
