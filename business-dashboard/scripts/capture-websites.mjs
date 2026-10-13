@@ -58,6 +58,7 @@ function connect(url) {
   ws.addEventListener("close", () => failAll("DevTools connection closed"));
   const send = (method, params = {}, sessionId) =>
     new Promise((resolve, reject) => {
+      if (ws.readyState !== WebSocket.OPEN) return reject(new Error("DevTools connection closed"));
       const id = ++nextId;
       waiting.set(id, { resolve, reject });
       ws.send(JSON.stringify({ id, method, params, sessionId }));
@@ -128,7 +129,7 @@ async function capture(send, site) {
     await sharp(await shot(SCREEN)).resize(1200).webp({ quality: 78 }).toFile(path.join(OUT, `${site.slug}.webp`));
     await sharp(await shot(height)).resize(600).webp({ quality: 70 }).toFile(path.join(OUT, `${site.slug}-full.webp`));
   } finally {
-    await send("Target.closeTarget", { targetId });
+    await send("Target.closeTarget", { targetId }).catch(() => {});
   }
 }
 

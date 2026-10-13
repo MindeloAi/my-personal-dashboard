@@ -33,6 +33,7 @@ function reelCss(count: number): string {
 }
 
 export function SiteReel({ sites }: { sites: Website[] }) {
+  if (sites.length === 0) return null;
   return (
     <div className="site-reel" aria-hidden="true" style={{ "--reel-cycle": `${SECONDS_PER_SITE * sites.length}s` } as React.CSSProperties}>
       {sites.map((site, i) => {
