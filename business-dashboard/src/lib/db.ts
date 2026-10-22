@@ -49,6 +49,59 @@ declare global {
 
 let _sql: Sql | null = null;
 
+// ─── Concurrency gate ─────────────────────────────────────────────────────────
+//
+// Supabase's TRANSACTION pooler (:6543) jams when postgres.js queues a query
+// onto a connection that is still busy: the queued query never returns, and
+// the pool stays dead until the server instance is recycled. Measured against
+// production on 2026-10-22 with max 8: 17 parallel queries fine, the 18th
+// hangs; on a warm pool, 8 succeed and every later query hangs forever
+// (max_pipeline: 1 does not help; the session pooler is unaffected). The old
+// dashboard never sent more than 8 at once, so it never hit this. The ledger
+// pages do, and /admin returned 504s.
+//
+// So no query is handed to postgres.js until a connection is free: at most
+// POOL_MAX in flight, the rest wait here in FIFO order. 100 parallel queries
+// through this gate completed against production. Only real queries (tagged
+// templates) and transactions take a slot; sql(table) / sql(cols) helpers are
+// fragments, not queries, and pass straight through.
+const POOL_MAX = 8;
+
+function gated(raw: Sql): Sql {
+  let active = 0;
+  const waiting: (() => void)[] = [];
+  const release = () => {
+    active--;
+    waiting.shift()?.();
+  };
+  const run = <T>(start: () => PromiseLike<T>): Promise<T> =>
+    new Promise<T>((resolve, reject) => {
+      const go = () => {
+        active++;
+        Promise.resolve()
+          .then(start)
+          .then(resolve, reject)
+          .finally(release);
+      };
+      if (active < POOL_MAX) go();
+      else waiting.push(go);
+    });
+
+  return new Proxy(raw, {
+    apply(target, thisArg, args) {
+      const result = Reflect.apply(target, thisArg, args);
+      const isQuery = Array.isArray(args[0]) && "raw" in (args[0] as object);
+      return isQuery ? run(() => result as PromiseLike<unknown>) : result;
+    },
+    get(target, prop, receiver) {
+      if (prop === "begin") {
+        return (...args: unknown[]) => run(() => (target.begin as (...a: unknown[]) => PromiseLike<unknown>)(...args));
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+}
+
 function getSql(): Sql {
   if (_sql) return _sql;
   // Reuse across dev hot-reloads so we don't leak a pool per edit.
@@ -60,15 +113,15 @@ function getSql(): Sql {
   const url = process.env.DATABASE_URL;
   if (!url) throw new MissingAirtableEnvError(["DATABASE_URL"]);
 
-  _sql = postgres(url, {
+  _sql = gated(postgres(url, {
     // Supabase's transaction pooler cannot hold prepared statements between
     // queries. Everything here uses the simple/extended protocol without named
     // statements, so no session state may be relied on: no SET, no LISTEN, no
     // advisory locks. Adding any of those would work in dev (direct connection)
     // and fail intermittently in production.
     prepare: false,
-    // The dashboard fans out 7 parallel SELECTs; a smaller max serialises them.
-    max: 8,
+    // Must match POOL_MAX: the gate above keeps in-flight queries at or below it.
+    max: POOL_MAX,
     idle_timeout: 20,
     connect_timeout: 10,
     connection: {
@@ -110,7 +163,7 @@ function getSql(): Sql {
           new Date(x.includes("Z") || x.includes("+") ? x : `${x}Z`).toISOString(),
       },
     },
-  });
+  }));
 
   if (process.env.NODE_ENV !== "production") globalThis.__dashboardSql = _sql;
   return _sql;
