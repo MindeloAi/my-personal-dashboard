@@ -1343,6 +1343,26 @@ export type Ledger = {
   movements: CashMovement[];
   /** This calendar month, counted from cutover at the earliest. */
   month: { payments: number; expenses: number; payoutsPaidOut: number; net: number };
+  /** What the founders would earn if every unpaid invoice (overdue at full value) were paid today. */
+  projection: {
+    /** total = base + bonus still to come; dueNow = payouts created but not paid out; outlook = both. */
+    michael: { base: number; bonus: number; total: number; dueNow: number; outlook: number };
+    zane: { base: number; bonus: number; total: number; dueNow: number; outlook: number };
+    /** Bonus pool on invoices whose shares are not set yet; belongs to nobody until they are. */
+    unassignedBonus: number;
+    invoicesWithoutShares: number;
+    invoices: {
+      invoiceId: string;
+      invoiceNumber: string | null;
+      dueDate: string | null;
+      overdue: boolean;
+      remaining: number;
+      /** Base plus bonus, from the view; the bonus part is 0 while shares are unset. */
+      michael: number;
+      zane: number;
+      unassignedBonus: number;
+    }[];
+  };
 };
 
 const str = (v: unknown) => (v == null ? null : String(v));
@@ -1385,6 +1405,8 @@ export async function getLedger(today: string): Promise<Ledger> {
     payments,
     movements,
     [month],
+    projectionRows,
+    [projected],
   ] = await Promise.all([
     getLedgerBasics(today),
     sql`select * from business_cash`,
@@ -1412,9 +1434,21 @@ export async function getLedger(today: string): Promise<Ledger> {
           (select coalesce(sum(total), 0) from payouts
             where status = 'paid_out' and paid_out_at between w.since and ${today}) as payouts
         ) m`,
+    sql`select * from founder_projection order by due_date nulls last, invoice_number`,
+    sql`
+      select t.*, t.michael_total + t.michael_due as michael_outlook, t.zane_total + t.zane_due as zane_outlook from (
+      select coalesce(sum(michael_base), 0) as michael_base, coalesce(sum(michael_bonus), 0) as michael_bonus,
+             coalesce(sum(zane_base), 0) as zane_base, coalesce(sum(zane_bonus), 0) as zane_bonus,
+             coalesce(sum(unassigned_bonus), 0) as unassigned,
+             count(*) filter (where unassigned_bonus > 0) as without_shares,
+             coalesce(sum(michael_total), 0) as michael_total,
+             coalesce(sum(zane_total), 0) as zane_total,
+             (select coalesce(sum(total), 0) from payouts where status = 'due' and founder = 'michael') as michael_due,
+             (select coalesce(sum(total), 0) from payouts where status = 'due' and founder = 'zane') as zane_due
+        from founder_projection) t`,
   ]);
 
-  const owedTo = Object.fromEntries(owedFounders.map((r) => [r.founder, Number(r.owed)]));
+  const owedTo =Object.fromEntries(owedFounders.map((r) => [r.founder, Number(r.owed)]));
 
   return {
     ...basics,
@@ -1482,6 +1516,34 @@ export async function getLedger(today: string): Promise<Ledger> {
       expenses: Number(month.expenses),
       payoutsPaidOut: Number(month.payouts),
       net: Number(month.net),
+    },
+    projection: {
+      michael: {
+        base: Number(projected.michael_base),
+        bonus: Number(projected.michael_bonus),
+        total: Number(projected.michael_total),
+        dueNow: Number(projected.michael_due),
+        outlook: Number(projected.michael_outlook),
+      },
+      zane: {
+        base: Number(projected.zane_base),
+        bonus: Number(projected.zane_bonus),
+        total: Number(projected.zane_total),
+        dueNow: Number(projected.zane_due),
+        outlook: Number(projected.zane_outlook),
+      },
+      unassignedBonus: Number(projected.unassigned),
+      invoicesWithoutShares: Number(projected.without_shares),
+      invoices: projectionRows.map((r) => ({
+        invoiceId: String(r.invoice_id),
+        invoiceNumber: str(r.invoice_number),
+        dueDate: str(r.due_date),
+        overdue: r.status === "Overdue" || (r.due_date != null && String(r.due_date) < today),
+        remaining: Number(r.remaining),
+        michael: Number(r.michael_total),
+        zane: Number(r.zane_total),
+        unassignedBonus: Number(r.unassigned_bonus),
+      })),
     },
   };
 }
