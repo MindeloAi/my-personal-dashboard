@@ -354,6 +354,30 @@ try {
       JSON.stringify({ direct, voided, drafted, voidOk, voidPay }));
   }
 
+  // Projected founder earnings from unpaid invoices (migration 012).
+  await reset();
+  {
+    const a = await invoice(2000, 0.5); // shares set
+    await invoice(1000, null, { due_date: "2026-09-30" }); // overdue, no shares: base only
+    await invoice(500, 0.5, { status: "Draft" }); // not owed: excluded
+    await invoice(700, 0.5, { status: "Paid", paid_date: "2026-09-01" }); // excluded
+    const p1 = (await getLedger(TODAY)).projection;
+    check("   projection: 2,000 at 50/50 + 1,000 overdue without shares; Draft and Paid excluded",
+      p1.michael.total === 370 + 135 && p1.zane.total === 370 + 135 && p1.unassignedBonus === 100 &&
+        p1.invoicesWithoutShares === 1 && p1.invoices.length === 2 && p1.invoices.some((i) => i.overdue && i.unassignedBonus === 100),
+      JSON.stringify(p1));
+
+    await pay(a, 1000);
+    const p2 = (await getLedger(TODAY)).projection;
+    check("   projection: a partial payment moves its share out of projected (now due)",
+      p2.michael.total === 185 + 135 && p2.zane.total === 185 + 135, JSON.stringify({ m: p2.michael, z: p2.zane }));
+
+    await pay(a, 1000);
+    const p3 = (await getLedger(TODAY)).projection;
+    check("   projection: a fully paid invoice drops out", p3.invoices.length === 1 && p3.michael.total === 135,
+      JSON.stringify(p3.invoices));
+  }
+
   // Preview agrees with the trigger to the cent.
   await reset();
   {

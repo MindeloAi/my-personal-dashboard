@@ -144,6 +144,81 @@ function UndoButton({ payout }: { payout: Payout }) {
   );
 }
 
+function ProjectedEarnings({ projection }: { projection: Ledger["projection"] }) {
+  const count = projection.invoices.length;
+  if (count === 0 && projection.michael.dueNow === 0 && projection.zane.dueNow === 0) return null;
+  return (
+    <div className="mb-6">
+      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Projected earnings</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {FOUNDERS.map((f) => {
+          const p = projection[f];
+          return (
+            <div key={f} className="bg-[#0b0d10] border border-[#2a2e34] rounded-xl p-4">
+              <p className="text-xs text-zinc-400">{FOUNDER_LABEL[f]}</p>
+              <p className="text-2xl font-bold text-white tabular-nums mt-1">{tt(p.outlook)}</p>
+              <p className="text-xs text-zinc-500 mt-1">
+                {tt(p.total)} from {count} unpaid {count === 1 ? "invoice" : "invoices"}
+                {p.dueNow > 0 && <>, plus <span className="text-[#fbbf24]">{tt(p.dueNow)} due now</span></>}
+              </p>
+              {p.total > 0 && (
+                <p className="text-[11px] text-zinc-600 mt-0.5">
+                  Base {tt(p.base)}, bonus {tt(p.bonus)}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {projection.unassignedBonus > 0 && (
+        <p className="text-xs text-[#fbbf24] bg-[#fbbf24]/10 border border-[#fbbf24]/20 rounded-xl px-3 py-2 mt-3 leading-relaxed">
+          {tt(projection.unassignedBonus)} of bonus pool is not assigned yet: {projection.invoicesWithoutShares}{" "}
+          {projection.invoicesWithoutShares === 1 ? "invoice has" : "invoices have"} no bonus shares. Set them on each invoice
+          to include it.
+        </p>
+      )}
+      {count > 0 && (
+        <details className="mt-3 group">
+          <summary className="min-h-11 sm:min-h-0 flex items-center text-xs text-zinc-400 hover:text-white cursor-pointer select-none">
+            By invoice
+          </summary>
+          <div className="overflow-x-auto mt-2">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-[#2a2e34]">
+                  <th className="text-left pb-2 font-medium whitespace-nowrap">Invoice</th>
+                  <th className="text-left pb-2 font-medium whitespace-nowrap pl-4">Due</th>
+                  <th className="text-right pb-2 font-medium whitespace-nowrap pl-4">Still owed</th>
+                  <th className="text-right pb-2 font-medium whitespace-nowrap pl-4">Michael</th>
+                  <th className="text-right pb-2 font-medium whitespace-nowrap pl-4">Zane</th>
+                  <th className="text-right pb-2 font-medium whitespace-nowrap pl-4">Unassigned</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#2a2e34]">
+                {projection.invoices.map((i) => (
+                  <tr key={i.invoiceId} className="text-xs">
+                    <td className="py-2 font-mono text-zinc-300 whitespace-nowrap">{i.invoiceNumber ?? "None"}</td>
+                    <td className={`py-2 pl-4 whitespace-nowrap ${i.overdue ? "text-[#ff4d8b]" : "text-zinc-400"}`}>
+                      {i.dueDate ? dayLabel(i.dueDate) : "None"}
+                      {i.overdue && " (overdue)"}
+                    </td>
+                    <td className="py-2 pl-4 text-right text-zinc-300 whitespace-nowrap">{tt(i.remaining)}</td>
+                    <td className="py-2 pl-4 text-right text-white whitespace-nowrap">{tt(i.michael)}</td>
+                    <td className="py-2 pl-4 text-right text-white whitespace-nowrap">{tt(i.zane)}</td>
+                    <td className={`py-2 pl-4 text-right whitespace-nowrap ${i.unassignedBonus > 0 ? "text-[#fbbf24]" : "text-zinc-600"}`}>
+                      {i.unassignedBonus > 0 ? tt(i.unassignedBonus) : "None"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 export function FounderPay({ ledger }: { ledger: Ledger }) {
   const [founder, setFounder] = useState<FounderFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -173,6 +248,8 @@ export function FounderPay({ ledger }: { ledger: Ledger }) {
         <p className="text-xs text-zinc-500 uppercase tracking-wider">Founder pay</p>
         {dueTotal > 0 && <span className="text-xs text-[#fbbf24] font-semibold">{tt(dueTotal)} due</span>}
       </div>
+
+      <ProjectedEarnings projection={ledger.projection} />
 
       <div className="flex flex-wrap items-center gap-2 mb-5">
         <Pills<FounderFilter>
