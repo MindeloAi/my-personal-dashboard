@@ -1,0 +1,299 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { format, parseISO } from "date-fns";
+import { toast } from "sonner";
+import { markPayoutPaidOutAction, undoPayoutPaidOutAction } from "@/app/actions";
+import { ModalShell } from "@/components/ui/modal-shell";
+import type { Ledger, Payout } from "@/lib/db";
+import { FOUNDERS, FOUNDER_LABEL, HOLDERS, HOLDER_LABEL, tt, type Founder, type Holder } from "@/lib/ledger";
+import { today } from "@/lib/subscriptions";
+
+const inputCls = "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
+const selectCls = inputCls + " cursor-pointer";
+
+const DEFAULT_FROM: Holder = "mikey";
+
+type FounderFilter = "all" | Founder;
+type StatusFilter = "all" | Payout["status"];
+
+const monthLabel = (m: string) => format(parseISO(`${m}-01`), "MMM yyyy");
+const dayLabel = (d: string) => format(parseISO(d), "d MMM yyyy");
+
+function Pills<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-wrap gap-1 bg-[#0b0d10] rounded-xl p-1">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          aria-pressed={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={`min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            value === o.value ? "bg-[#bfff3a] text-black" : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function StatusPill({ status }: { status: Payout["status"] }) {
+  return status === "due" ? (
+    <span className="text-xs px-2 py-0.5 rounded-full border font-medium bg-[#fbbf24]/10 text-[#fbbf24] border-[#fbbf24]/20">Due</span>
+  ) : (
+    <span className="text-xs px-2 py-0.5 rounded-full border font-medium bg-[#bfff3a]/10 text-[#bfff3a] border-[#bfff3a]/20">Paid out</span>
+  );
+}
+
+function PaidOutModal({ payout, onClose }: { payout: Payout; onClose: () => void }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const date = fd.get("date") as string;
+    const from = fd.get("from") as string;
+    setError(null);
+    start(async () => {
+      try {
+        const res = await markPayoutPaidOutAction(payout.id, date, from);
+        if (res.error) {
+          setError(res.error);
+          toast.error(res.error);
+          return;
+        }
+        toast.success(`${payout.number} marked paid out`);
+        onClose();
+      } catch {
+        setError("Could not save. Try again.");
+        toast.error("Could not mark the payout paid out");
+      }
+    });
+  }
+
+  return (
+    <ModalShell title={`Mark ${payout.number} paid out`} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <p className="text-xs text-zinc-400">
+          {FOUNDER_LABEL[payout.founder]}, {tt(payout.total)}
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="payout-date" className="text-xs text-zinc-400">Date paid out</label>
+            <input id="payout-date" name="date" type="date" required defaultValue={today()} className={inputCls} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="payout-from" className="text-xs text-zinc-400">Paid from</label>
+            <select id="payout-from" name="from" defaultValue={DEFAULT_FROM} className={selectCls}>
+              {HOLDERS.map((h) => (
+                <option key={h} value={h}>{HOLDER_LABEL[h]}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {error && <p className="text-xs text-[#ff4d8b]">{error}</p>}
+        <div className="flex gap-2 justify-end mt-2">
+          <button type="button" onClick={onClose} className="min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors">
+            Cancel
+          </button>
+          <button type="submit" disabled={pending} className="min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80">
+            {pending ? "Saving..." : "Mark paid out"}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+function UndoButton({ payout }: { payout: Payout }) {
+  const [pending, start] = useTransition();
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={() => {
+        if (!window.confirm("Move this payout back to due?")) return;
+        start(async () => {
+          try {
+            const res = await undoPayoutPaidOutAction(payout.id);
+            if (res.error) toast.error(res.error);
+            else toast.success(`${payout.number} moved back to due`);
+          } catch {
+            toast.error("Could not undo the payout");
+          }
+        });
+      }}
+      className="min-h-11 sm:min-h-0 text-xs px-2.5 py-1 text-zinc-500 hover:text-white disabled:opacity-40 transition-colors"
+    >
+      {pending ? "Undoing..." : "Undo"}
+    </button>
+  );
+}
+
+export function FounderPay({ ledger }: { ledger: Ledger }) {
+  const [founder, setFounder] = useState<FounderFilter>("all");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [month, setMonth] = useState<string>("all");
+  const [paying, setPaying] = useState<Payout | null>(null);
+
+  const months = [
+    ...new Set([...ledger.payouts.map((p) => p.paidAt.slice(0, 7)), ...ledger.founderPay.map((r) => r.month)]),
+  ].sort((a, b) => b.localeCompare(a));
+
+  const payouts = ledger.payouts
+    .filter((p) => founder === "all" || p.founder === founder)
+    .filter((p) => status === "all" || p.status === status)
+    .filter((p) => month === "all" || p.paidAt.slice(0, 7) === month)
+    .sort((a, b) => b.paidAt.localeCompare(a.paidAt) || b.number.localeCompare(a.number));
+
+  const summary = ledger.founderPay
+    .filter((r) => founder === "all" || r.founder === founder)
+    .filter((r) => month === "all" || r.month === month)
+    .sort((a, b) => b.month.localeCompare(a.month) || FOUNDERS.indexOf(a.founder) - FOUNDERS.indexOf(b.founder));
+
+  const dueTotal = payouts.filter((p) => p.status === "due").reduce((s, p) => s + p.total, 0);
+
+  return (
+    <div id="founder-pay" className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+        <p className="text-xs text-zinc-500 uppercase tracking-wider">Founder pay</p>
+        {dueTotal > 0 && <span className="text-xs text-[#fbbf24] font-semibold">{tt(dueTotal)} due</span>}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        <Pills<FounderFilter>
+          label="Founder"
+          value={founder}
+          onChange={setFounder}
+          options={[{ value: "all", label: "All" }, ...FOUNDERS.map((f) => ({ value: f, label: FOUNDER_LABEL[f] }))]}
+        />
+        <Pills<StatusFilter>
+          label="Status"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: "all", label: "All" },
+            { value: "due", label: "Due" },
+            { value: "paid_out", label: "Paid out" },
+          ]}
+        />
+        <select
+          aria-label="Month"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+          className="min-h-11 sm:min-h-0 bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-1.5 text-xs text-zinc-300 cursor-pointer focus:outline-none focus:border-zinc-500 transition-colors"
+        >
+          <option value="all">All months</option>
+          {months.map((m) => (
+            <option key={m} value={m}>{monthLabel(m)}</option>
+          ))}
+        </select>
+      </div>
+
+      {summary.length > 0 && (
+        <div className="overflow-x-auto mb-6">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-[#2a2e34]">
+                <th className="text-left pb-3 font-medium whitespace-nowrap">Month</th>
+                <th className="text-left pb-3 font-medium whitespace-nowrap">Founder</th>
+                <th className="text-right pb-3 font-medium whitespace-nowrap">Due</th>
+                <th className="text-right pb-3 font-medium whitespace-nowrap pl-4">Paid out</th>
+                <th className="text-right pb-3 font-medium whitespace-nowrap pl-4">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#2a2e34]">
+              {summary.map((r) => (
+                <tr key={`${r.month}-${r.founder}`} className="text-xs">
+                  <td className="py-2.5 text-zinc-400 whitespace-nowrap">{monthLabel(r.month)}</td>
+                  <td className="py-2.5 text-zinc-300 whitespace-nowrap">{FOUNDER_LABEL[r.founder]}</td>
+                  <td className={`py-2.5 text-right whitespace-nowrap ${r.due > 0 ? "text-[#fbbf24]" : "text-zinc-500"}`}>{tt(r.due)}</td>
+                  <td className="py-2.5 text-right whitespace-nowrap pl-4 text-zinc-300">{tt(r.paidOut)}</td>
+                  <td className="py-2.5 text-right whitespace-nowrap pl-4 font-semibold text-white">{tt(r.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-[#2a2e34]">
+              <th className="text-left pb-3 font-medium whitespace-nowrap">Number</th>
+              <th className="text-left pb-3 font-medium whitespace-nowrap pl-4">Founder</th>
+              <th className="text-left pb-3 font-medium whitespace-nowrap pl-4">Invoice</th>
+              <th className="text-right pb-3 font-medium whitespace-nowrap pl-4">Base</th>
+              <th className="text-right pb-3 font-medium whitespace-nowrap pl-4">Bonus</th>
+              <th className="text-right pb-3 font-medium whitespace-nowrap pl-4">Total</th>
+              <th className="text-left pb-3 font-medium whitespace-nowrap pl-6">Status</th>
+              <th className="text-left pb-3 font-medium whitespace-nowrap pl-4">Paid out</th>
+              <th className="pb-3" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#2a2e34]">
+            {payouts.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="py-8 text-center text-zinc-600 text-sm">
+                  {ledger.payouts.length === 0 ? "No founder payouts yet" : "No payouts match these filters"}
+                </td>
+              </tr>
+            ) : (
+              payouts.map((p) => (
+                <tr key={p.id} className="hover:bg-white/[0.02] transition-colors text-xs">
+                  <td className="py-3 text-zinc-300 font-medium whitespace-nowrap">{p.number}</td>
+                  <td className="py-3 pl-4 text-zinc-300 whitespace-nowrap">{FOUNDER_LABEL[p.founder]}</td>
+                  <td className="py-3 pl-4 text-zinc-400 whitespace-nowrap">{p.invoiceNumber ?? "None"}</td>
+                  <td className="py-3 pl-4 text-right text-zinc-400 whitespace-nowrap">{tt(p.base)}</td>
+                  <td className="py-3 pl-4 text-right text-zinc-400 whitespace-nowrap">{tt(p.bonus)}</td>
+                  <td className="py-3 pl-4 text-right font-semibold text-white whitespace-nowrap">{tt(p.total)}</td>
+                  <td className="py-3 pl-6 whitespace-nowrap"><StatusPill status={p.status} /></td>
+                  <td className="py-3 pl-4 text-zinc-400 whitespace-nowrap">
+                    {p.status === "paid_out" && p.paidOutAt ? (
+                      <>
+                        {dayLabel(p.paidOutAt)}
+                        {p.paidFrom && <span className="block text-[10px] text-zinc-600">from {HOLDER_LABEL[p.paidFrom]}</span>}
+                      </>
+                    ) : (
+                      <span className="text-zinc-600">Not yet</span>
+                    )}
+                  </td>
+                  <td className="py-3 pl-4 text-right whitespace-nowrap">
+                    {p.status === "due" ? (
+                      <button
+                        type="button"
+                        onClick={() => setPaying(p)}
+                        className="min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-lg border border-[#bfff3a]/30 text-[#bfff3a] hover:bg-[#bfff3a]/10 transition-colors"
+                      >
+                        Mark paid out
+                      </button>
+                    ) : (
+                      <UndoButton payout={p} />
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {paying && <PaidOutModal payout={paying} onClose={() => setPaying(null)} />}
+    </div>
+  );
+}

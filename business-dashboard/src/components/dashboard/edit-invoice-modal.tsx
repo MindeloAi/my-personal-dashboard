@@ -3,7 +3,9 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { updateInvoiceAction } from "@/app/actions";
+import { SplitPreview } from "@/components/dashboard/record-payment-modal";
 import { ModalShell } from "@/components/ui/modal-shell";
+import { shareError, type SplitRule } from "@/lib/ledger";
 import type { Invoice, Project, Subscription } from "@/lib/airtable";
 
 const inputCls =
@@ -11,44 +13,65 @@ const inputCls =
 const selectCls = inputCls + " cursor-pointer";
 
 type InvoiceTypeValue = "deposit" | "milestone" | "final" | "recurring" | "one_off";
-type InvoiceStatusValue = "Draft" | "Sent" | "Paid" | "Overdue" | "Void";
+type InvoiceStatusValue = "Draft" | "Sent" | "Overdue" | "Void";
+
+// Fraction to a percent string without float noise (0.6 * 100 = 60.000000000000014).
+const toPct = (f: number | undefined) => (f == null ? "" : String(Math.round(f * 10000) / 100));
+const fillOther = (v: string) => {
+  const n = parseFloat(v);
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? String(Math.round((100 - n) * 100) / 100) : "";
+};
 
 export function EditInvoiceModal({
   invoice,
   projects = [],
   subscriptions = [],
+  rule,
   onClose,
 }: {
   invoice: Invoice;
   projects?: Project[];
   subscriptions?: Subscription[];
+  rule?: SplitRule;
   onClose: () => void;
 }) {
   const [pending, start] = useTransition();
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [amount, setAmount] = useState(invoice.Amount != null ? String(invoice.Amount) : "");
+  const [michael, setMichael] = useState(toPct(invoice["Michael Bonus Share"]));
+  const [zane, setZane] = useState(toPct(invoice["Zane Bonus Share"]));
+  // The database locks amount and shares once a payment exists.
+  const locked = (invoice["Paid So Far"] ?? 0) > 0;
+  const isPaid = invoice.Status === "Paid";
+  const sharesProblem = locked ? null : shareError(michael, zane);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (sharesProblem) return;
     const fd = new FormData(e.currentTarget);
-    const amount = fd.get("amount") as string;
+    const bothShares = michael !== "" && zane !== "";
     const projectId = (fd.get("projectId") as string) || "";
     const subscriptionId = (fd.get("subscriptionId") as string) || "";
     const invoiceType = (fd.get("invoiceType") as string) || "";
     const status = (fd.get("status") as string) || "";
-    setError(false);
+    setError(null);
     start(async () => {
       try {
         // "" clears a column; undefined would leave the old value in place while
         // reporting success (db.ts toColumns). Type/Status/Amount stay undefined
         // when blank: "" fails their enum/number validation.
-        await updateInvoiceAction(invoice.id, {
+        // Paid is reached only by recording payments: a Paid invoice never sends
+        // Status, and Paid Date is never sent.
+        const res = await updateInvoiceAction(invoice.id, {
           "Invoice Number": (fd.get("invoiceNumber") as string) || "",
-          Amount: amount ? parseFloat(amount) : undefined,
+          Amount: !locked && amount ? parseFloat(amount) : undefined,
           "Invoice Type": invoiceType ? (invoiceType as InvoiceTypeValue) : undefined,
-          Status: status ? (status as InvoiceStatusValue) : undefined,
+          Status: !isPaid && status ? (status as InvoiceStatusValue) : undefined,
           "Issue Date": (fd.get("issueDate") as string) || "",
           "Due Date": (fd.get("dueDate") as string) || "",
-          "Paid Date": (fd.get("paidDate") as string) || "",
+          // Both blank clears them (null); undefined would silently keep the old ones.
+          "Michael Bonus Share": locked ? undefined : bothShares ? parseFloat(michael) / 100 : null,
+          "Zane Bonus Share": locked ? undefined : bothShares ? parseFloat(zane) / 100 : null,
           Notes: (fd.get("notes") as string) || "",
           // "— None" sends [] and unlinks. But each select only renders when its
           // list was passed in; a caller without the list must not unlink, or
@@ -57,10 +80,15 @@ export function EditInvoiceModal({
           Project: projectId ? [projectId] : projects.length ? [] : undefined,
           Subscription: subscriptionId ? [subscriptionId] : subscriptions.length ? [] : undefined,
         });
+        if (res.error) {
+          setError(res.error);
+          toast.error(res.error);
+          return;
+        }
         toast.success("Invoice saved");
         onClose();
       } catch {
-        setError(true);
+        setError("Failed to save. Try again.");
         toast.error("Failed to save invoice");
       }
     });
@@ -106,7 +134,16 @@ export function EditInvoiceModal({
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Amount ($)</label>
-              <input name="amount" type="number" min="0" step="0.01" defaultValue={invoice.Amount ?? ""} className={inputCls} />
+              <input
+                name="amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                disabled={locked}
+                className={inputCls + " disabled:opacity-50"}
+              />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -123,13 +160,16 @@ export function EditInvoiceModal({
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Status</label>
-              <select name="status" defaultValue={invoice.Status ?? "Draft"} className={selectCls}>
-                <option value="Draft">Draft</option>
-                <option value="Sent">Sent</option>
-                <option value="Paid">Paid</option>
-                <option value="Overdue">Overdue</option>
-                <option value="Void">Void</option>
-              </select>
+              {isPaid ? (
+                <p className={inputCls + " text-zinc-400"}>Paid</p>
+              ) : (
+                <select name="status" defaultValue={invoice.Status ?? "Draft"} className={selectCls}>
+                  <option value="Draft" disabled={locked}>Draft</option>
+                  <option value="Sent">Sent</option>
+                  <option value="Overdue">Overdue</option>
+                  <option value="Void" disabled={locked}>Void</option>
+                </select>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -142,18 +182,54 @@ export function EditInvoiceModal({
               <input name="dueDate" type="date" defaultValue={invoice["Due Date"] ?? ""} className={inputCls} />
             </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Paid Date</label>
-            <input name="paidDate" type="date" defaultValue={invoice["Paid Date"] ?? ""} className={inputCls} />
-            <p className="text-[10px] text-zinc-600">
-              Required for revenue/profit to count this invoice. Leave blank and set Status to Paid to default to today.
-            </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-zinc-400">Michael bonus share (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={michael}
+                onChange={(e) => {
+                  setMichael(e.target.value);
+                  if (zane === "") setZane(fillOther(e.target.value));
+                }}
+                disabled={locked}
+                className={inputCls + " disabled:opacity-50"}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-zinc-400">Zane bonus share (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={zane}
+                onChange={(e) => {
+                  setZane(e.target.value);
+                  if (michael === "") setMichael(fillOther(e.target.value));
+                }}
+                disabled={locked}
+                className={inputCls + " disabled:opacity-50"}
+              />
+            </div>
           </div>
+          {locked && (
+            <p className="text-[10px] text-zinc-600">
+              Locked because payments are recorded. Delete the payments to change these.
+            </p>
+          )}
+          {sharesProblem && <p className="text-xs text-[#ff4d8b]">{sharesProblem}</p>}
+          {rule && !sharesProblem && michael !== "" && zane !== "" && (
+            <SplitPreview amount={parseFloat(amount) || 0} rule={rule} michaelShare={parseFloat(michael) / 100} />
+          )}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-zinc-400">Notes</label>
             <input name="notes" defaultValue={invoice.Notes ?? ""} placeholder="Optional" className={inputCls} />
           </div>
-          {error && <p className="text-xs text-[#ff4d8b]">Failed to save. Try again.</p>}
+          {error && <p className="text-xs text-[#ff4d8b]">{error}</p>}
           <div className="flex gap-2 justify-end mt-2">
             <button
               type="button"
@@ -164,7 +240,7 @@ export function EditInvoiceModal({
             </button>
             <button
               type="submit"
-              disabled={pending}
+              disabled={pending || !!sharesProblem}
               className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80"
             >
               {pending ? "Saving…" : "Save"}

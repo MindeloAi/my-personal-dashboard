@@ -6,7 +6,7 @@ import { MrrCard } from "@/components/dashboard/mrr-card";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { BusinessCounters } from "@/components/dashboard/business-counters";
 import { ServiceTypeSplit } from "@/components/dashboard/service-type-split";
-import type { Client, Project, Invoice, Expense, Subscription } from "@/lib/db";
+import type { Client, Project, Invoice, Expense, Subscription, Ledger } from "@/lib/db";
 
 type Props = {
   clients: Client[];
@@ -14,6 +14,7 @@ type Props = {
   invoices: Invoice[];
   expenses: Expense[];
   subscriptions: Subscription[];
+  ledger: Ledger;
 };
 
 export function OverviewView({
@@ -22,12 +23,13 @@ export function OverviewView({
   invoices,
   expenses,
   subscriptions,
+  ledger,
 }: Props) {
   const router = useRouter();
 
   return (
     <>
-      <HeroCards invoices={invoices} expenses={expenses} />
+      <HeroCards ledger={ledger} invoices={invoices} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <RevenueChart invoices={invoices} expenses={expenses} />

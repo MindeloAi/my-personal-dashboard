@@ -12,13 +12,14 @@ function reducedMotion(): boolean {
 /**
  * Counts a number up to `target` on mount and on subsequent target changes.
  *
- * Initial state is computed lazily — on the server / during SSR / under
- * reduced motion we return `target` directly. The animation runs only via
- * `requestAnimationFrame`, so setState never fires synchronously in the
- * effect body.
+ * Starts at 0 on the server AND the client so hydration matches (starting at
+ * `target` on the server and 0 in the browser was a hydration error). Under
+ * reduced motion the first animation frame jumps straight to `target`. The
+ * animation runs only via `requestAnimationFrame`, so setState never fires
+ * synchronously in the effect body.
  */
 export function useCountUp(target: number, duration = 800): number {
-  const [value, setValue] = useState<number>(() => (reducedMotion() ? target : 0));
+  const [value, setValue] = useState<number>(0);
   const fromRef = useRef<number>(0);
 
   useEffect(() => {

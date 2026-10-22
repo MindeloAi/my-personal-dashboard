@@ -5,7 +5,9 @@ import {
   getInvoices,
   getExpenses,
   getSubscriptions,
+  getLedger,
 } from "@/lib/db";
+import { today } from "@/lib/subscriptions";
 import type { InvoiceStatusFilter } from "@/components/dashboard/invoices-table";
 import { FinanceView } from "./finance-view";
 
@@ -24,12 +26,13 @@ export default async function FinancePage({
   const { status, client } = await searchParams;
 
   await requireAdminPage();
-  const [clients, projects, invoices, expenses, subscriptions] = await Promise.all([
+  const [clients, projects, invoices, expenses, subscriptions, ledger] = await Promise.all([
     getClients(),
     getProjects(),
     getInvoices(),
     getExpenses(),
     getSubscriptions(),
+    getLedger(today()),
   ]);
 
   const initialStatus = STATUSES.includes(status as InvoiceStatusFilter)
@@ -43,6 +46,7 @@ export default async function FinancePage({
       invoices={invoices}
       expenses={expenses}
       subscriptions={subscriptions}
+      ledger={ledger}
       initialStatus={initialStatus}
       initialClientId={client ?? null}
     />

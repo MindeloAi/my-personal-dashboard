@@ -292,3 +292,8 @@ alter table subscriptions enable row level security;
 
 revoke all on all tables    in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
+
+-- ─── Founder ledger ────────────────────────────────────────────────────────────
+-- Not mirrored here: its trigger functions and seed rows are not idempotent.
+-- After this file, apply scripts/migrations/011_founder_ledger.up.sql with
+-- scripts/run-migration.mjs.

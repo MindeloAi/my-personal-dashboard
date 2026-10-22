@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin, createClient } from "@/lib/auth";
-import { today } from "@/lib/subscriptions";
 import {
   updateInvoice,
   updateProject,
@@ -29,14 +28,71 @@ import {
   type ClientWrite,
   type SubscriptionWrite,
 } from "@/lib/airtable";
+import {
+  getCutoverDate,
+  ledgerErrorMessage,
+  recordPayment,
+  deletePayment,
+  markPayoutPaidOut,
+  undoPayoutPaidOut,
+  createTransfer,
+  deleteTransfer,
+  createCashCount,
+  deleteLatestCashCount,
+  reimburseExpense,
+  undoReimburseExpense,
+} from "@/lib/db";
+import { HOLDERS, PAYMENT_METHODS } from "@/lib/ledger";
+import { z } from "zod";
 
-export async function markInvoicePaid(invoiceId: string) {
-  await requireAdmin();
-  await updateInvoice(invoiceId, {
-    Status: "Paid",
-    "Paid Date": today(),
-  });
+// Ledger-era actions return { error } instead of throwing for a business-rule
+// rejection: Next redacts thrown messages in production, and "That is TT$500
+// more than is owed" is exactly what the user needs to see. Anything else
+// (auth, bugs) still throws.
+export type ActionResult = { error?: string };
+
+async function run(fn: () => Promise<unknown>): Promise<ActionResult> {
+  try {
+    await fn();
+  } catch (err) {
+    const message = ledgerErrorMessage(err);
+    if (message) return { error: message };
+    throw err;
+  }
   revalidatePath("/", "layout");
+  return {};
+}
+
+const Holder = z.enum(HOLDERS);
+const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const Money = z.number().positive().finite();
+
+// Paid is reached only by recording payments (on_payment_insert). No form may
+// set it directly, or the invoice would close without payouts or cash.
+function rejectDirectPaid(data: InvoiceWrite) {
+  if (data.Status === "Paid") throw new Error("Paid is set by recording a payment");
+}
+
+// Shares are agreed per invoice: both set and totalling 100%, both left alone
+// (undefined), or both cleared (null). Stored as fractions. The create form
+// insists on them; drafts raised elsewhere (subscriptions) may omit them, and
+// the payment trigger refuses any payment until they are set.
+function checkShares(data: InvoiceWrite): string | null {
+  const m = data["Michael Bonus Share"];
+  const zs = data["Zane Bonus Share"];
+  if (m === zs && (m === undefined || m === null)) return null;
+  if (m == null || zs == null) return "Set both bonus shares.";
+  if (Math.round((m + zs) * 10000) !== 10000) return "Bonus shares must total 100%.";
+  return null;
+}
+
+// On an edit that does not touch the paid-with fields (e.g. a reimbursed
+// expense, whose source is frozen) there is nothing to check.
+async function checkExpensePaidWith(data: ExpenseWrite, partial = false): Promise<string | null> {
+  if (partial && data["Paid From"] === undefined && data["Paid Personally By"] === undefined) return null;
+  if (!data.Date || data.Date < (await getCutoverDate())) return null;
+  if (data["Paid From"] || data["Paid Personally By"]) return null;
+  return "Choose what this expense was paid with.";
 }
 
 export async function updateProjectStatus(
@@ -48,23 +104,19 @@ export async function updateProjectStatus(
   revalidatePath("/", "layout");
 }
 
-// Revenue/profit metrics require Status "Paid" + a Paid Date to both be set
-// (see hero-cards.tsx etc.), so an invoice saved as Paid without one gets
-// today's date rather than going "Paid" but invisible to those calculations.
-function withPaidDate(data: InvoiceWrite): InvoiceWrite {
-  return data.Status === "Paid" && !data["Paid Date"] ? { ...data, "Paid Date": today() } : data;
+export async function createInvoiceAction(data: InvoiceWrite): Promise<ActionResult> {
+  await requireAdmin();
+  rejectDirectPaid(data);
+  const bad = checkShares(data);
+  if (bad) return { error: bad };
+  return run(() => createInvoice(data));
 }
 
-export async function createInvoiceAction(data: InvoiceWrite) {
+export async function createExpenseAction(data: ExpenseWrite): Promise<ActionResult> {
   await requireAdmin();
-  await createInvoice(withPaidDate(data));
-  revalidatePath("/", "layout");
-}
-
-export async function createExpenseAction(data: ExpenseWrite) {
-  await requireAdmin();
-  await createExpense(data);
-  revalidatePath("/", "layout");
+  const bad = await checkExpensePaidWith(data);
+  if (bad) return { error: bad };
+  return run(() => createExpense(data));
 }
 
 export async function createProjectAction(data: ProjectWrite) {
@@ -73,16 +125,21 @@ export async function createProjectAction(data: ProjectWrite) {
   revalidatePath("/", "layout");
 }
 
-export async function updateExpenseAction(id: string, data: ExpenseWrite) {
+export async function updateExpenseAction(id: string, data: ExpenseWrite): Promise<ActionResult> {
   await requireAdmin();
-  await updateExpense(id, data);
-  revalidatePath("/", "layout");
+  const bad = await checkExpensePaidWith(data, true);
+  if (bad) return { error: bad };
+  return run(() => updateExpense(id, data));
 }
 
-export async function updateInvoiceAction(id: string, data: InvoiceWrite) {
+// The edit form never sends Status for an invoice that is already Paid, and the
+// database locks amount and shares once a payment exists.
+export async function updateInvoiceAction(id: string, data: InvoiceWrite): Promise<ActionResult> {
   await requireAdmin();
-  await updateInvoice(id, withPaidDate(data));
-  revalidatePath("/", "layout");
+  rejectDirectPaid(data);
+  const bad = checkShares(data);
+  if (bad) return { error: bad };
+  return run(() => updateInvoice(id, data));
 }
 
 export async function updateProjectAction(id: string, data: ProjectWrite) {
@@ -185,6 +242,86 @@ export async function deleteSubscriptionAction(id: string) {
   await requireAdmin();
   await deleteSubscription(id);
   revalidatePath("/", "layout");
+}
+
+// ─── Founder ledger ─────────────────────────────────────────────────────────
+//
+// Every write stamps the signed-in founder's email. All money arithmetic is in
+// the database (migration 011); these validate shape and pass through.
+
+const PaymentForm = z.object({
+  invoiceId: z.string().uuid(),
+  amount: Money,
+  paidAt: Day,
+  receivedBy: Holder,
+  method: z.enum(PAYMENT_METHODS).nullable(),
+  note: z.string().nullable(),
+  /** "Pay out founders now": both payouts paid out on paidAt from this holder. */
+  payOutFrom: Holder.nullable(),
+});
+
+export async function recordPaymentAction(input: z.infer<typeof PaymentForm>): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const p = PaymentForm.parse(input);
+  return run(() => recordPayment({ ...p, createdBy: admin.email }));
+}
+
+export async function deletePaymentAction(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  return run(() => deletePayment(id));
+}
+
+export async function markPayoutPaidOutAction(id: string, paidOutAt: string, paidFrom: string): Promise<ActionResult> {
+  await requireAdmin();
+  return run(() => markPayoutPaidOut(id, Day.parse(paidOutAt), Holder.parse(paidFrom)));
+}
+
+export async function undoPayoutPaidOutAction(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  return run(() => undoPayoutPaidOut(id));
+}
+
+const TransferForm = z
+  .object({ movedAt: Day, fromLoc: Holder, toLoc: Holder, amount: Money, note: z.string().nullable() })
+  .refine((t) => t.fromLoc !== t.toLoc, "From and to must differ");
+
+export async function recordTransferAction(input: z.infer<typeof TransferForm>): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const t = TransferForm.parse(input);
+  return run(() => createTransfer({ ...t, createdBy: admin.email }));
+}
+
+export async function deleteTransferAction(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  return run(() => deleteTransfer(id));
+}
+
+const CountForm = z.object({
+  countedAt: Day,
+  location: Holder,
+  amount: z.number().min(0).finite(),
+  note: z.string().nullable(),
+});
+
+export async function recordCashCountAction(input: z.infer<typeof CountForm>): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const c = CountForm.parse(input);
+  return run(() => createCashCount({ ...c, createdBy: admin.email }));
+}
+
+export async function deleteLatestCashCountAction(location: string): Promise<ActionResult> {
+  await requireAdmin();
+  return run(() => deleteLatestCashCount(Holder.parse(location)));
+}
+
+export async function reimburseExpenseAction(id: string, reimbursedAt: string, from: string): Promise<ActionResult> {
+  await requireAdmin();
+  return run(() => reimburseExpense(id, Day.parse(reimbursedAt), Holder.parse(from)));
+}
+
+export async function undoReimburseExpenseAction(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  return run(() => undoReimburseExpense(id));
 }
 
 // ─── Session ────────────────────────────────────────────────────────────────

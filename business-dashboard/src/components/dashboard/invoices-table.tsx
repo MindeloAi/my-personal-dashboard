@@ -3,15 +3,18 @@
 import { Fragment, useState, useTransition } from "react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
-import { markInvoicePaid } from "@/app/actions";
+import { deletePaymentAction } from "@/app/actions";
 import { EditInvoiceModal } from "@/components/dashboard/edit-invoice-modal";
+import { RecordPaymentModal } from "@/components/dashboard/record-payment-modal";
 import { effectiveStatus, isOverdue } from "@/lib/invoices";
-import type { Invoice, Project, Subscription } from "@/lib/airtable";
+import { HOLDER_LABEL, tt } from "@/lib/ledger";
+import type { Invoice, Ledger, Payment, Project, Subscription } from "@/lib/airtable";
 
 export type InvoiceStatusFilter = "All" | "Sent" | "Overdue" | "Paid" | "Draft";
 
 type Props = {
   invoices: Invoice[];
+  ledger: Ledger;
   projects?: Project[];
   subscriptions?: Subscription[];
   statusFilter: InvoiceStatusFilter;
@@ -49,37 +52,71 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function MarkPaidButton({ invoiceId }: { invoiceId: string }) {
+function DeletePaymentButton({ paymentId }: { paymentId: string }) {
   const [pending, startTransition] = useTransition();
-  const [error, setError] = useState(false);
   return (
-    <div className="flex flex-col items-end gap-0.5">
-      <button
-        disabled={pending}
-        onClick={(e) => {
-          e.stopPropagation();
-          setError(false);
-          startTransition(async () => {
-            try {
-              await markInvoicePaid(invoiceId);
-              toast.success("Invoice marked paid");
-            } catch {
-              setError(true);
-              toast.error("Failed to mark paid");
+    <button
+      disabled={pending}
+      onClick={() => {
+        if (!window.confirm("Delete this payment? Its founder payouts are removed too, including any already paid out, so Business cash is reversed as if neither happened. The invoice reopens if it was paid.")) return;
+        startTransition(async () => {
+          try {
+            const res = await deletePaymentAction(paymentId);
+            if (res.error) {
+              toast.error(res.error);
+              return;
             }
-          });
-        }}
-        className="min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 hover:bg-[#bfff3a]/20 disabled:opacity-40 transition-colors"
-      >
-        {pending ? "Saving…" : "Mark paid"}
-      </button>
-      {error && <span className="text-[10px] text-[#ff4d8b]">Failed</span>}
+            toast.success("Payment deleted");
+          } catch {
+            toast.error("Failed to delete payment");
+          }
+        });
+      }}
+      className="min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-lg border border-[#2a2e34] text-zinc-400 hover:text-[#ff4d8b] hover:border-[#ff4d8b]/40 disabled:opacity-40 transition-colors"
+    >
+      {pending ? "Deleting…" : "Delete"}
+    </button>
+  );
+}
+
+function PaymentsList({ payments }: { payments: Payment[] }) {
+  return (
+    <div className="mt-3">
+      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1.5">Payments</p>
+      <ul className="divide-y divide-[#2a2e34] border border-[#2a2e34] rounded-xl">
+        {payments.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-3 py-2 text-xs text-zinc-400">
+            <span>{format(parseISO(p.paidAt), "MMM d, yyyy")}</span>
+            <span className="font-mono font-semibold text-white">{tt(p.amount)}</span>
+            <span>
+              <span className="text-zinc-600 mr-1">Received by</span>
+              {HOLDER_LABEL[p.receivedBy]}
+            </span>
+            {p.method && (
+              <span>
+                <span className="text-zinc-600 mr-1">Via</span>
+                {p.method}
+              </span>
+            )}
+            {p.createdBy && (
+              <span>
+                <span className="text-zinc-600 mr-1">Entered by</span>
+                {p.createdBy}
+              </span>
+            )}
+            <span className="ml-auto">
+              <DeletePaymentButton paymentId={p.id} />
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
 export function InvoicesTable({
   invoices,
+  ledger,
   projects,
   subscriptions,
   statusFilter,
@@ -90,6 +127,7 @@ export function InvoicesTable({
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
 
   const projectToClient = new Map<string, string | undefined>();
   for (const p of projects ?? []) projectToClient.set(p.id, p.Client?.[0]);
@@ -173,6 +211,7 @@ export function InvoicesTable({
                 const isExpanded = expandedId === inv.id;
                 const renderStatus = effectiveStatus(inv);
                 const showMarkPaid = renderStatus === "Sent" || renderStatus === "Overdue";
+                const payments = isExpanded ? ledger.payments.filter((p) => p.invoiceId === inv.id) : [];
                 return (
                   <Fragment key={inv.id}>
                     <tr
@@ -195,7 +234,17 @@ export function InvoicesTable({
                         <StatusBadge status={renderStatus} />
                       </td>
                       <td className="py-3 text-right">
-                        {showMarkPaid && <MarkPaidButton invoiceId={inv.id} />}
+                        {showMarkPaid && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPayingInvoice(inv);
+                            }}
+                            className="min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 hover:bg-[#bfff3a]/20 transition-colors"
+                          >
+                            Mark paid
+                          </button>
+                        )}
                       </td>
                     </tr>
                     {isExpanded && (
@@ -238,6 +287,7 @@ export function InvoicesTable({
                               Edit
                             </button>
                           </div>
+                          {payments.length > 0 && <PaymentsList payments={payments} />}
                         </td>
                       </tr>
                     )}
@@ -253,8 +303,12 @@ export function InvoicesTable({
           invoice={editingInvoice}
           projects={projects}
           subscriptions={subscriptions}
+          rule={ledger.rule}
           onClose={() => setEditingInvoice(null)}
         />
+      )}
+      {payingInvoice && (
+        <RecordPaymentModal invoice={payingInvoice} ledger={ledger} onClose={() => setPayingInvoice(null)} />
       )}
     </div>
   );

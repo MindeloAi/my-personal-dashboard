@@ -1,56 +1,64 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { parseISO, isAfter, addDays, format, isBefore, startOfDay } from "date-fns";
+import { parseISO, addDays, format, differenceInCalendarDays } from "date-fns";
 import { EditInvoiceModal } from "@/components/dashboard/edit-invoice-modal";
 import type { Invoice, Project, Subscription } from "@/lib/airtable";
+import { isOverdue } from "@/lib/invoices";
+import { today } from "@/lib/subscriptions";
+import { tt } from "@/lib/ledger";
 
 type Props = { invoices: Invoice[]; projects?: Project[]; subscriptions?: Subscription[] };
 
-const DOT_COLORS = ["#3affd1", "#bfff3a", "#c44dff", "#ff4d8b", "#4d9fff"];
+const DOT_COLORS = ["#3affd1", "#bfff3a", "#c44dff", "#4d9fff"];
+const OVERDUE_COLOR = "#ff4d8b";
 
 export function Cashflow({ invoices, projects = [], subscriptions = [] }: Props) {
   const [editing, setEditing] = useState<Invoice | null>(null);
 
   const { upcoming, total } = useMemo(() => {
     const now = new Date();
-    const cutoff = addDays(now, 30);
+    const todayStr = today(now);
+    const cutoff = format(addDays(parseISO(todayStr), 30), "yyyy-MM-dd");
     const upcoming = invoices
-      .filter((i) => {
-        if (i.Status !== "Sent" && i.Status !== "Overdue") return false;
-        if (!i["Due Date"]) return false;
-        const d = parseISO(i["Due Date"]);
-        // startOfDay: an invoice due today is still expected cash, not dropped.
-        return !isBefore(d, startOfDay(now)) && !isAfter(d, cutoff);
-      })
-      .sort((a, b) => parseISO(a["Due Date"]!).getTime() - parseISO(b["Due Date"]!).getTime());
-    const total = upcoming.reduce((s, i) => s + (i.Amount ?? 0), 0);
+      .filter((i) => (i.Status === "Sent" || i.Status === "Overdue") && i["Due Date"] && i["Due Date"] <= cutoff)
+      .map((inv) => ({
+        inv,
+        remaining: (inv.Amount ?? 0) - (inv["Paid So Far"] ?? 0),
+        overdue: isOverdue(inv, now),
+      }))
+      .filter((x) => x.remaining > 0)
+      .sort((a, b) => {
+        if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+        return a.inv["Due Date"]!.localeCompare(b.inv["Due Date"]!);
+      });
+    const total = upcoming.reduce((s, x) => s + x.remaining, 0);
     return { upcoming, total };
   }, [invoices]);
 
-  const now = new Date();
-  const timelineDots = upcoming.slice(0, 5).map((inv, idx) => {
-    const d = parseISO(inv["Due Date"]!);
-    const daysDiff = Math.round((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const todayDate = parseISO(today());
+  const colorFor = (overdue: boolean, idx: number) => (overdue ? OVERDUE_COLOR : DOT_COLORS[idx % DOT_COLORS.length]);
+  const timelineDots = upcoming.slice(0, 5).map(({ inv, remaining, overdue }, idx) => {
+    const daysDiff = differenceInCalendarDays(parseISO(inv["Due Date"]!), todayDate);
     const pct = Math.min(95, Math.max(5, (daysDiff / 30) * 100));
-    return { inv, pct, color: DOT_COLORS[idx % DOT_COLORS.length] };
+    return { inv, remaining, pct, color: colorFor(overdue, idx) };
   });
 
   return (
     <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
       <p className="text-sm font-medium text-white mb-1">Next 30 days</p>
       <p className="text-xs text-zinc-500 mb-3">Expected cash in</p>
-      <p className="text-2xl font-medium text-[#bfff3a]">${total.toLocaleString()}</p>
+      <p className="text-2xl font-medium text-[#bfff3a]">{tt(total)}</p>
 
       <div className="relative mt-4 mb-2" style={{ height: 60 }}>
         <div className="absolute bottom-0 left-0 right-0 h-px bg-[#2a2e34]" />
-        {timelineDots.map(({ inv, pct, color }) => (
+        {timelineDots.map(({ inv, remaining, pct, color }) => (
           <button
             key={inv.id}
             onClick={() => setEditing(inv)}
             className="absolute group cursor-pointer"
             style={{ left: `${pct}%`, bottom: 0, transform: "translateX(-50%)" }}
-            title={`${inv["Invoice Number"] ?? "—"} · $${(inv.Amount ?? 0).toLocaleString()} · click to edit`}
+            title={`${inv["Invoice Number"] ?? "No number"}, ${tt(remaining)}, click to edit`}
           >
             <div
               className="w-2 h-2 rounded-full mb-1 mx-auto group-hover:scale-150 transition-transform"
@@ -68,17 +76,18 @@ export function Cashflow({ invoices, projects = [], subscriptions = [] }: Props)
         <p className="text-xs text-zinc-600 mt-4">No upcoming payments in 30 days</p>
       ) : (
         <div className="mt-4 pt-3 border-t border-[#1f242a] space-y-2">
-          {upcoming.slice(0, 4).map((inv, idx) => (
+          {upcoming.slice(0, 4).map(({ inv, remaining, overdue }, idx) => (
             <button
               key={inv.id}
               onClick={() => setEditing(inv)}
               className="w-full flex justify-between text-xs hover:bg-white/[0.02] -mx-1 px-1 py-0.5 rounded transition-colors"
             >
               <span className="text-zinc-400">
-                {format(parseISO(inv["Due Date"]!), "MMM d")} · {inv["Invoice Number"] ?? "—"}
+                {format(parseISO(inv["Due Date"]!), "MMM d")} · {inv["Invoice Number"] ?? "No number"}
+                {overdue && <span className="ml-1.5 text-[10px] text-[#ff4d8b]">overdue</span>}
               </span>
-              <span style={{ color: DOT_COLORS[idx % DOT_COLORS.length] }} className="font-medium">
-                ${(inv.Amount ?? 0).toLocaleString()}
+              <span style={{ color: colorFor(overdue, idx) }} className="font-medium tabular-nums">
+                {tt(remaining)}
               </span>
             </button>
           ))}
