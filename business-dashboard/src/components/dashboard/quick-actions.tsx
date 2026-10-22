@@ -8,14 +8,19 @@ import {
   createExpenseAction,
   createProjectAction,
 } from "@/app/actions";
+import { SplitPreview } from "@/components/dashboard/record-payment-modal";
 import { ModalShell } from "@/components/ui/modal-shell";
+import { PAID_WITH, paidWithFields, shareError, type SplitRule } from "@/lib/ledger";
 import type { Client, Project } from "@/lib/airtable";
 
 type ModalKind = "invoice" | "expense" | "project" | null;
 
+type LedgerInfo = { cutover: string; rule: SplitRule };
+
 type Props = {
   clients?: Client[];
   projects?: Project[];
+  ledger: LedgerInfo;
 };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -63,24 +68,37 @@ function SubmitRow({
 
 function InvoiceModal({
   projects,
+  rule,
   onClose,
 }: {
   projects: Project[];
+  rule: SplitRule;
   onClose: () => void;
 }) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [amount, setAmount] = useState("");
+  const [michael, setMichael] = useState("");
+  const [zane, setZane] = useState("");
   const today = format(new Date(), "yyyy-MM-dd");
+  const bothShares = michael !== "" && zane !== "";
+  const sharesProblem = bothShares ? shareError(michael, zane) : null;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const problem = bothShares ? sharesProblem : "Set both bonus shares.";
+    if (problem) {
+      setError(problem);
+      return;
+    }
     const fd = new FormData(e.currentTarget);
-    const amount = fd.get("amount") as string;
     const projectId = (fd.get("projectId") as string) || "";
     const invoiceType = (fd.get("invoiceType") as string) || "";
     const status = (fd.get("status") as string) || "Draft";
+    setError(null);
     start(async () => {
       try {
-        await createInvoiceAction({
+        const res = await createInvoiceAction({
           "Invoice Number": (fd.get("invoiceNumber") as string) || undefined,
           Amount: amount ? parseFloat(amount) : undefined,
           "Invoice Type": invoiceType ? (invoiceType as InvoiceTypeValue) : undefined,
@@ -89,10 +107,18 @@ function InvoiceModal({
           "Due Date": (fd.get("dueDate") as string) || undefined,
           Notes: (fd.get("notes") as string) || undefined,
           Project: projectId ? [projectId] : undefined,
+          "Michael Bonus Share": parseFloat(michael) / 100,
+          "Zane Bonus Share": parseFloat(zane) / 100,
         });
+        if (res.error) {
+          setError(res.error);
+          toast.error(res.error);
+          return;
+        }
         toast.success("Invoice created");
         onClose();
       } catch {
+        setError("Failed to create invoice. Try again.");
         toast.error("Failed to create invoice");
       }
     });
@@ -122,6 +148,8 @@ function InvoiceModal({
               min="0"
               step="0.01"
               placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
               className={inputCls}
               required
             />
@@ -144,7 +172,6 @@ function InvoiceModal({
             <select name="status" className={selectCls} defaultValue="Draft">
               <option value="Draft">Draft</option>
               <option value="Sent">Sent</option>
-              <option value="Paid">Paid</option>
               <option value="Overdue">Overdue</option>
               <option value="Void">Void</option>
             </select>
@@ -158,28 +185,64 @@ function InvoiceModal({
             <input name="dueDate" type="date" className={inputCls} />
           </Field>
         </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Michael bonus share (%)">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={michael}
+              onChange={(e) => setMichael(e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Zane bonus share (%)">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={zane}
+              onChange={(e) => setZane(e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+        </div>
+        {bothShares && !sharesProblem && (
+          <SplitPreview amount={parseFloat(amount) || 0} rule={rule} michaelShare={parseFloat(michael) / 100} />
+        )}
         <Field label="Notes">
           <input name="notes" placeholder="Optional" className={inputCls} />
         </Field>
+        {(error ?? sharesProblem) && <p className="text-xs text-[#ff4d8b]">{error ?? sharesProblem}</p>}
         <SubmitRow pending={pending} onClose={onClose} accent="#bfff3a" />
       </form>
     </ModalShell>
   );
 }
 
-function ExpenseModal({ onClose }: { onClose: () => void }) {
+function ExpenseModal({ cutover, onClose }: { cutover: string; onClose: () => void }) {
   const [pending, start] = useTransition();
-  const today = format(new Date(), "yyyy-MM-dd");
+  const [error, setError] = useState<string | null>(null);
+  const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [paidWith, setPaidWith] = useState("");
+  const paidWithRequired = date !== "" && date >= cutover;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (paidWithRequired && !paidWith) {
+      setError("Choose what this expense was paid with.");
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const amount = fd.get("amount") as string;
     const usdAmount = fd.get("usdAmount") as string;
     const category = (fd.get("category") as string) || "";
+    setError(null);
     start(async () => {
       try {
-        await createExpenseAction({
+        const res = await createExpenseAction({
           Name: fd.get("name") as string,
           Category: category ? (category as ExpenseCategoryValue) : undefined,
           Amount: amount ? parseFloat(amount) : undefined,
@@ -188,10 +251,17 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
           Notes: (fd.get("notes") as string) || undefined,
           "USD Amount": usdAmount ? parseFloat(usdAmount) : undefined,
           Reference: (fd.get("reference") as string) || undefined,
+          ...(paidWith ? paidWithFields(paidWith) : {}),
         });
+        if (res.error) {
+          setError(res.error);
+          toast.error(res.error);
+          return;
+        }
         toast.success("Expense created");
         onClose();
       } catch {
+        setError("Failed to create expense. Try again.");
         toast.error("Failed to create expense");
       }
     });
@@ -255,9 +325,32 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
             </select>
           </Field>
           <Field label="Date">
-            <input name="date" type="date" defaultValue={today} className={inputCls} />
+            <input
+              name="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={inputCls}
+            />
           </Field>
         </div>
+        <Field label={paidWithRequired ? "Paid with" : "Paid with (optional)"}>
+          <select
+            value={paidWith}
+            onChange={(e) => {
+              setPaidWith(e.target.value);
+              setError(null);
+            }}
+            className={selectCls}
+          >
+            <option value="">Select…</option>
+            {PAID_WITH.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </Field>
         <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none">
           <input name="recurring" type="checkbox" className="w-3.5 h-3.5 accent-[#bfff3a]" />
           Recurring expense
@@ -265,6 +358,7 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
         <Field label="Notes">
           <input name="notes" placeholder="Optional" className={inputCls} />
         </Field>
+        {error && <p className="text-xs text-[#ff4d8b]">{error}</p>}
         <SubmitRow pending={pending} onClose={onClose} accent="#ff4d8b" />
       </form>
     </ModalShell>
@@ -431,7 +525,7 @@ function ProjectModal({
 // runtime exports from the airtable lib for things the modals already
 // know how to constrain.
 type InvoiceTypeValue = "deposit" | "milestone" | "final" | "recurring" | "one_off";
-type InvoiceStatusValue = "Draft" | "Sent" | "Paid" | "Overdue" | "Void";
+type InvoiceStatusValue = "Draft" | "Sent" | "Overdue" | "Void";
 type ExpenseCategoryValue =
   | "Software"
   | "Subcontractors"
@@ -447,7 +541,7 @@ type PaymentStructureValue =
   | "recurring_monthly"
   | "recurring_custom";
 
-export function QuickActions({ clients = [], projects = [] }: Props) {
+export function QuickActions({ clients = [], projects = [], ledger }: Props) {
   const [open, setOpen] = useState<ModalKind>(null);
 
   return (
@@ -473,8 +567,8 @@ export function QuickActions({ clients = [], projects = [] }: Props) {
         </button>
       </div>
 
-      {open === "invoice" && <InvoiceModal projects={projects} onClose={() => setOpen(null)} />}
-      {open === "expense" && <ExpenseModal onClose={() => setOpen(null)} />}
+      {open === "invoice" && <InvoiceModal projects={projects} rule={ledger.rule} onClose={() => setOpen(null)} />}
+      {open === "expense" && <ExpenseModal cutover={ledger.cutover} onClose={() => setOpen(null)} />}
       {open === "project" && <ProjectModal clients={clients} onClose={() => setOpen(null)} />}
     </>
   );

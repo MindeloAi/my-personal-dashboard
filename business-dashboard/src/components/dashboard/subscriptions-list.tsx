@@ -82,7 +82,7 @@ export function SubscriptionsList({ subscriptions, invoices, clients, projects }
     setInvoicing(subId);
     startTransition(async () => {
       try {
-        await createInvoiceAction({
+        const res = await createInvoiceAction({
           Amount: sub.Amount,
           "Invoice Type": "recurring",
           Status: "Draft",
@@ -93,6 +93,10 @@ export function SubscriptionsList({ subscriptions, invoices, clients, projects }
           Client: sub.Client,
           Notes: sub.Name,
         });
+        if (res.error) {
+          toast.error(res.error);
+          return;
+        }
         toast.success("Draft invoice created — review it in Invoices");
       } catch {
         toast.error("Failed to create the invoice");

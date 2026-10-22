@@ -48,13 +48,17 @@ if (!url) {
 // this repo contains no semicolons inside string literals, so a plain split is
 // safe here; if that ever changes this needs a real parser.
 const raw = readFileSync(path, "utf8");
-const statements = raw
-  .split("\n")
-  .filter((l) => !l.trim().startsWith("--"))
-  .join("\n")
-  .split(";")
-  .map((s) => s.trim())
-  .filter(Boolean);
+// A file with a $$-quoted function body has semicolons inside it, so it runs
+// as ONE multi-statement call instead (no per-statement row counts).
+const statements = raw.includes("$$")
+  ? [raw]
+  : raw
+      .split("\n")
+      .filter((l) => !l.trim().startsWith("--"))
+      .join("\n")
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean);
 
 const sql = postgres(url, {
   prepare: false,

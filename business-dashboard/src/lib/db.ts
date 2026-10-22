@@ -1,5 +1,6 @@
 import postgres from "postgres";
 import { z } from "zod";
+import type { Holder, Founder, PaymentMethod, SplitRule } from "@/lib/ledger";
 
 // ─── Postgres data layer ──────────────────────────────────────────────────────
 //
@@ -195,6 +196,11 @@ export const InvoiceSchema = z.object({
     .optional(),
   "PDF URL": z.string().optional(),
   Notes: z.string().optional(),
+  // Founder ledger (migration 011). Fractions 0..1 that total 1, or both unset.
+  "Michael Bonus Share": z.number().optional(),
+  "Zane Bonus Share": z.number().optional(),
+  // Sum of payments recorded since cutover. Read-only, computed by the query.
+  "Paid So Far": z.number().optional(),
 });
 export type Invoice = z.infer<typeof InvoiceSchema>;
 
@@ -237,6 +243,12 @@ export const ExpenseSchema = z.object({
   Notes: z.string().optional(),
   "USD Amount": z.number().optional(),
   Reference: z.string().optional(),
+  // Founder ledger (migration 011). Who paid: a business cash holder, or a
+  // founder personally (then owed back until reimbursed).
+  "Paid From": z.enum(["mikey", "zane", "vantage"]).optional(),
+  "Paid Personally By": z.enum(["michael", "zane"]).optional(),
+  "Reimbursed At": z.string().optional(),
+  "Reimbursed From": z.enum(["mikey", "zane", "vantage"]).optional(),
 });
 export type Expense = z.infer<typeof ExpenseSchema>;
 
@@ -387,6 +399,8 @@ export const InvoiceWriteSchema = z.object({
     .optional(),
   "PDF URL": z.string().optional(),
   Notes: z.string().optional(),
+  "Michael Bonus Share": z.number().min(0).max(1).nullable().optional(),
+  "Zane Bonus Share": z.number().min(0).max(1).nullable().optional(),
 });
 export type InvoiceWrite = z.infer<typeof InvoiceWriteSchema>;
 
@@ -414,6 +428,9 @@ export const ExpenseWriteSchema = z.object({
   Notes: z.string().optional(),
   "USD Amount": z.number().optional(),
   Reference: z.string().optional(),
+  // "" clears (toColumns). Reimbursement is written only by reimburseExpense().
+  "Paid From": z.enum(["mikey", "zane", "vantage", ""]).optional(),
+  "Paid Personally By": z.enum(["michael", "zane", ""]).optional(),
 });
 export type ExpenseWrite = z.infer<typeof ExpenseWriteSchema>;
 
@@ -528,6 +545,8 @@ const INVOICE_COLS: ColMap = {
   "Payment Method": "payment_method",
   "PDF URL": "pdf_url",
   Notes: "notes",
+  "Michael Bonus Share": "michael_bonus_share",
+  "Zane Bonus Share": "zane_bonus_share",
 };
 // `Client` is stored when written. Reads coalesce it with the project's client,
 // reproducing Airtable's lookup semantics when it is null.
@@ -557,6 +576,8 @@ const EXPENSE_COLS: ColMap = {
   Notes: "notes",
   "USD Amount": "usd_amount",
   Reference: "reference",
+  "Paid From": "paid_from",
+  "Paid Personally By": "paid_personally_by",
 };
 
 // Milestones is read-only in the app today, so it has no write maps yet.
@@ -673,6 +694,9 @@ function shapeInvoice(r: Row) {
     "PDF URL": r.pdf_url,
     Notes: r.notes,
     Subscription: link(r.subscription_id),
+    "Michael Bonus Share": r.michael_bonus_share,
+    "Zane Bonus Share": r.zane_bonus_share,
+    "Paid So Far": r.paid_so_far,
   };
 }
 
@@ -706,6 +730,10 @@ function shapeExpense(r: Row) {
     Notes: r.notes,
     "USD Amount": r.usd_amount,
     Reference: r.reference,
+    "Paid From": r.paid_from,
+    "Paid Personally By": r.paid_personally_by,
+    "Reimbursed At": r.reimbursed_at,
+    "Reimbursed From": r.reimbursed_from,
   };
 }
 
@@ -862,7 +890,8 @@ export async function getProjects(): Promise<Project[]> {
 export async function getInvoices(): Promise<Invoice[]> {
   const sql = getSql();
   const rows = await sql`
-    select i.*, coalesce(i.client_id, p.client_id) as effective_client_id
+    select i.*, coalesce(i.client_id, p.client_id) as effective_client_id,
+           (select coalesce(sum(amount), 0) from payments where invoice_id = i.id) as paid_so_far
       from invoices i
       left join projects p on p.id = i.project_id
      order by i.sort_key asc, i.id asc
@@ -1182,4 +1211,344 @@ export async function getAdminProfile(userId: string): Promise<AdminProfile | nu
     select id, email from profiles where id = ${userId} and role = 'admin'
   `;
   return row ? { id: String(row.id), email: String(row.email) } : null;
+}
+
+// ─── Founder ledger (migration 011) ───────────────────────────────────────────
+//
+// Every money figure here is read from a view or written by the
+// on_payment_insert() trigger. Nothing below does arithmetic on money.
+//
+// Writes that the database can reject for a business reason (overpaying, a
+// date before cutover, missing bonus shares, a locked invoice) raise P0001 with
+// a plain-English message. ledgerErrorMessage() lets an action hand that text
+// to the user, since Next redacts thrown errors in production.
+
+export function ledgerErrorMessage(err: unknown): string | null {
+  const e = err as { code?: string; message?: string };
+  return e?.code === "P0001" && e.message ? e.message : null;
+}
+
+export type Payout = {
+  id: string;
+  number: string;
+  founder: Founder;
+  invoiceId: string;
+  invoiceNumber: string | null;
+  paymentId: string;
+  paidAt: string;
+  base: number;
+  bonus: number;
+  total: number;
+  status: "due" | "paid_out";
+  paidOutAt: string | null;
+  paidFrom: Holder | null;
+  createdBy: string | null;
+};
+
+export type Payment = {
+  id: string;
+  invoiceId: string;
+  amount: number;
+  paidAt: string;
+  receivedBy: Holder;
+  method: string | null;
+  note: string | null;
+  createdBy: string | null;
+};
+
+export type CashMovement = {
+  id: string;
+  movedAt: string;
+  kind: "opening" | "transfer";
+  fromLoc: Holder | null;
+  toLoc: Holder | null;
+  amount: number;
+  note: string | null;
+  createdBy: string | null;
+};
+
+export type CashCheckRow = {
+  location: Holder;
+  countedAt: string | null;
+  counted: number | null;
+  /** Expected balance AS AT the count date. */
+  expected: number | null;
+  variance: number | null;
+  expectedNow: number;
+};
+
+export type Ledger = {
+  cutover: string;
+  rule: SplitRule;
+  cash: { total: number } & Record<Holder, number>;
+  cashCheck: CashCheckRow[];
+  owedToUs: { total: number; count: number };
+  owedToFounders: Record<Founder, number>;
+  founderPay: { founder: Founder; month: string; due: number; paidOut: number; total: number }[];
+  payouts: Payout[];
+  payments: Payment[];
+  movements: CashMovement[];
+  /** This calendar month, counted from cutover at the earliest. */
+  month: { payments: number; expenses: number; payoutsPaidOut: number; net: number };
+};
+
+const str = (v: unknown) => (v == null ? null : String(v));
+
+export async function getCutoverDate(): Promise<string> {
+  const sql = getSql();
+  const [row] = await sql`select cutover_date from ledger_settings`;
+  return String(row.cutover_date);
+}
+
+const shapeRule = (r: Row): SplitRule => ({
+  version: Number(r.version),
+  effectiveFrom: String(r.effective_from),
+  bonusPoolPct: Number(r.bonus_pool_pct),
+  michaelBasePct: Number(r.michael_base_pct),
+  zaneBasePct: Number(r.zane_base_pct),
+});
+
+/** What every page's create-invoice / create-expense forms need. */
+export async function getLedgerBasics(today: string): Promise<{ cutover: string; rule: SplitRule }> {
+  const sql = getSql();
+  const [[rule], cutover] = await Promise.all([
+    sql`select * from split_rules where effective_from <= ${today} order by effective_from desc limit 1`,
+    getCutoverDate(),
+  ]);
+  return { cutover, rule: shapeRule(rule) };
+}
+
+export async function getLedger(today: string): Promise<Ledger> {
+  const sql = getSql();
+  const monthStart = today.slice(0, 8) + "01";
+  const [
+    basics,
+    [cash],
+    cashCheck,
+    owed,
+    owedFounders,
+    founderPay,
+    payouts,
+    payments,
+    movements,
+    [month],
+  ] = await Promise.all([
+    getLedgerBasics(today),
+    sql`select * from business_cash`,
+    sql`select * from cash_check`,
+    sql`select total from owed_to_us`,
+    sql`select * from owed_to_founders`,
+    sql`select * from founder_pay order by month desc, founder`,
+    sql`
+      select po.*, i.invoice_number, pm.paid_at
+        from payouts po
+        join invoices i on i.id = po.invoice_id
+        join payments pm on pm.id = po.payment_id
+       order by po.number desc`,
+    sql`select * from payments order by paid_at desc, created_at desc`,
+    sql`select * from cash_movements order by moved_at desc, created_at desc`,
+    sql`
+      select m.*, m.payments - m.expenses - m.payouts as net
+        from ledger_settings s,
+        lateral (select greatest(${monthStart}::date, s.cutover_date) as since) w,
+        lateral (select
+          (select coalesce(sum(amount), 0) from payments
+            where paid_at between w.since and ${today}) as payments,
+          (select coalesce(sum(amount), 0) from expenses
+            where date between w.since and ${today}) as expenses,
+          (select coalesce(sum(total), 0) from payouts
+            where status = 'paid_out' and paid_out_at between w.since and ${today}) as payouts
+        ) m`,
+  ]);
+
+  const owedTo = Object.fromEntries(owedFounders.map((r) => [r.founder, Number(r.owed)]));
+
+  return {
+    ...basics,
+    cash: {
+      total: Number(cash.total),
+      mikey: Number(cash.mikey),
+      zane: Number(cash.zane),
+      vantage: Number(cash.vantage),
+    },
+    cashCheck: cashCheck.map((r) => ({
+      location: r.location as Holder,
+      countedAt: str(r.counted_at),
+      counted: r.counted == null ? null : Number(r.counted),
+      expected: r.expected == null ? null : Number(r.expected),
+      variance: r.variance == null ? null : Number(r.variance),
+      expectedNow: Number(r.expected_now),
+    })),
+    owedToUs: { total: Number(owed[0]?.total ?? 0), count: owed.length },
+    owedToFounders: { michael: owedTo.michael ?? 0, zane: owedTo.zane ?? 0 },
+    founderPay: founderPay.map((r) => ({
+      founder: r.founder as Founder,
+      month: String(r.month).slice(0, 7), // "YYYY-MM", same key as payout.paidAt.slice(0, 7)
+      due: Number(r.due),
+      paidOut: Number(r.paid_out),
+      total: Number(r.total),
+    })),
+    payouts: payouts.map((r) => ({
+      id: String(r.id),
+      number: String(r.number),
+      founder: r.founder as Founder,
+      invoiceId: String(r.invoice_id),
+      invoiceNumber: str(r.invoice_number),
+      paymentId: String(r.payment_id),
+      paidAt: String(r.paid_at),
+      base: Number(r.base),
+      bonus: Number(r.bonus),
+      total: Number(r.total),
+      status: r.status as Payout["status"],
+      paidOutAt: str(r.paid_out_at),
+      paidFrom: str(r.paid_from) as Holder | null,
+      createdBy: str(r.created_by),
+    })),
+    payments: payments.map((r) => ({
+      id: String(r.id),
+      invoiceId: String(r.invoice_id),
+      amount: Number(r.amount),
+      paidAt: String(r.paid_at),
+      receivedBy: r.received_by as Holder,
+      method: str(r.method),
+      note: str(r.note),
+      createdBy: str(r.created_by),
+    })),
+    movements: movements.map((r) => ({
+      id: String(r.id),
+      movedAt: String(r.moved_at),
+      kind: r.kind as CashMovement["kind"],
+      fromLoc: str(r.from_loc) as Holder | null,
+      toLoc: str(r.to_loc) as Holder | null,
+      amount: Number(r.amount),
+      note: str(r.note),
+      createdBy: str(r.created_by),
+    })),
+    month: {
+      payments: Number(month.payments),
+      expenses: Number(month.expenses),
+      payoutsPaidOut: Number(month.payouts),
+      net: Number(month.net),
+    },
+  };
+}
+
+export type PaymentInput = {
+  invoiceId: string;
+  amount: number;
+  paidAt: string;
+  receivedBy: Holder;
+  method: PaymentMethod | null;
+  note: string | null;
+  /** Mark both new payouts paid out on paidAt, from this holder. Null leaves them due. */
+  payOutFrom: Holder | null;
+  createdBy: string;
+};
+
+/**
+ * One transaction: insert the payment (the trigger validates it, creates the
+ * payouts and closes the invoice when fully paid), then optionally pay out
+ * those payouts straight away.
+ */
+export async function recordPayment(p: PaymentInput): Promise<{ id: string }> {
+  const sql = getSql();
+  const id = await sql.begin(async (tx) => {
+    const [row] = await tx`
+      insert into payments (invoice_id, amount, paid_at, received_by, method, note, created_by)
+      values (${p.invoiceId}, ${p.amount}, ${p.paidAt}, ${p.receivedBy}, ${p.method}, ${p.note}, ${p.createdBy})
+      returning id`;
+    if (p.payOutFrom) {
+      await tx`
+        update payouts
+           set status = 'paid_out', paid_out_at = ${p.paidAt}, paid_from = ${p.payOutFrom}
+         where payment_id = ${row.id}`;
+    }
+    return String(row.id);
+  });
+  return { id };
+}
+
+/** Correction. Its payouts go with it; a Paid invoice reopens as Sent. */
+export async function deletePayment(id: string): Promise<void> {
+  const sql = getSql();
+  const [row] = await sql`delete from payments where id = ${id} returning id`;
+  if (!row) throw new Error(`[db] payment ${id} not found`);
+}
+
+export async function markPayoutPaidOut(id: string, paidOutAt: string, paidFrom: Holder): Promise<void> {
+  const sql = getSql();
+  const [row] = await sql`
+    update payouts set status = 'paid_out', paid_out_at = ${paidOutAt}, paid_from = ${paidFrom}
+     where id = ${id} returning id`;
+  if (!row) throw new Error(`[db] payout ${id} not found`);
+}
+
+/** Correction: back to due. */
+export async function undoPayoutPaidOut(id: string): Promise<void> {
+  const sql = getSql();
+  const [row] = await sql`
+    update payouts set status = 'due', paid_out_at = null, paid_from = null
+     where id = ${id} returning id`;
+  if (!row) throw new Error(`[db] payout ${id} not found`);
+}
+
+export async function createTransfer(t: {
+  movedAt: string;
+  fromLoc: Holder;
+  toLoc: Holder;
+  amount: number;
+  note: string | null;
+  createdBy: string;
+}): Promise<void> {
+  const sql = getSql();
+  await sql`
+    insert into cash_movements (moved_at, kind, from_loc, to_loc, amount, note, created_by)
+    values (${t.movedAt}, 'transfer', ${t.fromLoc}, ${t.toLoc}, ${t.amount}, ${t.note}, ${t.createdBy})`;
+}
+
+/** Correction. Transfers only: the opening balance is fixed. */
+export async function deleteTransfer(id: string): Promise<void> {
+  const sql = getSql();
+  const [row] = await sql`delete from cash_movements where id = ${id} and kind = 'transfer' returning id`;
+  if (!row) throw new Error(`[db] transfer ${id} not found`);
+}
+
+export async function createCashCount(c: {
+  countedAt: string;
+  location: Holder;
+  amount: number;
+  note: string | null;
+  createdBy: string;
+}): Promise<void> {
+  const sql = getSql();
+  await sql`
+    insert into cash_counts (counted_at, location, amount, note, created_by)
+    values (${c.countedAt}, ${c.location}, ${c.amount}, ${c.note}, ${c.createdBy})`;
+}
+
+/** Correction: removes a holder's most recent count, revealing the one before. */
+export async function deleteLatestCashCount(location: Holder): Promise<void> {
+  const sql = getSql();
+  const [row] = await sql`
+    delete from cash_counts where id = (
+      select id from cash_counts where location = ${location}
+       order by counted_at desc, created_at desc limit 1)
+    returning id`;
+  if (!row) throw new Error(`[db] no count for ${location}`);
+}
+
+export async function reimburseExpense(id: string, reimbursedAt: string, from: Holder): Promise<void> {
+  const sql = getSql();
+  const [row] = await sql`
+    update expenses set reimbursed_at = ${reimbursedAt}, reimbursed_from = ${from}
+     where id = ${id} and paid_personally_by is not null returning id`;
+  if (!row) throw new Error(`[db] expense ${id} was not paid personally`);
+}
+
+/** Correction: owed to the founder again. */
+export async function undoReimburseExpense(id: string): Promise<void> {
+  const sql = getSql();
+  const [row] = await sql`
+    update expenses set reimbursed_at = null, reimbursed_from = null where id = ${id} returning id`;
+  if (!row) throw new Error(`[db] expense ${id} not found`);
 }

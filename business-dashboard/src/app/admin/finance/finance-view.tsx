@@ -6,7 +6,9 @@ import { Cashflow } from "@/components/dashboard/cashflow";
 import { ExpensesBreakdown } from "@/components/dashboard/expenses-breakdown";
 import { ExpensesList } from "@/components/dashboard/expenses-list";
 import { SubscriptionsList } from "@/components/dashboard/subscriptions-list";
-import type { Client, Project, Invoice, Expense, Subscription } from "@/lib/db";
+import { CashPanel } from "@/components/dashboard/cash-panel";
+import { FounderPay } from "@/components/dashboard/founder-pay";
+import type { Client, Project, Invoice, Expense, Subscription, Ledger } from "@/lib/db";
 
 type Props = {
   clients: Client[];
@@ -14,6 +16,7 @@ type Props = {
   invoices: Invoice[];
   expenses: Expense[];
   subscriptions: Subscription[];
+  ledger: Ledger;
   initialStatus: InvoiceStatusFilter;
   initialClientId: string | null;
 };
@@ -24,6 +27,7 @@ export function FinanceView({
   invoices,
   expenses,
   subscriptions,
+  ledger,
   initialStatus,
   initialClientId,
 }: Props) {
@@ -36,6 +40,8 @@ export function FinanceView({
 
   return (
     <>
+      <CashPanel ledger={ledger} />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className="lg:col-span-2">
           <InvoicesTable
@@ -47,10 +53,13 @@ export function FinanceView({
             clientFilter={invoiceClient}
             onClearClientFilter={() => setInvoiceClient(null)}
             clientName={selectedClientName}
+            ledger={ledger}
           />
         </div>
         <Cashflow invoices={invoices} projects={projects} subscriptions={subscriptions} />
       </div>
+
+      <FounderPay ledger={ledger} />
 
       <SubscriptionsList
         subscriptions={subscriptions}
@@ -68,6 +77,7 @@ export function FinanceView({
         <div className="lg:col-span-2">
           <ExpensesList
             expenses={expenses}
+            cutover={ledger.cutover}
             categoryFilter={expenseCategory}
             onClearCategoryFilter={() => setExpenseCategory(null)}
           />
