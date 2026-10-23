@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ClientModal, PANEL, STATUS_BADGE } from "@/components/dashboard/clients-list";
 import { DateLine } from "@/components/dashboard/timeline/date-line";
 import { EntryModal } from "@/components/dashboard/timeline/entry-modal";
+import { HistoryList } from "@/components/dashboard/timeline/history-list";
+import { OwesList } from "@/components/dashboard/timeline/owes-list";
 import type { Client, Project } from "@/lib/db";
 import type { ClientPromise, Lit, TimelineEntry, UnpaidInvoice } from "@/lib/timeline";
 
@@ -24,8 +26,7 @@ export function TimelineView({ client, projects, entries, promises, invoices, to
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const status = client.Status ?? "Active";
-  // Task 8 consumes clear; the placeholders below ignore it for now.
-  void clear;
+  const name = client.Company || client.Name;
 
   return (
     <div className="space-y-3">
@@ -74,20 +75,24 @@ export function TimelineView({ client, projects, entries, promises, invoices, to
 
       <DateLine entries={entries} promises={promises} invoices={invoices} today={today} lit={lit} onLight={light} />
 
-      {/* Placeholder: Task 8 adds the two who-owes-what lists. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-region="lists">
-        <section className={`${PANEL} p-4 text-sm text-zinc-600`}>Client owes us</section>
-        <section className={`${PANEL} p-4 text-sm text-zinc-600`}>We owe the client</section>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start" data-region="lists">
+        {(["client", "us"] as const).map((side) => (
+          <OwesList
+            key={side}
+            side={side}
+            title={side === "client" ? `${name} owes us` : `We owe ${name}`}
+            promises={promises}
+            invoices={invoices}
+            today={today}
+            lit={lit}
+            onLight={light}
+            onClear={clear}
+            clientId={client.id}
+          />
+        ))}
       </div>
 
-      {/* Placeholder: Task 8 adds the history. */}
-      <section className={`${PANEL} p-4`} data-region="history">
-        {entries.length === 0 ? (
-          <p className="text-sm text-zinc-500">No calls, emails or messages yet. Add the first one.</p>
-        ) : (
-          <p className="text-sm text-zinc-600">History</p>
-        )}
-      </section>
+      <HistoryList entries={entries} promises={promises} lit={lit} onLight={light} onClear={clear} clientId={client.id} today={today} />
 
       {adding && <EntryModal clientId={client.id} today={today} promises={promises} onClose={() => setAdding(false)} />}
       {editing && <ClientModal client={client} onClose={() => setEditing(false)} />}
