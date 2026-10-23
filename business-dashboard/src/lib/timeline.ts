@@ -61,6 +61,15 @@ export function dueState(dueOn: string | null, today: string): DueState {
   return { kind: d <= 7 ? "soon" : "future", days: d };
 }
 
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// "Tue 29 Sep" from a YYYY-MM-DD string, in UTC so the day never shifts.
+export function formatDay(day: string): string {
+  const d = new Date(day + "T00:00:00Z");
+  return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
 export function lineWindow(today: string, dated: { date: string; late: boolean }[]): LineWindow {
   let start = addDays(today, -45);
   let end = addDays(today, 30);

@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { toast } from "sonner";
+import { useId, useState } from "react";
 import { saveEntryAction, suggestPromisesAction, updateEntryAction } from "@/app/actions";
 import { ModalShell } from "@/components/ui/modal-shell";
 import {
-  MAX_TEXT,
+  formatDay,
   MAX_WHAT,
+  textTooLong,
   type ClientPromise,
   type Direction,
   type EntryKind,
@@ -14,64 +14,9 @@ import {
   type Suggestion,
   type TimelineEntry,
 } from "@/lib/timeline";
+import { cancelBtn, ErrorLine, Field, inputCls, primaryBtn, selectCls, useSave } from "./form";
 
-// Same look as the client dialogs (their copies are not exported).
-export const inputCls =
-  "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
-export const selectCls = inputCls + " cursor-pointer";
-export const labelCls = "text-xs text-zinc-400";
-const ghostBtn =
-  "min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors disabled:opacity-40";
-export const primaryBtn =
-  "min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80";
-export const cancelBtn = ghostBtn;
-export const THROWN = "That did not save. Check your connection and try again.";
-
-export function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className={labelCls}>
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-// One save at a time. The ref closes the gap before React re-renders the disabled buttons,
-// so a fast double-click cannot send twice.
-export function useSave(onClose: () => void) {
-  const [pending, start] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const busy = useRef(false);
-  function run(call: () => Promise<{ error?: string }>, done: string) {
-    if (busy.current) return;
-    busy.current = true;
-    setError(null);
-    start(async () => {
-      try {
-        const res = await call();
-        if (res.error) return setError(res.error);
-        toast.success(done);
-        onClose();
-      } catch {
-        setError(THROWN);
-      } finally {
-        busy.current = false;
-      }
-    });
-  }
-  return { pending, error, setError, run };
-}
-
-// "Mon 2 Nov" from a YYYY-MM-DD string, read as UTC so the day never shifts.
-export function fmtDay(day: string | null): string {
-  if (!day) return "no date";
-  const d = new Date(day + "T00:00:00Z");
-  const wd = d.toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
-  const rest = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-  return `${wd} ${rest}`;
-}
+const MAX_LINE = 500;
 
 const KINDS: EntryKind[] = ["call", "meeting", "email", "message", "document"];
 const DIRECTIONS: { value: Direction; label: string }[] = [
@@ -95,7 +40,7 @@ type Props = {
 export function EntryModal({ clientId, today, promises, entry, onClose }: Props) {
   const [kind, setKind] = useState<EntryKind>(entry?.kind ?? "call");
   const [direction, setDirection] = useState<Direction>(entry?.direction ?? "both");
-  const [dirTouched, setDirTouched] = useState(false);
+  const [dirTouched, setDirTouched] = useState(!!entry);
   const [date, setDate] = useState(entry?.occurredOn ?? today);
   const [summary, setSummary] = useState(entry?.summary ?? "");
   const [people, setPeople] = useState(entry?.people ?? "");
@@ -104,8 +49,13 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
   const [cards, setCards] = useState<Card[] | null>(null);
   const [reading, setReading] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
-  const { pending, error, setError, run } = useSave(onClose);
+  const [which, setWhich] = useState<"with" | "without">("with");
+  const { pending, error, setError, run, busy: guardRef } = useSave(onClose);
+  const uid = useId();
+  const id = (n: string) => `${uid}-${n}`;
   const busy = pending || reading;
+  const tooLong = textTooLong(text);
+  const blocked = busy || !!tooLong;
 
   const common = () => ({
     occurredOn: date,
@@ -123,26 +73,31 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
   }
 
   async function suggest() {
-    if (busy) return;
+    if (guardRef.current || tooLong) return;
     setSuggestError(null);
     setError(null);
+    if (!date) return setSuggestError("Pick a date.");
     if (!text.trim()) return setSuggestError("Paste some text first, or use Save without suggestions.");
+    guardRef.current = true;
     setReading(true);
     try {
       const res = await suggestPromisesAction({ clientId, occurredOn: date, kind, direction, text });
       if (!res.ok) return setSuggestError(res.error);
-      if (!summary.trim()) setSummary(res.summary);
-      if (!people.trim()) setPeople(res.people);
+      if (!summary.trim()) setSummary(res.summary.slice(0, MAX_LINE));
+      if (!people.trim()) setPeople(res.people.slice(0, MAX_LINE));
       setCards(res.suggestions.map((s) => ({ ...s, keep: true })));
     } catch {
       setSuggestError("Could not read the text. Check your connection and try again.");
     } finally {
+      guardRef.current = false;
       setReading(false);
     }
   }
 
   function save(withSuggestions: boolean) {
+    if (guardRef.current || tooLong) return;
     setSuggestError(null);
+    if (!date) return setError("Pick a date.");
     if (!summary.trim()) return setError("Add a one-line summary first.");
     const kept = withSuggestions ? (cards ?? []).filter((c) => c.keep) : [];
     if (kept.some((c) => !c.what.trim())) return setError("Every kept promise needs a description.");
@@ -154,12 +109,14 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
       dueOn: c.dueOn || null,
       quote: c.quote,
     }));
+    setWhich(withSuggestions ? "with" : "without");
     run(() => saveEntryAction({ clientId, ...common(), suggestions }), "Entry saved");
   }
 
   function saveEdit(e: React.FormEvent) {
     e.preventDefault();
-    if (!entry) return;
+    if (!entry || guardRef.current || tooLong) return;
+    if (!date) return setError("Pick a date.");
     if (!summary.trim()) return setError("Add a one-line summary first.");
     run(() => updateEntryAction(entry.id, common()), "Entry updated");
   }
@@ -174,8 +131,8 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
   const basics = (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Field id="em-kind" label="Kind">
-          <select id="em-kind" value={kind} onChange={(e) => changeKind(e.target.value as EntryKind)} className={selectCls}>
+        <Field id={id("kind")} label="Kind">
+          <select id={id("kind")} value={kind} onChange={(e) => changeKind(e.target.value as EntryKind)} className={selectCls}>
             {KINDS.map((k) => (
               <option key={k} value={k}>
                 {cap(k)}
@@ -183,9 +140,9 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
             ))}
           </select>
         </Field>
-        <Field id="em-dir" label="Direction">
+        <Field id={id("dir")} label="Direction">
           <select
-            id="em-dir"
+            id={id("dir")}
             value={direction}
             onChange={(e) => {
               setDirTouched(true);
@@ -201,28 +158,24 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
           </select>
         </Field>
       </div>
-      <Field id="em-date" label="Date">
-        <input id="em-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} required />
+      <Field id={id("date")} label="Date">
+        <input id={id("date")} type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
       </Field>
     </>
   );
 
   const summaryField = (
-    <Field id="em-summary" label="One-line summary">
-      <input id="em-summary" value={summary} maxLength={500} onChange={(e) => setSummary(e.target.value)} className={inputCls} />
+    <Field id={id("summary")} label="One-line summary">
+      <input id={id("summary")} value={summary} maxLength={500} onChange={(e) => setSummary(e.target.value)} className={inputCls} />
     </Field>
   );
   const linkField = (
-    <Field id="em-link" label="Link (optional)">
-      <input id="em-link" type="url" value={link} maxLength={2000} onChange={(e) => setLink(e.target.value)} className={inputCls} />
+    <Field id={id("link")} label="Link (optional)">
+      <input id={id("link")} inputMode="url" value={link} maxLength={2000} onChange={(e) => setLink(e.target.value)} className={inputCls} />
     </Field>
   );
 
-  const errorLine = error && (
-    <p role="alert" className="text-xs text-[#ff4d8b]">
-      {error}
-    </p>
-  );
+  const errorLine = <ErrorLine text={error ?? tooLong} />;
 
   return (
     <ModalShell title={title} onClose={onClose} maxWidthClass="max-w-xl">
@@ -230,19 +183,19 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
         <form onSubmit={saveEdit} className="flex flex-col gap-4">
           {basics}
           {summaryField}
-          <Field id="em-people" label="People (optional)">
-            <input id="em-people" value={people} maxLength={500} onChange={(e) => setPeople(e.target.value)} className={inputCls} />
+          <Field id={id("people")} label="People (optional)">
+            <input id={id("people")} value={people} maxLength={500} onChange={(e) => setPeople(e.target.value)} className={inputCls} />
           </Field>
-          <Field id="em-text" label="Text of the call, email or message (optional)">
-            <textarea id="em-text" rows={6} value={text} maxLength={MAX_TEXT} onChange={(e) => setText(e.target.value)} className={inputCls} />
+          <Field id={id("text")} label="Text of the call, email or message (optional)">
+            <textarea id={id("text")} rows={6} value={text} onChange={(e) => setText(e.target.value)} className={inputCls} />
           </Field>
           {linkField}
           {errorLine}
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={onClose} className={ghostBtn}>
+            <button type="button" onClick={onClose} className={cancelBtn}>
               Cancel
             </button>
-            <button type="submit" disabled={pending} className={primaryBtn}>
+            <button type="submit" disabled={blocked} className={primaryBtn}>
               {pending ? "Saving…" : "Save changes"}
             </button>
           </div>
@@ -251,21 +204,17 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
         <div className="flex flex-col gap-4">
           {basics}
           {summaryField}
-          <Field id="em-text" label="Paste the notetaker summary, or the email or message text">
-            <textarea id="em-text" rows={7} value={text} maxLength={MAX_TEXT} onChange={(e) => setText(e.target.value)} className={inputCls} />
+          <Field id={id("text")} label="Paste the notetaker summary, or the email or message text">
+            <textarea id={id("text")} rows={7} value={text} onChange={(e) => setText(e.target.value)} className={inputCls} />
           </Field>
           {linkField}
-          {suggestError && (
-            <p role="alert" className="text-xs text-[#ff4d8b]">
-              {suggestError}
-            </p>
-          )}
+          <ErrorLine text={suggestError} />
           {errorLine}
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-            <button type="button" onClick={() => save(false)} disabled={busy} className={ghostBtn}>
+            <button type="button" onClick={() => save(false)} disabled={blocked} className={cancelBtn}>
               {pending ? "Saving…" : "Save without suggestions"}
             </button>
-            <button type="button" onClick={suggest} disabled={busy} className={primaryBtn}>
+            <button type="button" onClick={suggest} disabled={blocked} className={primaryBtn}>
               {reading ? "Reading the text…" : "Suggest promises"}
             </button>
           </div>
@@ -273,8 +222,8 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
       ) : (
         <div className="flex flex-col gap-4">
           {summaryField}
-          <Field id="em-people" label="People">
-            <input id="em-people" value={people} maxLength={500} onChange={(e) => setPeople(e.target.value)} className={inputCls} />
+          <Field id={id("people")} label="People">
+            <input id={id("people")} value={people} maxLength={500} onChange={(e) => setPeople(e.target.value)} className={inputCls} />
           </Field>
           {cards.length === 0 ? (
             <p className="text-sm text-zinc-400">No promises found in this text.</p>
@@ -287,15 +236,21 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
           )}
           {errorLine}
           <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
-            <button type="button" onClick={() => setCards(null)} disabled={busy} className={ghostBtn}>
+            <button
+              type="button"
+              onClick={() => {
+                setCards(null);
+                setPeople("");
+              }}
+              disabled={busy} className={cancelBtn}>
               Back
             </button>
             <div className="flex flex-col-reverse sm:flex-row gap-2">
-              <button type="button" onClick={() => save(false)} disabled={busy} className={ghostBtn}>
-                Save without suggestions
+              <button type="button" onClick={() => save(false)} disabled={blocked} className={cancelBtn}>
+                {pending && which === "without" ? "Saving…" : "Save without suggestions"}
               </button>
-              <button type="button" onClick={() => save(true)} disabled={busy} className={primaryBtn}>
-                {pending ? "Saving…" : "Save"}
+              <button type="button" onClick={() => save(true)} disabled={blocked} className={primaryBtn}>
+                {pending && which === "with" ? "Saving…" : "Save"}
               </button>
             </div>
           </div>
@@ -317,13 +272,17 @@ function SuggestionCard({
   onChange: (p: Partial<Card>) => void;
 }) {
   const old = promises.find((p) => p.id === c.promiseId);
+  const newDay = c.dueOn ? formatDay(c.dueOn) : "no date";
   const label =
     c.action === "new"
       ? "New promise"
       : c.action === "done"
         ? `Done: ${old?.what ?? c.what}`
-        : `Replace: ${fmtDay(old?.dueOn ?? null)} to ${fmtDay(c.dueOn)}`;
-  const id = `sg-${i}`;
+        : old
+          ? `Replace: ${old.dueOn ? formatDay(old.dueOn) : "no date"} to ${newDay}`
+          : `Replace: ${newDay}`;
+  const uid = useId();
+  const id = `${uid}-${i}`;
   return (
     <li className="rounded-xl border border-[#2a2e34] bg-[#0b0d10]/60 p-3 flex flex-col gap-3">
       <label className="flex items-start gap-2 min-h-6 text-sm font-medium text-white">
@@ -335,6 +294,7 @@ function SuggestionCard({
         />
         <span className="min-w-0 break-words">{label}</span>
       </label>
+      {c.action === "replace" && old && <p className="text-xs text-zinc-500 break-words">Was: {old.what}</p>}
       {c.action !== "done" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field id={`${id}-who`} label="Who owes it">

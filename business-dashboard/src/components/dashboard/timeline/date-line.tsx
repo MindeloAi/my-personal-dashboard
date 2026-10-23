@@ -12,6 +12,7 @@ import {
   owedItems,
   pct,
   type ClientPromise,
+  formatDay,
   type Diamond,
   type Dot,
   type Lit,
@@ -39,13 +40,9 @@ const SIDE_LABEL: Record<OwedBy, string> = { client: "Client owes", us: "We owe"
 const ROW = { dot: 24, axis: 50, client: 68, us: 96 } as const;
 const RING = "0 0 0 3px rgba(96,165,250,.45)";
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function fmt(day: string): string {
-  const d = new Date(day + "T00:00:00Z");
-  return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
-}
+const fmt = formatDay;
 
 // First day of each month inside the window, by string arithmetic.
 function monthStarts(start: string, end: string): { day: string; label: string }[] {

@@ -36,6 +36,7 @@ import {
   MAX_QUOTE,
   dueState,
   entryTag,
+  formatDay,
   groupDiamonds,
   groupDots,
   lineWindow,
@@ -258,6 +259,7 @@ async function main() {
       check("an entry lights itself", deepEq(litFromEntry("e6", ps).entries, ["e6"]));
       check("a promise lights its source entry", litFromItems(["p1"], [], ps).entries[0] === "e6");
       check("items light their own ids", deepEq(litFromItems(["p1"], ["inv-sep30"], ps), { entries: ["e6"], promises: ["p1"], invoices: ["inv-sep30"] }));
+      check("formatDay September and year boundary", formatDay("2026-09-29") === "Tue 29 Sep" && formatDay("2026-12-31") === "Thu 31 Dec" && formatDay("2027-01-01") === "Fri 1 Jan");
       check("tag", entryTag("email", "received") === "Email received" && entryTag("call", "both") === "Call");
       check("tag for sent and meeting", entryTag("message", "sent") === "Message sent" && entryTag("meeting", "received") === "Meeting" && entryTag("document", "both") === "Document");
     }
