@@ -144,7 +144,7 @@ async function main() {
       {
         const mixed = owedItems(
           [
-            prom("late-undated"),
+            prom("undated"),
             prom("far", { dueOn: "2027-06-01" }),
             prom("nov2", { dueOn: "2026-11-02" }),
             prom("early", { dueOn: "2026-10-01" }),
@@ -153,8 +153,17 @@ async function main() {
           "client",
         );
         const dm = groupDiamonds(mixed, "client", TODAY, w);
-        check("diamonds drop undated and out-of-window items", dm.every((d) => !d.promiseIds.includes("late-undated") && !d.promiseIds.includes("far")));
-        check("diamonds are sorted by date", deepEq(dm.map((d) => d.date), ["2026-10-01", "2026-11-02"]));
+        check("the far fixture lies after the window", "2027-06-01" > w.end);
+        check("diamonds drop undated and out-of-window items", dm.every((d) => !d.promiseIds.includes("undated") && !d.promiseIds.includes("far")));
+        // Built by hand, later date first, so only groupDiamonds can put them in order.
+        const unsorted = ["2026-11-10", "2026-10-01", "2026-11-02"].map((d) => ({
+          type: "promise" as const,
+          promise: prom("u" + d, { dueOn: d }),
+        }));
+        check(
+          "diamonds are sorted by date",
+          deepEq(groupDiamonds(unsorted, "client", TODAY, w).map((d) => d.date), ["2026-10-01", "2026-11-02", "2026-11-10"]),
+        );
         check(
           "a promise and an invoice due the same day share one diamond",
           deepEq(dm[1], { date: "2026-11-02", side: "client", late: false, promiseIds: ["nov2"], invoiceIds: ["inv-nov2"] }),
