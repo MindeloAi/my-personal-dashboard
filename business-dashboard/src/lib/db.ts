@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { z } from "zod";
 import type { Holder, Founder, PaymentMethod, SplitRule } from "@/lib/ledger";
+import { effectiveStatus, type EffectiveStatus } from "@/lib/invoices";
 
 // ─── Postgres data layer ──────────────────────────────────────────────────────
 //
@@ -1666,4 +1667,205 @@ export async function undoReimburseExpense(id: string): Promise<void> {
   const [row] = await sql`
     update expenses set reimbursed_at = null, reimbursed_from = null where id = ${id} returning id`;
   if (!row) throw new Error(`[db] expense ${id} not found`);
+}
+
+// ---------------------------------------------------------------------------
+// Accounts export (docs/superpowers/specs/2026-10-23-accounts-export-design.md)
+// ---------------------------------------------------------------------------
+
+export type AccountsExport = {
+  from: string;
+  to: string;
+  today: string;
+  cutover: string;
+  income: {
+    date: string;
+    invoiceNumber: string | null;
+    client: string | null;
+    project: string | null;
+    amount: number;
+    method: string | null;
+    receivedBy: string | null;
+    note: string | null;
+    source: "Ledger" | "Before ledger";
+  }[];
+  expenses: {
+    date: string;
+    name: string;
+    category: string | null;
+    amount: number;
+    usdAmount: number | null;
+    paidFrom: string | null;
+    paidPersonallyBy: string | null;
+    reimbursedAt: string | null;
+    reimbursedFrom: string | null;
+    recurring: boolean;
+    reference: string | null;
+    notes: string | null;
+  }[];
+  founderPay: {
+    number: string;
+    founder: string;
+    invoiceNumber: string | null;
+    paymentDate: string;
+    base: number;
+    bonus: number;
+    total: number;
+    status: "due" | "paid_out";
+    paidOutAt: string | null;
+    paidFrom: string | null;
+  }[];
+  cashMovements: {
+    date: string;
+    kind: "opening" | "transfer";
+    from: string | null;
+    to: string | null;
+    amount: number;
+    note: string | null;
+  }[];
+  invoices: {
+    invoiceNumber: string | null;
+    client: string | null;
+    project: string | null;
+    type: string | null;
+    issueDate: string | null;
+    dueDate: string | null;
+    amount: number;
+    paidSoFar: number;
+    status: EffectiveStatus;
+    paidDate: string | null;
+  }[];
+  /** Each pot's balance as at `to`, by the same flows as cash_by_location. */
+  cashAtEnd: Record<Holder, number>;
+  /** Not period-based: what clients owe right now. */
+  owedToUsNow: number;
+};
+
+/** Everything the accounts export needs for one inclusive date range. Read-only. */
+export async function getAccountsExport(from: string, to: string, today: string): Promise<AccountsExport> {
+  const sql = getSql();
+  return sql.begin("read only", async (tx) => {
+    const [{ cutover_date }] = await tx`select cutover_date from ledger_settings`;
+    const cutover = String(cutover_date);
+    // Company first: it is what the dashboard lists clients by.
+    const client = tx`coalesce(nullif(c.company, ''), c.name)`;
+    const income = await tx`
+      select p.paid_at as date, i.invoice_number, ${client} as client, pr.name as project,
+             p.amount, p.method, p.received_by, p.note, 'Ledger' as source
+        from payments p
+        left join invoices i on i.id = p.invoice_id
+        left join clients c on c.id = i.client_id
+        left join projects pr on pr.id = i.project_id
+       where p.paid_at between ${from} and ${to}
+      union all
+      select i.paid_date, i.invoice_number, ${client}, pr.name,
+             i.amount, i.payment_method, null, null, 'Before ledger'
+        from invoices i
+        left join clients c on c.id = i.client_id
+        left join projects pr on pr.id = i.project_id
+       where i.status = 'Paid' and i.paid_date between ${from} and ${to} and i.paid_date < ${cutover}
+         and not exists (select 1 from payments p where p.invoice_id = i.id)
+       order by 1, 2`;
+    const expenses = await tx`
+      select date, name, category, amount, usd_amount, paid_from, paid_personally_by,
+             reimbursed_at, reimbursed_from, recurring, reference, notes
+        from expenses where date between ${from} and ${to}
+       order by date, sort_key`;
+    const founderPay = await tx`
+      select po.number, po.founder, i.invoice_number, pm.paid_at, po.base, po.bonus, po.total,
+             po.status, po.paid_out_at, po.paid_from
+        from payouts po
+        join payments pm on pm.id = po.payment_id
+        left join invoices i on i.id = po.invoice_id
+       where pm.paid_at between ${from} and ${to}
+       order by pm.paid_at, po.number`;
+    const cashMovements = await tx`
+      select moved_at, kind, from_loc, to_loc, amount, note
+        from cash_movements where moved_at between ${from} and ${to}
+       order by moved_at, created_at`;
+    const invoices = await tx`
+      select i.invoice_number, ${client} as client, pr.name as project, i.invoice_type, i.issue_date,
+             i.due_date, i.amount, i.status, i.paid_date,
+             coalesce(p.paid, case when i.status = 'Paid' then i.amount else 0 end) as paid_so_far
+        from invoices i
+        left join clients c on c.id = i.client_id
+        left join projects pr on pr.id = i.project_id
+        left join (select invoice_id, sum(amount) as paid from payments group by invoice_id) p
+          on p.invoice_id = i.id
+       where i.issue_date between ${from} and ${to}
+       order by i.issue_date, i.invoice_number`;
+    const cash = await tx`
+      select l.location, coalesce(sum(f.amount), 0) as balance
+        from (values ('mikey'), ('zane'), ('vantage')) l(location)
+        left join cash_flows f on f.location = l.location and f.on_date <= ${to}
+       group by l.location`;
+    const [owed] = await tx`select coalesce(sum(remaining), 0) as total from owed_to_us`;
+
+    return {
+      from,
+      to,
+      today,
+      cutover,
+      income: income.map((r) => ({
+        date: String(r.date),
+        invoiceNumber: str(r.invoice_number),
+        client: str(r.client),
+        project: str(r.project),
+        amount: Number(r.amount ?? 0),
+        method: str(r.method),
+        receivedBy: str(r.received_by),
+        note: str(r.note),
+        source: r.source as "Ledger" | "Before ledger",
+      })),
+      expenses: expenses.map((r) => ({
+        date: String(r.date),
+        name: String(r.name ?? ""),
+        category: str(r.category),
+        amount: Number(r.amount ?? 0),
+        usdAmount: r.usd_amount == null ? null : Number(r.usd_amount),
+        paidFrom: str(r.paid_from),
+        paidPersonallyBy: str(r.paid_personally_by),
+        reimbursedAt: str(r.reimbursed_at),
+        reimbursedFrom: str(r.reimbursed_from),
+        recurring: !!r.recurring,
+        reference: str(r.reference),
+        notes: str(r.notes),
+      })),
+      founderPay: founderPay.map((r) => ({
+        number: String(r.number),
+        founder: String(r.founder),
+        invoiceNumber: str(r.invoice_number),
+        paymentDate: String(r.paid_at),
+        base: Number(r.base),
+        bonus: Number(r.bonus),
+        total: Number(r.total),
+        status: r.status as "due" | "paid_out",
+        paidOutAt: str(r.paid_out_at),
+        paidFrom: str(r.paid_from),
+      })),
+      cashMovements: cashMovements.map((r) => ({
+        date: String(r.moved_at),
+        kind: r.kind as "opening" | "transfer",
+        from: str(r.from_loc),
+        to: str(r.to_loc),
+        amount: Number(r.amount),
+        note: str(r.note),
+      })),
+      invoices: invoices.map((r) => ({
+        invoiceNumber: str(r.invoice_number),
+        client: str(r.client),
+        project: str(r.project),
+        type: str(r.invoice_type),
+        issueDate: str(r.issue_date),
+        dueDate: str(r.due_date),
+        amount: Number(r.amount ?? 0),
+        paidSoFar: Number(r.paid_so_far ?? 0),
+        // Same derivation as the dashboard, so Overdue matches what the Finance tab shows.
+        status: effectiveStatus({ Status: str(r.status) ?? undefined, "Due Date": str(r.due_date) ?? undefined } as Invoice),
+        paidDate: str(r.paid_date),
+      })),
+      cashAtEnd: Object.fromEntries(cash.map((r) => [String(r.location), Number(r.balance)])) as Record<Holder, number>,
+      owedToUsNow: Number(owed.total),
+    };
+  });
 }
