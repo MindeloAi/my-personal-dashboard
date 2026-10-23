@@ -18,11 +18,16 @@ const NAV = [
   { href: "/admin/leads", label: "Leads" },
 ] as const;
 
+// A sub-path such as /admin/clients/<id> keeps its parent entry active.
+function isActivePath(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
 function NavLinks({ pathname, onNavigate, large }: { pathname: string; onNavigate?: () => void; large?: boolean }) {
   return (
     <ul className="flex flex-col gap-0.5">
       {NAV.map((entry) => {
-        const isActive = pathname === entry.href;
+        const isActive = isActivePath(pathname, entry.href);
         return (
           <li key={entry.href}>
             <Link
@@ -80,7 +85,7 @@ export function Sidebar({
   const [open, setOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
-  const current = NAV.find((n) => n.href === pathname)?.label ?? "Dashboard";
+  const current = NAV.find((n) => isActivePath(pathname, n.href))?.label ?? "Dashboard";
 
   // While the menu is open: Escape closes it, the page behind cannot scroll,
   // and focus moves into the menu (and back to the hamburger on close).
