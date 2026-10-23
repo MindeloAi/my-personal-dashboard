@@ -63,7 +63,7 @@ function monthStarts(start: string, end: string): { day: string; label: string }
   }
 }
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const plural = (n: number, word: string, many = word + "s") => `${n} ${n === 1 ? word : many}`;
 
 export function DateLine({ entries, promises, invoices, today, lit, onLight }: Props) {
   const [tip, setTip] = useState<Tip | null>(null);
@@ -117,7 +117,7 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
     onBlur: () => setTip(null),
   });
   const hit =
-    "group absolute -ml-3.5 size-7 flex items-center justify-center rounded-full cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-400";
+    "group absolute -ml-3.5 hover:z-20 focus:z-20 size-7 flex items-center justify-center rounded-full cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-400";
   const mark = "block size-3 transition-transform duration-150 group-hover:scale-[1.45] group-focus-visible:scale-[1.45]";
 
   return (
@@ -130,7 +130,14 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
           top row = contact · bottom rows = due dates (amber client, blue us)
         </span>
       </div>
-      <div className="relative mx-3 h-[114px]" data-testid="strip">
+      <div
+        className="relative mx-3 h-[114px]"
+        data-testid="strip"
+        onPointerDown={(e) => {
+          // Touch never fires mouseleave, so a press outside any marker closes the card.
+          if (!(e.target as Element).closest("button")) setTip(null);
+        }}
+      >
         <div className="absolute inset-x-0 h-0.5 bg-[#2e333b]" style={{ top: ROW.axis - 1 }} />
         {monthStarts(w.start, w.end).map(({ day, label }) => (
           <span
@@ -149,13 +156,13 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
           const on = dotOn(d);
           const n = d.entryIds.length;
           const first = entryById.get(d.entryIds[0]);
-          const what = n === 1 && first ? entryTag(first.kind, d.direction) : plural(n, "entry").replace("entrys", "entries");
+          const what = n === 1 && first ? entryTag(first.kind, d.direction) : plural(n, "entry", "entries");
           const t = dotTip(d);
           return (
             <span key={d.date}>
               <button
                 type="button"
-                className={hit}
+                className={`${hit}${on ? " z-10" : ""}`}
                 style={{ left: `${pct(d.date, w)}%`, top: ROW.dot - 14 }}
                 aria-label={`${what}, ${fmt(d.date)}`}
                 aria-pressed={on}
@@ -174,15 +181,12 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
                   className={`${mark} rounded-full ${on ? "scale-[1.45]" : ""}`}
                   style={{ background: DOT_COLOR[d.direction], boxShadow: on ? RING : undefined }}
                 />
+                {n > 1 && (
+                  <span className="pointer-events-none absolute right-0 top-0 text-[10px] font-bold leading-none text-zinc-300">
+                    {n}
+                  </span>
+                )}
               </button>
-              {n > 1 && (
-                <span
-                  className="pointer-events-none absolute text-[10px] font-bold text-zinc-300"
-                  style={{ left: `calc(${pct(d.date, w)}% + 10px)`, top: ROW.dot - 8 }}
-                >
-                  {n}
-                </span>
-              )}
             </span>
           );
         })}
@@ -196,7 +200,7 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
             <span key={d.side + d.date}>
               <button
                 type="button"
-                className={hit}
+                className={`${hit}${on ? " z-10" : ""}`}
                 style={{ left: `${pct(d.date, w)}%`, top: row - 14 }}
                 aria-label={`${SIDE_LABEL[d.side]}: ${plural(n, "item")} due ${fmt(d.date)}${d.late ? ", late" : ""}`}
                 aria-pressed={on}
@@ -214,23 +218,23 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
                     boxShadow: on ? RING : undefined,
                   }}
                 />
+                {n > 1 && (
+                  <span
+                    className="pointer-events-none absolute right-0 top-0 text-[10px] font-bold leading-none"
+                    style={{ color: SIDE_COLOR[d.side] }}
+                  >
+                    {n}
+                  </span>
+                )}
               </button>
-              {n > 1 && (
-                <span
-                  className="pointer-events-none absolute text-[10px] font-bold"
-                  style={{ left: `calc(${pct(d.date, w)}% + 10px)`, top: row - 8, color: SIDE_COLOR[d.side] }}
-                >
-                  {n}
-                </span>
-              )}
             </span>
           );
         })}
 
         {tip && (
           <div
-            role="status"
-            className="pointer-events-none absolute z-10 w-[230px] max-w-full -translate-x-1/2 rounded-[7px] border border-[#343b48] bg-[#1f2430] px-2.5 py-2 text-[11.5px] text-zinc-300 shadow-[0_6px_20px_rgba(0,0,0,.4)]"
+            aria-hidden="true"
+            className="pointer-events-none absolute z-30 w-[230px] max-w-full -translate-x-1/2 rounded-[7px] border border-[#343b48] bg-[#1f2430] px-2.5 py-2 text-[11.5px] text-zinc-300 shadow-[0_6px_20px_rgba(0,0,0,.4)]"
             style={{ top: 118, left: `clamp(115px, ${tip.at}%, calc(100% - 115px))` }}
           >
             <b className="text-zinc-100">{tip.title}</b>
