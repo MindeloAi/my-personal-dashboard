@@ -88,7 +88,7 @@ export function ClientsList({ clients, invoices, projects, timelineCounts }: Pro
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <Link
                     href={`/admin/clients/${encodeURIComponent(client.id)}`}
-                    className="flex-1 text-left min-w-0 rounded-lg hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#bfff3a]"
+                    className="flex-1 text-left min-w-0 rounded-lg px-1 -mx-1 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#bfff3a]"
                   >
                     <p className="font-medium text-white leading-tight truncate">
                       {client.Company || client.Name}
@@ -325,14 +325,14 @@ function DeleteClientModal({
 }) {
   const { projectCount, invoiceCount, timelineEntries, timelinePromises } = counts;
   const hasTimeline = timelineEntries > 0 || timelinePromises > 0;
-  const hasLinks = projectCount > 0 || invoiceCount > 0 || hasTimeline;
+  const hasDependents = projectCount > 0 || invoiceCount > 0 || hasTimeline;
 
   return (
     <ModalShell title="Delete client" onClose={onClose}>
       <p className="text-sm text-zinc-300">
         Delete <span className="font-medium text-white">{client.Company || client.Name}</span>?
       </p>
-      {hasLinks && (
+      {hasDependents && (
         <div className="mt-3 rounded-xl border border-[#fbbf24]/30 bg-[#fbbf24]/10 p-3">
           <p className="text-xs text-[#fbbf24] leading-relaxed">
             This will detach {projectCount} {projectCount === 1 ? "project" : "projects"} and{" "}
@@ -341,7 +341,10 @@ function DeleteClientModal({
               ` and ${timelineEntries} ${timelineEntries === 1 ? "timeline entry" : "timeline entries"} and ${timelinePromises} ${timelinePromises === 1 ? "promise" : "promises"}`}
             . They are not deleted, but
             they will no longer belong to any client, will disappear from the client filter, and
-            will stop counting toward Top Clients revenue. This cannot be undone.
+            will stop counting toward Top Clients revenue.
+            {hasTimeline &&
+              " The timeline entries and promises stay in the database but no longer appear on any client page."}{" "}
+            This cannot be undone.
           </p>
         </div>
       )}
