@@ -8,6 +8,7 @@ import { ExpensesList } from "@/components/dashboard/expenses-list";
 import { SubscriptionsList } from "@/components/dashboard/subscriptions-list";
 import { CashPanel } from "@/components/dashboard/cash-panel";
 import { FounderPay } from "@/components/dashboard/founder-pay";
+import { ExportButton } from "@/components/dashboard/export-modal";
 import type { Client, Project, Invoice, Expense, Subscription, Ledger } from "@/lib/db";
 
 type Props = {
@@ -38,8 +39,17 @@ export function FinanceView({
   const selectedClient = invoiceClient ? clients.find((c) => c.id === invoiceClient) : null;
   const selectedClientName = selectedClient?.Company || selectedClient?.Name || null;
 
+  // Earliest date anything happened, for the export's "All time" preset.
+  const firstDate = [
+    ...invoices.flatMap((i) => [i["Issue Date"], i["Paid Date"]]),
+    ...expenses.map((e) => e.Date),
+  ].reduce<string>((min, d) => (d && d < min ? d : min), "9999-12-31");
+
   return (
     <>
+      <div className="flex justify-end">
+        <ExportButton firstDate={firstDate} />
+      </div>
       <CashPanel ledger={ledger} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
