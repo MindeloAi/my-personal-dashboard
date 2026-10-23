@@ -12,6 +12,22 @@
 
 import postgres from "postgres";
 import { closeDb } from "../src/lib/db";
+import {
+  addDays,
+  dueState,
+  entryTag,
+  groupDiamonds,
+  groupDots,
+  lineWindow,
+  litFromEntry,
+  litFromItems,
+  movedFrom,
+  owedItems,
+  pct,
+  type ClientPromise,
+  type TimelineEntry,
+  type UnpaidInvoice,
+} from "../src/lib/timeline";
 
 const url = process.env.DATABASE_URL ?? "";
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) {
@@ -29,7 +45,7 @@ const sql = postgres(url, {
     d: { to: 1082, from: [1082], serialize: (x: string) => x, parse: (x: string) => x },
   },
 });
-const TODAY = "2026-10-22";
+const TODAY = "2026-10-23";
 const ZANE = "admin@example.test";
 
 let failures = 0;
@@ -62,11 +78,90 @@ async function fails(run: () => Promise<unknown>): Promise<Failure | null> {
   }
 }
 
+const deepEq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 const describeFailure = (f: Failure | null) => (f ? `${f.code} ${f.constraint} ${f.message}` : "no error");
 
 async function main() {
   let failed = false;
   try {
+    // ---- Pure timeline logic ----
+    {
+      const entry = (id: string, occurredOn: string, direction: TimelineEntry["direction"]): TimelineEntry => ({
+        id, clientId: "c1", occurredOn, kind: "email", direction, summary: "Test entry",
+        people: null, body: null, link: null, createdBy: ZANE, created: "2026-10-01T00:00:00Z",
+      });
+      const prom = (id: string, o: Partial<ClientPromise> = {}): ClientPromise => ({
+        id, clientId: "c1", entryId: null, owedBy: "client", what: "Send the draft", dueOn: null,
+        status: "open", replacedBy: null, closedOn: null, closedBy: null, closedEntryId: null,
+        note: null, createdBy: ZANE, created: "2026-10-01T00:00:00Z", ...o,
+      });
+      const w = lineWindow(TODAY, []);
+
+      check("addDays crosses a month", addDays("2026-10-30", 3) === "2026-11-02");
+      check("due none", dueState(null, TODAY).kind === "none");
+      check("due today is soon", deepEq(dueState("2026-10-23", TODAY), { kind: "soon", days: 0 }));
+      check("due in 7 days is soon", dueState("2026-10-30", TODAY).kind === "soon");
+      check("due in 8 days is future", deepEq(dueState("2026-10-31", TODAY), { kind: "future", days: 8 }));
+      check("due yesterday is late by 1", deepEq(dueState("2026-10-22", TODAY), { kind: "late", days: 1 }));
+      check("window with nothing", deepEq(w, { start: "2026-09-08", end: "2026-11-22" }));
+      check("window reaches an old late item", lineWindow(TODAY, [{ date: "2026-08-28", late: true }]).start === "2026-08-28");
+      check("window ends 7 days past the last due date", lineWindow(TODAY, [{ date: "2026-12-07", late: false }]).end === "2026-12-14");
+      check("pct of start is 0 and end is 100", pct(w.start, w) === 0 && pct(w.end, w) === 100);
+      check("pct clamps outside the window", pct("2020-01-01", w) === 0 && pct("2030-01-01", w) === 100);
+
+      const e1 = entry("e1", "2026-10-10", "sent");
+      const e2 = entry("e2", "2026-10-10", "received");
+      check("same-day entries share a dot", groupDots([e1, e2], w).length === 1);
+      check("mixed directions on one day are 'both'", groupDots([e1, e2], w)[0].direction === "both");
+      check("entries before the window have no dot", groupDots([entry("e0", "2026-01-01", "sent")], w).length === 0);
+
+      const inv: UnpaidInvoice = { id: "inv-sep30", number: "T-1", balance: 10, dueOn: "2026-09-30" };
+      const pNov2 = prom("p-nov2", { dueOn: "2026-11-02" });
+      const pNoDate = prom("p-nodate");
+      const ps0 = [
+        pNoDate, pNov2, prom("p-done", { status: "done", closedOn: TODAY, dueOn: "2026-10-01" }),
+        prom("p-us", { owedBy: "us", dueOn: "2026-10-01" }),
+      ];
+      const owed = owedItems(ps0, [inv], "client");
+      check(
+        "owed items sort by due date, undated last, open only",
+        deepEq(owed.map((i) => (i.type === "promise" ? i.promise.id : i.invoice.id)), ["inv-sep30", "p-nov2", "p-nodate"]),
+      );
+      check("invoices only on the client side", owedItems(ps0, [inv], "us").every((i) => i.type === "promise"));
+
+      const same = ["a", "b", "c"].map((id) => prom(id, { dueOn: "2026-11-02" }));
+      const ds = groupDiamonds(owedItems(same, [inv], "client"), "client", TODAY, w);
+      check("same-day same-side items share a diamond", ds.find((d) => d.date === "2026-11-02")!.promiseIds.length === 3);
+      check("a past diamond is late", ds.find((d) => d.date === "2026-09-30")!.late);
+      check("a future diamond is not late", !ds.find((d) => d.date === "2026-11-02")!.late);
+
+      const A = prom("A", { dueOn: "2026-10-01", status: "replaced", replacedBy: "B", closedOn: TODAY });
+      const B = prom("B", { dueOn: "2026-10-10", status: "replaced", replacedBy: "C", closedOn: TODAY });
+      const C = prom("C", { dueOn: "2026-10-20" });
+      check("moved from the direct predecessor", movedFrom(C, [A, B, C]) === B.dueOn);
+      check("moved twice shows the previous date, not the first", movedFrom(C, [A, B, C]) === "2026-10-10");
+      check("moved from an undated promise is null", movedFrom(prom("N"), [prom("M", { replacedBy: "N" }), prom("N")]) === null);
+      check("never moved", movedFrom(A0(), [A0()]) === undefined);
+
+      const ps = [
+        prom("p1", { entryId: "e6" }),
+        prom("p2", { entryId: "e6" }),
+        prom("p9", { entryId: "e3", closedEntryId: "e6" }),
+        prom("p5", { entryId: "e4" }),
+      ];
+      check("an entry lights the promises it created and closed", deepEq(litFromEntry("e6", ps).promises.sort(), ["p1", "p2", "p9"]));
+      check("an entry lights itself", deepEq(litFromEntry("e6", ps).entries, ["e6"]));
+      check("a promise lights its source entry", litFromItems(["p1"], [], ps).entries[0] === "e6");
+      check("items light their own ids", deepEq(litFromItems(["p1"], ["inv-sep30"], ps), { entries: ["e6"], promises: ["p1"], invoices: ["inv-sep30"] }));
+      check("tag", entryTag("email", "received") === "Email received" && entryTag("call", "both") === "Call");
+      check("tag for sent and meeting", entryTag("message", "sent") === "Message sent" && entryTag("meeting", "received") === "Meeting" && entryTag("document", "both") === "Document");
+
+      function A0() {
+        return prom("A0");
+      }
+    }
+
     // ---- Migration 015: tables and constraints ----
     await reset();
     const [client] = await sql`insert into clients (name) values ('Test Client A') returning id`;
