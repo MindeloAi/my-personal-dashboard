@@ -44,6 +44,22 @@ import {
 } from "@/lib/db";
 import { HOLDERS, PAYMENT_METHODS } from "@/lib/ledger";
 import { z } from "zod";
+import { getClientById } from "@/lib/db";
+import { today } from "@/lib/subscriptions";
+import { suggestPromises, type SuggestResult } from "@/lib/suggest";
+import {
+  TimelineConflictError,
+  getClientTimeline,
+  saveEntry,
+  createPromise,
+  updatePromise,
+  closePromise,
+  reopenPromise,
+  replacePromise,
+  deletePromise,
+  updateEntry,
+  deleteEntry,
+} from "@/lib/timeline-db";
 
 // Ledger-era actions return { error } instead of throwing for a business-rule
 // rejection: Next redacts thrown messages in production, and "That is TT$500
@@ -322,6 +338,111 @@ export async function reimburseExpenseAction(id: string, reimbursedAt: string, f
 export async function undoReimburseExpenseAction(id: string): Promise<ActionResult> {
   await requireAdmin();
   return run(() => undoReimburseExpense(id));
+}
+
+// ─── Client timeline ────────────────────────────────────────────────────────
+
+// A stale suggestion (the promise changed while the dialog was open) comes back
+// as { error } so the dialog can show it; Next would redact a thrown message.
+async function runTimeline(fn: () => Promise<unknown>): Promise<ActionResult> {
+  try {
+    await fn();
+  } catch (err) {
+    if (err instanceof TimelineConflictError) return { error: err.message };
+    throw err;
+  }
+  revalidatePath("/", "layout");
+  return {};
+}
+
+// A non-uuid string would reach Postgres as a raw cast error, so ids are checked here.
+const Id = z.uuid();
+const Kind = z.enum(["call", "meeting", "email", "message", "document"]);
+const Dir = z.enum(["received", "sent", "both"]);
+const Side = z.enum(["us", "client"]);
+const Text = z.string().max(100_000);
+const SuggestionForm = z.object({
+  action: z.enum(["new", "done", "replace"]),
+  promiseId: Id.nullable(),
+  owedBy: Side,
+  what: z.string().min(1).max(1000),
+  dueOn: Day.nullable(),
+  quote: z.string().max(5000),
+});
+const EntryFields = {
+  occurredOn: Day,
+  kind: Kind,
+  direction: Dir,
+  summary: z.string().min(1).max(500),
+  people: z.string().max(500).nullable(),
+  body: Text.nullable(),
+  link: z.string().max(2000).nullable(),
+};
+const SuggestForm = z.object({ clientId: Id, occurredOn: Day, kind: Kind, direction: Dir, text: Text });
+const SaveEntryForm = z.object({ clientId: Id, ...EntryFields, suggestions: z.array(SuggestionForm).max(50) });
+const PromiseFields = { owedBy: Side, what: z.string().min(1).max(1000), dueOn: Day.nullable() };
+const CreatePromiseForm = z.object({ clientId: Id, entryId: Id.nullable(), ...PromiseFields });
+const ClosePromiseForm = z.object({ status: z.enum(["done", "dropped"]), note: z.string().max(1000).nullable() });
+
+// Reads and asks Claude; never writes. Failures come back as { ok: false, error }.
+export async function suggestPromisesAction(input: z.infer<typeof SuggestForm>): Promise<SuggestResult> {
+  await requireAdmin();
+  const parsed = SuggestForm.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That request was not valid." };
+  const { clientId, ...rest } = parsed.data;
+  const client = await getClientById(clientId);
+  if (!client) return { ok: false, error: "That client no longer exists." };
+  const { promises } = await getClientTimeline(clientId);
+  return suggestPromises({ ...rest, clientName: client.Company || client.Name, open: promises.filter((p) => p.status === "open") });
+}
+
+export async function saveEntryAction(input: z.infer<typeof SaveEntryForm>): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const e = SaveEntryForm.parse(input);
+  return runTimeline(() => saveEntry({ ...e, createdBy: admin.email }));
+}
+
+export async function createPromiseAction(input: z.infer<typeof CreatePromiseForm>): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const p = CreatePromiseForm.parse(input);
+  return runTimeline(() => createPromise({ ...p, createdBy: admin.email }));
+}
+
+export async function updatePromiseAction(id: string, input: z.infer<z.ZodObject<typeof PromiseFields>>): Promise<ActionResult> {
+  await requireAdmin();
+  return runTimeline(() => updatePromise(Id.parse(id), z.object(PromiseFields).parse(input)));
+}
+
+export async function closePromiseAction(id: string, input: z.infer<typeof ClosePromiseForm>): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const c = ClosePromiseForm.parse(input);
+  return runTimeline(() => closePromise(Id.parse(id), { ...c, closedOn: today(), closedBy: admin.email }));
+}
+
+export async function reopenPromiseAction(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  return runTimeline(() => reopenPromise(Id.parse(id)));
+}
+
+export async function replacePromiseAction(id: string, input: z.infer<z.ZodObject<typeof PromiseFields>>): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const p = z.object(PromiseFields).parse(input);
+  return runTimeline(() => replacePromise(Id.parse(id), { ...p, closedOn: today(), createdBy: admin.email }));
+}
+
+export async function deletePromiseAction(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  return runTimeline(() => deletePromise(Id.parse(id)));
+}
+
+export async function updateEntryAction(id: string, input: z.infer<z.ZodObject<typeof EntryFields>>): Promise<ActionResult> {
+  await requireAdmin();
+  return runTimeline(() => updateEntry(Id.parse(id), z.object(EntryFields).parse(input)));
+}
+
+export async function deleteEntryAction(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  return runTimeline(() => deleteEntry(Id.parse(id)));
 }
 
 // ─── Session ────────────────────────────────────────────────────────────────

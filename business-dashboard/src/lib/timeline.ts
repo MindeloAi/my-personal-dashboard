@@ -1,4 +1,5 @@
 // Pure client-timeline logic. No database, React or clock access: callers pass today in.
+import { z } from "zod";
 
 export type EntryKind = "call" | "meeting" | "email" | "message" | "document";
 export type Direction = "received" | "sent" | "both";
@@ -157,3 +158,39 @@ export type Suggestion = {
   dueOn: string | null;
   quote: string;
 };
+
+// What Claude returns for one interaction. Snake_case, matching the JSON the prompt asks for.
+export const SuggestionOutputSchema = z.object({
+  summary: z.string(),
+  people: z.string(),
+  suggestions: z.array(
+    z.object({
+      action: z.enum(["new", "done", "replace"]),
+      promise_id: z.string().nullable(),
+      owed_by: z.enum(["us", "client"]),
+      what: z.string(),
+      due_on: z.string().nullable(),
+      quote: z.string(),
+    }),
+  ),
+});
+
+// Drops what the model got wrong instead of trusting it: a done/replace needs the id of a promise
+// that is open now; new never carries an id; a due date must be YYYY-MM-DD.
+export function cleanSuggestions(raw: z.infer<typeof SuggestionOutputSchema>, open: ClientPromise[]): Suggestion[] {
+  const openIds = new Set(open.filter((p) => p.status === "open").map((p) => p.id));
+  const out: Suggestion[] = [];
+  for (const s of raw.suggestions) {
+    const dueOn = s.due_on && /^\d{4}-\d{2}-\d{2}$/.test(s.due_on) ? s.due_on : null;
+    if (s.action !== "new" && !(s.promise_id && openIds.has(s.promise_id))) continue;
+    out.push({
+      action: s.action,
+      promiseId: s.action === "new" ? null : s.promise_id,
+      owedBy: s.owed_by,
+      what: s.what,
+      dueOn,
+      quote: s.quote,
+    });
+  }
+  return out;
+}

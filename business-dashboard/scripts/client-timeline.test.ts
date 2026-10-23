@@ -28,6 +28,7 @@ import {
 } from "../src/lib/timeline-db";
 import {
   addDays,
+  cleanSuggestions,
   dueState,
   entryTag,
   groupDiamonds,
@@ -42,6 +43,7 @@ import {
   type TimelineEntry,
   type UnpaidInvoice,
 } from "../src/lib/timeline";
+import { suggestPromises } from "../src/lib/suggest";
 
 const url = process.env.DATABASE_URL ?? "";
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) {
@@ -99,6 +101,38 @@ const describeFailure = (f: Failure | null) => (f ? `${f.code} ${f.constraint} $
 async function main() {
   let failed = false;
   try {
+    // ---- Suggestions: cleaning and the guards before any call ----
+    {
+      const P = (id: string, o: Partial<ClientPromise> = {}): ClientPromise => ({
+        id, clientId: "c1", entryId: null, owedBy: "client", what: "Send the draft", dueOn: null,
+        status: "open", replacedBy: null, closedOn: null, closedBy: null, closedEntryId: null,
+        note: null, createdBy: ZANE, created: "2026-10-01T00:00:00Z", ...o,
+      });
+      const OPEN = "11111111-1111-4111-8111-111111111111";
+      const SHUT = "22222222-2222-4222-8222-222222222222";
+      const open = [P(OPEN), P(SHUT, { status: "done" })];
+      const raw = (s: Record<string, unknown>) => ({
+        summary: "s", people: "p",
+        suggestions: [{ action: "new", promise_id: null, owed_by: "us", what: "w", due_on: null, quote: "q", ...s }],
+      }) as Parameters<typeof cleanSuggestions>[0];
+      check("clean: done with an unknown id is dropped", cleanSuggestions(raw({ action: "done", promise_id: "33333333-3333-4333-8333-333333333333" }), open).length === 0);
+      check("clean: replace with a closed promise's id is dropped", cleanSuggestions(raw({ action: "replace", promise_id: SHUT }), open).length === 0);
+      check("clean: done with a null id is dropped", cleanSuggestions(raw({ action: "done", promise_id: null }), open).length === 0);
+      check("clean: new with a promise_id gets null", cleanSuggestions(raw({ promise_id: OPEN }), open)[0]?.promiseId === null);
+      check("clean: a malformed due_on becomes null", cleanSuggestions(raw({ due_on: "2 Nov" }), open)[0]?.dueOn === null);
+      const kept = cleanSuggestions(raw({ action: "replace", promise_id: OPEN, due_on: "2026-11-02", what: "Later", owed_by: "client" }), open)[0];
+      check("clean: keeps a valid replace", kept?.action === "replace" && kept.promiseId === OPEN && kept.dueOn === "2026-11-02" && kept.what === "Later");
+
+      const input = { clientName: "Test Client A", occurredOn: TODAY, kind: "call" as const, direction: "both" as const, open: [] };
+      const savedKey = process.env.ANTHROPIC_API_KEY;
+      delete process.env.ANTHROPIC_API_KEY;
+      const huge = await suggestPromises({ ...input, text: "x".repeat(100_001) });
+      check("huge paste refused before any call", !huge.ok && huge.error === "That text is too long. Paste up to 100,000 characters.", JSON.stringify(huge));
+      const nokey = await suggestPromises({ ...input, text: "short" });
+      check("no key", !nokey.ok && nokey.error.includes("ANTHROPIC_API_KEY"), JSON.stringify(nokey));
+      if (savedKey !== undefined) process.env.ANTHROPIC_API_KEY = savedKey;
+    }
+
     // ---- Pure timeline logic ----
     {
       const entry = (id: string, occurredOn: string, direction: TimelineEntry["direction"]): TimelineEntry => ({
