@@ -182,10 +182,9 @@ type CustomTooltipProps = {
   active?: boolean;
   payload?: TooltipPayloadItem[];
   label?: string;
-  onDrillDown?: (data: PeriodData) => void;
 };
 
-function CustomTooltip({ active, payload, label, onDrillDown }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   const data = payload[0]?.payload;
   if (!data) return null;
@@ -212,12 +211,7 @@ function CustomTooltip({ active, payload, label, onDrillDown }: CustomTooltipPro
         </div>
       </div>
       {(data.paidInvoices.length > 0 || data.outstandingInvoices.length > 0) && (
-        <button
-          onClick={() => onDrillDown?.(data)}
-          className="w-full text-xs py-1.5 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 hover:bg-[#bfff3a]/20 transition-colors"
-        >
-          View invoices →
-        </button>
+        <p className="text-[10px] text-[#bfff3a]">Click the point to see its invoices</p>
       )}
     </div>
   );
@@ -311,16 +305,23 @@ export function RevenueChart({ invoices, expenses }: Props) {
       {/* Mouse clicks focus the chart and draw a white box; keep the ring for keyboards. */}
       <div className="[&_.recharts-surface:focus:not(:focus-visible)]:outline-none [&_.recharts-wrapper:focus:not(:focus-visible)]:outline-none">
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={data} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
+        <LineChart
+          data={data}
+          margin={{ top: 5, right: 5, bottom: 0, left: 0 }}
+          onClick={(state) => {
+            const point = data[Number(state.activeIndex)];
+            if (point && (point.paidInvoices.length > 0 || point.outstandingInvoices.length > 0)) setDrillDown(point);
+          }}
+        >
           <CartesianGrid vertical={false} stroke="#2a2e34" strokeDasharray="3 3" />
           <XAxis dataKey="month" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
           {/* Running total on its own scale: it dwarfs the monthly lines. */}
           <YAxis yAxisId="toDate" orientation="right" width={40} tick={{ fill: "#a78bfa", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
           <ReferenceLine y={0} stroke="#2a2e34" />
-          {/* Click, not hover: Recharts gives the hover tooltip pointer-events:none, so its
-              "View invoices" button could never be pressed (and hover never fires on touch). */}
-          <Tooltip trigger="click" wrapperStyle={{ pointerEvents: "auto" }} content={<CustomTooltip onDrillDown={setDrillDown} />} cursor={{ stroke: "#2a2e34", strokeWidth: 1 }} />
+          {/* Hover tooltip, and a click on the chart opens the invoices below it. A
+              click-to-open tooltip covered the graph with no way to close it. */}
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#2a2e34", strokeWidth: 1 }} />
           <Line type="linear" dataKey="revenue" name="Revenue" stroke="#bfff3a" strokeWidth={2.5} dot={{ fill: "#bfff3a", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#bfff3a", cursor: "pointer" }} animationDuration={800} />
           <Line type="linear" dataKey="outstanding" name="Outstanding" stroke="#ff4d8b" strokeWidth={2} strokeDasharray="5 3" dot={{ fill: "#ff4d8b", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#ff4d8b", cursor: "pointer" }} animationDuration={1000} />
           <Line yAxisId="toDate" type="linear" dataKey="revenueToDate" name="Revenue to date" stroke="#a78bfa" strokeWidth={2} dot={{ fill: "#a78bfa", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#a78bfa", cursor: "pointer" }} animationDuration={1400} />
