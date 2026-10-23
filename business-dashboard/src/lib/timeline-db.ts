@@ -1,4 +1,5 @@
 // Client timeline reads and writes (migration 015). Plain SQL, snake_case rows mapped once.
+import type { Sql, TransactionSql } from "postgres";
 import { getSql } from "./db";
 import type { ClientPromise, Direction, EntryKind, OwedBy, Suggestion, TimelineEntry } from "./timeline";
 
@@ -10,7 +11,15 @@ export class TimelineConflictError extends Error {
 }
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-type Db = ReturnType<typeof getSql>;
+type Db = Sql | TransactionSql;
+
+/** Single source for reopening: clears every closing field. Matches rows by `id` or by `replaced_by`. */
+async function reopenWhere(tx: Db, column: "id" | "replaced_by", value: string): Promise<{ id: string }[]> {
+  return tx`
+    update client_promises
+       set status = 'open', closed_on = null, closed_by = null, closed_entry_id = null, note = null, replaced_by = null
+     where ${tx(column)} = ${value} returning id`;
+}
 
 const str = (v: unknown) => (v == null ? null : String(v));
 
@@ -54,16 +63,14 @@ export async function getClientTimeline(clientId: string) {
   const entries = await sql`
     select * from client_entries where client_id = ${clientId} order by occurred_on desc, created desc`;
   const promises = await sql`
-    select * from client_promises where client_id = ${clientId} order by created`;
+    select * from client_promises where client_id = ${clientId} order by created, id`;
   return { entries: entries.map(toEntry), promises: promises.map(toPromise) };
 }
 
-/** Locks a promise and returns it only when it is open (and, if given, belongs to the client). */
-async function lockOpen(tx: Db, id: string, clientId?: string): Promise<Row> {
+/** Locks a promise and returns it only when it is open. */
+async function lockOpen(tx: Db, id: string): Promise<Row> {
   const [row] = await tx`select * from client_promises where id = ${id} for update`;
-  if (!row || row.status !== "open" || (clientId !== undefined && String(row.client_id) !== clientId)) {
-    throw new TimelineConflictError();
-  }
+  if (!row || row.status !== "open") throw new TimelineConflictError();
   return row;
 }
 
@@ -99,22 +106,33 @@ export async function saveEntry(input: {
               ${input.people}, ${input.body}, ${input.link}, ${input.createdBy})
       returning id`;
     const id = String(e.id);
+    // Lock every target up front, in id order, so two saves cannot deadlock.
+    const targets = input.suggestions.filter((s) => s.action !== "new");
+    if (targets.some((s) => !s.promiseId)) throw new TimelineConflictError();
+    const ids = [...new Set(targets.map((s) => s.promiseId as string))].sort();
+    const open = new Set<string>();
+    if (ids.length > 0) {
+      const locked = await tx`select id, client_id, status from client_promises where id in ${tx(ids)} order by id for update`;
+      for (const r of locked) {
+        if (r.status === "open" && String(r.client_id) === input.clientId) open.add(String(r.id));
+      }
+    }
     for (const s of input.suggestions) {
       if (s.action === "new") {
-        await insertPromise(tx as unknown as Db, {
+        await insertPromise(tx, {
           clientId: input.clientId, entryId: id, owedBy: s.owedBy, what: s.what, dueOn: s.dueOn, createdBy: input.createdBy,
         });
         continue;
       }
-      if (!s.promiseId) throw new TimelineConflictError();
-      await lockOpen(tx as unknown as Db, s.promiseId, input.clientId);
+      // A target named twice fails on its second use: the first use closed it.
+      if (!open.delete(s.promiseId as string)) throw new TimelineConflictError();
       if (s.action === "done") {
         await tx`
           update client_promises
              set status = 'done', closed_on = ${input.occurredOn}, closed_by = ${input.createdBy}, closed_entry_id = ${id}
            where id = ${s.promiseId}`;
       } else {
-        const next = await insertPromise(tx as unknown as Db, {
+        const next = await insertPromise(tx, {
           clientId: input.clientId, entryId: id, owedBy: s.owedBy, what: s.what, dueOn: s.dueOn, createdBy: input.createdBy,
         });
         await tx`
@@ -154,7 +172,7 @@ export async function closePromise(
 ): Promise<void> {
   const sql = getSql();
   await sql.begin(async (tx) => {
-    await lockOpen(tx as unknown as Db, id);
+    await lockOpen(tx, id);
     await tx`
       update client_promises
          set status = ${c.status}, closed_on = ${c.closedOn}, closed_by = ${c.closedBy}, note = ${c.note}
@@ -164,10 +182,7 @@ export async function closePromise(
 
 export async function reopenPromise(id: string): Promise<void> {
   const sql = getSql();
-  const [row] = await sql`
-    update client_promises
-       set status = 'open', closed_on = null, closed_by = null, closed_entry_id = null, note = null, replaced_by = null
-     where id = ${id} returning id`;
+  const [row] = await reopenWhere(sql, "id", id);
   if (!row) throw new Error(`[db] promise ${id} not found`);
 }
 
@@ -177,8 +192,8 @@ export async function replacePromise(
 ): Promise<{ id: string }> {
   const sql = getSql();
   const newId = await sql.begin(async (tx) => {
-    const old = await lockOpen(tx as unknown as Db, id);
-    const next = await insertPromise(tx as unknown as Db, {
+    const old = await lockOpen(tx, id);
+    const next = await insertPromise(tx, {
       clientId: String(old.client_id), entryId: null, owedBy: p.owedBy, what: p.what, dueOn: p.dueOn, createdBy: p.createdBy,
     });
     await tx`
@@ -194,10 +209,7 @@ export async function replacePromise(
 export async function deletePromise(id: string): Promise<void> {
   const sql = getSql();
   await sql.begin(async (tx) => {
-    await tx`
-      update client_promises
-         set status = 'open', closed_on = null, closed_by = null, closed_entry_id = null, note = null, replaced_by = null
-       where replaced_by = ${id}`;
+    await reopenWhere(tx, "replaced_by", id);
     const [row] = await tx`delete from client_promises where id = ${id} returning id`;
     if (!row) throw new Error(`[db] promise ${id} not found`);
   });

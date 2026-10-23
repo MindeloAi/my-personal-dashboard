@@ -271,8 +271,9 @@ async function main() {
     // ---- Database reads and writes (src/lib/timeline-db.ts) ----
     {
       const CONFLICT = "Something changed on this client. Suggest again.";
-      const entryInput = (clientId: string, suggestions: Parameters<typeof saveEntry>[0]["suggestions"] = []) => ({
-        clientId, occurredOn: "2026-10-23", kind: "email" as const, direction: "received" as const,
+      type Sug = Parameters<typeof saveEntry>[0]["suggestions"];
+      const entryInput = (clientId: string, suggestions: Sug = [], occurredOn = "2026-10-23") => ({
+        clientId, occurredOn, kind: "email" as const, direction: "received" as const,
         summary: "Test summary", people: null, body: "Pasted text", link: null, createdBy: ZANE, suggestions,
       });
       const mk = (clientId: string, what: string, dueOn: string | null = null, owedBy: "us" | "client" = "client") =>
@@ -280,85 +281,95 @@ async function main() {
       const count = async (t: "client_entries" | "client_promises") =>
         Number((await sql`select count(*)::int as n from ${sql(t)}`)[0].n);
       const rowOf = async (id: string) => (await sql`select * from client_promises where id = ${id}`)[0];
+      const newClient = async (name: string) => String((await sql`insert into clients (name) values (${name}) returning id`)[0].id);
+      // Passes only for a TimelineConflictError with the exact message; prints anything else.
       const conflicts = async (run: () => Promise<unknown>) => {
         try {
           await run();
+          console.log("      unexpected result: no error");
           return false;
         } catch (e) {
-          return e instanceof TimelineConflictError && e.message === CONFLICT;
+          if (e instanceof TimelineConflictError && e.message === CONFLICT) return true;
+          console.log(`      unexpected error: ${e instanceof Error ? e.message : String(e)}`);
+          return false;
         }
       };
-      const newClient = async (name: string) => String((await sql`insert into clients (name) values (${name}) returning id`)[0].id);
+      const done = (promiseId: string | null): Sug[number] => ({ action: "done", promiseId, owedBy: "client", what: "x", dueOn: null, quote: "q" });
+      const replace = (promiseId: string | null): Sug[number] => ({ action: "replace", promiseId, owedBy: "client", what: "x", dueOn: "2026-11-02", quote: "q" });
+      const fresh = async () => {
+        await reset();
+        return newClient("Test Client A");
+      };
+      const unchanged = async (entries: number, promises: number) =>
+        (await count("client_entries")) === entries && (await count("client_promises")) === promises;
 
-      await reset();
-      const A = await newClient("Test Client A");
-
+      // save: new, done and replace in one entry
       {
+        const A = await fresh();
         const p1 = await mk(A, "First promise", "2026-10-25");
         const p2 = await mk(A, "Second promise", "2026-10-26");
         const { entryId } = await saveEntry(entryInput(A, [
           { action: "new", promiseId: null, owedBy: "us", what: "Brand new", dueOn: "2026-11-05", quote: "q1" },
-          { action: "done", promiseId: p1, owedBy: "client", what: "First promise", dueOn: null, quote: "q2" },
+          done(p1),
           { action: "replace", promiseId: p2, owedBy: "client", what: "Second promise moved", dueOn: "2026-11-02", quote: "q3" },
         ]));
         const r1 = await rowOf(p1);
         const r2 = await rowOf(p2);
-        check("save: done sets status, closed_entry_id, closed_on", r1.status === "done" && String(r1.closed_entry_id) === entryId && r1.closed_on === "2026-10-23" && r1.closed_by === ZANE);
+        check("save: done sets status, closed_entry_id, closed_on, closed_by", r1.status === "done" && String(r1.closed_entry_id) === entryId && r1.closed_on === "2026-10-23" && r1.closed_by === ZANE);
         const repl = r2.replaced_by ? await rowOf(String(r2.replaced_by)) : null;
-        check("save: replace closes the old one as replaced", r2.status === "replaced" && String(r2.closed_entry_id) === entryId && r2.closed_on === "2026-10-23");
+        check("save: replace closes the old one as replaced, with closed_by", r2.status === "replaced" && String(r2.closed_entry_id) === entryId && r2.closed_on === "2026-10-23" && r2.closed_by === ZANE);
         check("save: replacement is open, dated, and linked to the entry", !!repl && repl.status === "open" && repl.due_on === "2026-11-02" && String(repl.entry_id) === entryId && repl.what === "Second promise moved");
         const [nw] = await sql`select * from client_promises where what = 'Brand new'`;
         check("save: new promise exists with entry_id", !!nw && String(nw.entry_id) === entryId && nw.owed_by === "us" && nw.due_on === "2026-11-05" && nw.status === "open");
       }
 
-      await reset();
-      const A2 = await newClient("Test Client A");
-      const B2 = await newClient("Test Client B");
+      // save: stale targets
       {
-        const p = await mk(A2, "Already closed");
+        const A = await fresh();
+        const p = await mk(A, "Already closed");
         await closePromise(p, { status: "done", closedOn: TODAY, closedBy: ZANE, note: null });
-        const q = await mk(A2, "Still open");
+        const q = await mk(A, "Still open");
         const entries = await count("client_entries");
         const promises = await count("client_promises");
-        const ok = await conflicts(() => saveEntry(entryInput(A2, [
+        const ok = await conflicts(() => saveEntry(entryInput(A, [
           { action: "new", promiseId: null, owedBy: "us", what: "Would be new", dueOn: null, quote: "q" },
-          { action: "done", promiseId: q, owedBy: "client", what: "x", dueOn: null, quote: "q" },
-          { action: "done", promiseId: p, owedBy: "client", what: "x", dueOn: null, quote: "q" },
+          done(q),
+          done(p),
         ])));
-        check("save: a done target that is already closed rejects everything", ok && (await count("client_entries")) === entries && (await count("client_promises")) === promises && (await rowOf(q)).status === "open");
-
-        const okReplace = await conflicts(() => saveEntry(entryInput(A2, [
-          { action: "replace", promiseId: p, owedBy: "client", what: "x", dueOn: "2026-11-02", quote: "q" },
-        ])));
-        check("save: a replace target that is already closed rejects everything", okReplace && (await count("client_entries")) === entries && (await count("client_promises")) === promises);
-
-        const dup = await conflicts(() => saveEntry(entryInput(A2, [
-          { action: "done", promiseId: q, owedBy: "client", what: "x", dueOn: null, quote: "q" },
-          { action: "done", promiseId: q, owedBy: "client", what: "x", dueOn: null, quote: "q" },
-        ])));
-        check("save: naming the same open promise twice rejects everything", dup && (await rowOf(q)).status === "open" && (await count("client_entries")) === entries);
+        check("save: a done target that is already closed rejects everything", ok && (await unchanged(entries, promises)) && (await rowOf(q)).status === "open");
+        const okReplace = await conflicts(() => saveEntry(entryInput(A, [done(q), replace(p)])));
+        check("save: a replace target that is already closed rejects everything", okReplace && (await unchanged(entries, promises)) && (await rowOf(q)).status === "open");
+        const dup = await conflicts(() => saveEntry(entryInput(A, [done(q), done(q)])));
+        check("save: naming the same open promise twice rejects everything", dup && (await unchanged(entries, promises)) && (await rowOf(q)).status === "open");
+        const gone = await conflicts(() => saveEntry(entryInput(A, [done("00000000-0000-0000-0000-000000000000")])));
+        check("save: a missing target rejects everything", gone && (await unchanged(entries, promises)));
       }
 
-      await reset();
-      const A4 = await newClient("Test Client A");
-      const B4 = await newClient("Test Client B");
+      // save: other client's target, and null promise ids
       {
-        const other = await mk(B4, "Belongs to B");
+        const A = await fresh();
+        const B = await newClient("Test Client B");
+        const other = await mk(B, "Belongs to B");
         const entries = await count("client_entries");
-        const ok = await conflicts(() => saveEntry(entryInput(A4, [
-          { action: "done", promiseId: other, owedBy: "client", what: "x", dueOn: null, quote: "q" },
-        ])));
-        check("save: a target from another client rejects everything", ok && (await count("client_entries")) === entries && (await rowOf(other)).status === "open");
+        const promises = await count("client_promises");
+        const okDone = await conflicts(() => saveEntry(entryInput(A, [done(other)])));
+        check("save: a done target from another client rejects everything", okDone && (await unchanged(entries, promises)) && (await rowOf(other)).status === "open");
+        const okReplace = await conflicts(() => saveEntry(entryInput(A, [replace(other)])));
+        check("save: a replace target from another client rejects everything", okReplace && (await unchanged(entries, promises)) && (await rowOf(other)).status === "open");
+        const nullDone = await conflicts(() => saveEntry(entryInput(A, [done(null)])));
+        check("save: a done with a null promiseId rejects everything", nullDone && (await unchanged(entries, promises)));
+        const nullReplace = await conflicts(() => saveEntry(entryInput(A, [replace(null)])));
+        check("save: a replace with a null promiseId rejects everything", nullReplace && (await unchanged(entries, promises)));
       }
 
-      await reset();
-      const A3 = await newClient("Test Client A");
+      // close, reopen, replace
       {
-        const old = await mk(A3, "Old", "2026-10-01");
+        const A = await fresh();
+        const old = await mk(A, "Old", "2026-10-01");
         const { id: next } = await replacePromise(old, { owedBy: "client", what: "New", dueOn: "2026-11-02", closedOn: TODAY, createdBy: ZANE });
         const r = await rowOf(old);
         const rn = await rowOf(next);
-        check("replacePromise closes the old one and links the new open one", r.status === "replaced" && String(r.replaced_by) === next && r.closed_on === TODAY && r.closed_by === ZANE && rn.status === "open" && rn.entry_id === null && String(rn.client_id) === A3);
+        check("replacePromise closes the old one and links the new open one", r.status === "replaced" && String(r.replaced_by) === next && r.closed_on === TODAY && r.closed_by === ZANE && rn.status === "open" && rn.entry_id === null && String(rn.client_id) === A);
         await reopenPromise(old);
         const r2 = await rowOf(old);
         check("reopen clears closing fields and replaced_by", r2.status === "open" && r2.closed_on === null && r2.closed_by === null && r2.closed_entry_id === null && r2.note === null && r2.replaced_by === null);
@@ -367,23 +378,34 @@ async function main() {
         await closePromise(old, { status: "dropped", closedOn: TODAY, closedBy: ZANE, note: "no longer needed" });
         const r3 = await rowOf(old);
         check("closePromise drops with a note", r3.status === "dropped" && r3.note === "no longer needed" && r3.closed_on === TODAY);
-        check("closePromise refuses a promise that is not open", await conflicts(() => closePromise(old, { status: "done", closedOn: TODAY, closedBy: ZANE, note: null })));
-        check("replacePromise refuses a promise that is not open", await conflicts(() => replacePromise(old, { owedBy: "client", what: "x", dueOn: null, closedOn: TODAY, createdBy: ZANE })));
+        const promises = await count("client_promises");
+        const entries = await count("client_entries");
+        const refusedClose = await conflicts(() => closePromise(old, { status: "done", closedOn: "2026-10-24", closedBy: ZANE, note: null }));
+        const afterClose = await rowOf(old);
+        check("closePromise refuses a promise that is not open and changes nothing", refusedClose && afterClose.status === "dropped" && afterClose.closed_on === TODAY && afterClose.note === "no longer needed" && (await unchanged(entries, promises)));
+        const refusedReplace = await conflicts(() => replacePromise(old, { owedBy: "client", what: "x", dueOn: null, closedOn: TODAY, createdBy: ZANE }));
+        check("replacePromise refuses a promise that is not open and creates nothing", refusedReplace && (await rowOf(old)).status === "dropped" && (await unchanged(entries, promises)));
+        const missing = await fails(() => reopenPromise("00000000-0000-0000-0000-000000000000"));
+        check("reopenPromise with an unknown id throws not found", missing !== null && /not found/.test(missing.message), describeFailure(missing));
       }
 
+      // delete a replacement
       {
-        const old = await mk(A3, "Original", "2026-10-01");
+        const A = await fresh();
+        const old = await mk(A, "Original", "2026-10-01");
         const { id: next } = await replacePromise(old, { owedBy: "client", what: "Moved", dueOn: "2026-11-02", closedOn: TODAY, createdBy: ZANE });
         await deletePromise(next);
         const r = await rowOf(old);
         check("deleting a replacement reopens the promise it replaced", r.status === "open" && r.replaced_by === null && r.closed_on === null && r.closed_by === null && (await rowOf(next)) === undefined);
       }
 
+      // delete an entry
       {
-        const p1 = await mk(A3, "Closed by entry");
-        const { entryId } = await saveEntry(entryInput(A3, [
+        const A = await fresh();
+        const p1 = await mk(A, "Closed by entry");
+        const { entryId } = await saveEntry(entryInput(A, [
           { action: "new", promiseId: null, owedBy: "us", what: "Born in entry", dueOn: null, quote: "q" },
-          { action: "done", promiseId: p1, owedBy: "client", what: "x", dueOn: null, quote: "q" },
+          done(p1),
         ]));
         await deleteEntry(entryId);
         const [born] = await sql`select * from client_promises where what = 'Born in entry'`;
@@ -391,19 +413,17 @@ async function main() {
         check("deleting an entry keeps its promises with empty links", born.entry_id === null && born.status === "open" && closed.closed_entry_id === null && closed.status === "done");
       }
 
+      // update and unknown ids
       {
-        const p = await mk(A3, "Typo", "2026-10-30");
+        const A = await fresh();
+        const p = await mk(A, "Typo", "2026-10-30");
         await updatePromise(p, { owedBy: "us", what: "Fixed", dueOn: null });
         const r = await rowOf(p);
         check("updatePromise corrects wording, side and date", r.what === "Fixed" && r.owed_by === "us" && r.due_on === null);
-        const { entryId } = await saveEntry(entryInput(A3));
+        const { entryId } = await saveEntry(entryInput(A));
         await updateEntry(entryId, { occurredOn: "2026-10-20", kind: "call", direction: "both", summary: "Edited", people: "P", body: "B", link: "https://example.test" });
-        const tl = await getClientTimeline(A3);
-        const e = tl.entries.find((x) => x.id === entryId)!;
-        check("updateEntry saves and getClientTimeline maps it", !!e && e.summary === "Edited" && e.kind === "call" && e.occurredOn === "2026-10-20" && e.link === "https://example.test" && typeof e.created === "string" && e.created.endsWith("Z"));
-        check("getClientTimeline maps promises in every status", tl.promises.some((x) => x.status === "dropped") && tl.promises.some((x) => x.status === "open") && tl.promises.every((x) => x.clientId === A3));
-        const dates = tl.entries.map((x) => x.occurredOn);
-        check("entries come newest first", deepEq(dates, [...dates].sort().reverse()));
+        const e = (await getClientTimeline(A)).entries.find((x) => x.id === entryId);
+        check("updateEntry saves and getClientTimeline maps it", !!e && e.summary === "Edited" && e.kind === "call" && e.occurredOn === "2026-10-20" && e.link === "https://example.test" && e.created.endsWith("Z"));
         const missing = "00000000-0000-0000-0000-000000000000";
         const errs = await Promise.all([
           fails(() => updatePromise(missing, { owedBy: "us", what: "x", dueOn: null })),
@@ -414,13 +434,39 @@ async function main() {
         check("unknown ids throw not found", errs.every((f) => f !== null && /not found/.test(f.message)));
       }
 
+      // reads: ordering and all four statuses
       {
-        await reset();
-        const a = await newClient("Test Client A");
+        const A = await fresh();
+        // Separate statements, so created differs for the two entries on the same date.
+        const first = (await saveEntry(entryInput(A, [], "2026-10-20"))).entryId;
+        const second = (await saveEntry(entryInput(A, [], "2026-10-20"))).entryId;
+        const newest = (await saveEntry(entryInput(A, [], "2026-10-22"))).entryId;
+        const oldest = (await saveEntry(entryInput(A, [], "2026-10-01"))).entryId;
+        const tl = await getClientTimeline(A);
+        check("entries come newest first, ties by created desc", deepEq(tl.entries.map((x) => x.id), [newest, second, first, oldest]), JSON.stringify(tl.entries.map((x) => x.id)));
+
+        const openP = await mk(A, "Open one");
+        const doneP = await mk(A, "Done one");
+        const dropP = await mk(A, "Dropped one");
+        const replP = await mk(A, "Replaced one");
+        await closePromise(doneP, { status: "done", closedOn: TODAY, closedBy: ZANE, note: null });
+        await closePromise(dropP, { status: "dropped", closedOn: TODAY, closedBy: ZANE, note: null });
+        const { id: replacement } = await replacePromise(replP, { owedBy: "client", what: "Replacement", dueOn: null, closedOn: TODAY, createdBy: ZANE });
+        const ps = (await getClientTimeline(A)).promises;
+        const statusOf = (id: string) => ps.find((x) => x.id === id)?.status;
+        check(
+          "getClientTimeline returns promises in all four statuses",
+          statusOf(openP) === "open" && statusOf(doneP) === "done" && statusOf(dropP) === "dropped" && statusOf(replP) === "replaced" && statusOf(replacement) === "open" && ps.length === 5 && ps.every((x) => x.clientId === A),
+        );
+      }
+
+      // counts
+      {
+        const a = await fresh();
         const b = await newClient("Test Client B");
         const p1 = await mk(a, "One");
         await mk(a, "Two");
-        await saveEntry(entryInput(a, [{ action: "done", promiseId: p1, owedBy: "client", what: "x", dueOn: null, quote: "q" }]));
+        await saveEntry(entryInput(a, [done(p1)]));
         await saveEntry(entryInput(a));
         await saveEntry(entryInput(b));
         const counts = await getTimelineCounts();
