@@ -148,3 +148,12 @@ export function entryTag(kind: EntryKind, direction: Direction): string {
   if (kind === "call" || kind === "meeting" || direction === "both") return name;
   return `${name} ${direction}`;
 }
+
+export type Suggestion = {
+  action: "new" | "done" | "replace";
+  promiseId: string | null;
+  owedBy: OwedBy;
+  what: string;
+  dueOn: string | null;
+  quote: string;
+};
