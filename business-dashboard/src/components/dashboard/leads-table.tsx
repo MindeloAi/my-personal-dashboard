@@ -1,6 +1,18 @@
 "use client";
 
-import { Fragment, useOptimistic, useState, useTransition } from "react";
+import { Fragment, useOptimistic, useState, useSyncExternalStore, useTransition } from "react";
+import { createPortal } from "react-dom";
+import {
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -69,6 +81,19 @@ function findExistingClient(lead: Lead, clients: Client[]): Client | undefined {
   if (!name) return undefined;
   return clients.find(
     (c) => c.Company?.trim().toLowerCase() === name || c.Name.trim().toLowerCase() === name,
+  );
+}
+
+function StatusHeading({ status, count }: { status: LeadStatus; count: number }) {
+  const style = STATUS_STYLES[status];
+  return (
+    <div className="flex items-center gap-2 mb-3 px-1">
+      <div className={`w-2 h-2 rounded-full ${style.dot}`} />
+      <span className={`text-xs font-semibold uppercase tracking-wider ${style.header}`}>
+        {status}
+      </span>
+      <span className="text-xs text-zinc-600 ml-1">{count}</span>
+    </div>
   );
 }
 
@@ -248,10 +273,158 @@ function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
   );
 }
 
+// ─── Kanban view ──────────────────────────────────────────────────────────────
+// Same drag mechanics as project-board.tsx. A drop goes through the list view's
+// status handler, so Won still offers the client conversion.
+function LeadCard({ lead, isDragging = false }: { lead: Lead; isDragging?: boolean }) {
+  return (
+    <div
+      className={`bg-[#0b0d10] border border-[#2a2e34] rounded-2xl p-4 ${
+        isDragging ? "opacity-50" : "hover:border-zinc-600 transition-colors"
+      }`}
+    >
+      <p className="text-sm font-medium text-white leading-tight">{lead.Name}</p>
+      {lead["Business Name"] && (
+        <p className="text-xs text-zinc-500 mt-0.5">{lead["Business Name"]}</p>
+      )}
+      {(lead["Service Interest"] || lead["Budget Range"]) && (
+        <div className="flex items-center gap-2 flex-wrap mt-2">
+          {lead["Service Interest"] && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-white/[0.04] text-zinc-300">
+              {lead["Service Interest"]}
+            </span>
+          )}
+          {lead["Budget Range"] && (
+            <span className="text-[10px] text-zinc-500">{lead["Budget Range"]}</span>
+          )}
+        </div>
+      )}
+      {lead["Follow-up Date"] && (
+        <p className="text-[10px] text-zinc-600 mt-2">
+          Follow-up {format(parseISO(lead["Follow-up Date"]), "MMM d, yyyy")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DraggableLeadCard({ lead, onOpen }: { lead: Lead; onOpen: () => void }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: lead.id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      onClick={isDragging ? undefined : onOpen}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      // No text selection or iOS callout menu stealing the long-press that starts a drag.
+      className="cursor-grab active:cursor-grabbing select-none [-webkit-touch-callout:none]"
+    >
+      <LeadCard lead={lead} isDragging={isDragging} />
+    </div>
+  );
+}
+
+function LeadColumn({
+  status,
+  leads,
+  onOpen,
+}: {
+  status: LeadStatus;
+  leads: Lead[];
+  onOpen: (lead: Lead) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+  return (
+    <div className="md:min-w-[200px] md:flex-1">
+      <StatusHeading status={status} count={leads.length} />
+      <div
+        ref={setNodeRef}
+        className={`min-h-14 md:min-h-[120px] rounded-2xl p-2 space-y-2 transition-colors ${
+          isOver ? "bg-white/[0.03]" : ""
+        }`}
+      >
+        {leads.map((lead) => (
+          <DraggableLeadCard key={lead.id} lead={lead} onOpen={() => onOpen(lead)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// true in the browser, false during SSR, with no setState-in-effect re-render.
+const noopSubscribe = () => () => {};
+
+function LeadBoard({
+  leads,
+  onMove,
+  onOpen,
+}: {
+  leads: Lead[];
+  onMove: (lead: Lead, status: LeadStatus) => void;
+  onOpen: (lead: Lead) => void;
+}) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  // The overlay's portal target only exists in the browser; see the DragOverlay below.
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  // Touch needs a long-press, or every swipe to scroll the page picks up a card.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
+  const activeLead = leads.find((l) => l.id === activeId);
+
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    setActiveId(null);
+    const lead = leads.find((l) => l.id === active.id);
+    const next = over?.id as string | undefined;
+    if (!lead || !next || !(STATUSES as readonly string[]).includes(next)) return;
+    if (statusOf(lead) !== next) onMove(lead, next as LeadStatus);
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      onDragStart={({ active }) => setActiveId(active.id as string)}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveId(null)}
+    >
+      {/* Phones stack the columns: a sideways board hides every column but the first. */}
+      <div className="md:overflow-x-auto pb-2">
+        <div className="flex flex-col md:flex-row gap-4">
+          {STATUSES.map((status) => (
+            <LeadColumn
+              key={status}
+              status={status}
+              leads={leads.filter((l) => statusOf(l) === status)}
+              onOpen={onOpen}
+            />
+          ))}
+        </div>
+      </div>
+      {/* Portalled for the same reason as in project-board.tsx: the panel's
+          hover:-translate-y-0.5 would make the position:fixed overlay resolve
+          against the panel instead of the viewport. */}
+      {mounted &&
+        createPortal(
+          <DragOverlay>{activeLead ? <LeadCard lead={activeLead} /> : null}</DragOverlay>,
+          document.body,
+        )}
+    </DndContext>
+  );
+}
+
 // ─── Pipeline ──────────────────────────────────────────────────────────────────
 type Props = { leads: Lead[]; clients: Client[] };
+type View = "list" | "kanban";
 
 export function LeadsTable({ leads, clients }: Props) {
+  const [view, setView] = useState<View>("list");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
@@ -291,31 +464,43 @@ export function LeadsTable({ leads, clients }: Props) {
     >
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <p className="text-xs text-zinc-500 uppercase tracking-wider">Leads</p>
-        <button
-          onClick={() => setNewOpen(true)}
-          className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-lg font-semibold bg-[#bfff3a] text-black hover:bg-[#bfff3a]/80 transition-colors"
-        >
-          + New lead
-        </button>
+        <div className="flex items-center gap-2">
+          <div role="group" aria-label="Leads view" className="flex gap-1 bg-[#0b0d10] rounded-xl p-1">
+            {(["list", "kanban"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={view === v}
+                onClick={() => setView(v)}
+                className={`min-h-11 sm:min-h-0 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
+                  view === v ? "bg-[#bfff3a] text-black" : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                {v === "list" ? "List" : "Kanban"}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setNewOpen(true)}
+            className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-lg font-semibold bg-[#bfff3a] text-black hover:bg-[#bfff3a]/80 transition-colors"
+          >
+            + New lead
+          </button>
+        </div>
       </div>
 
       {optimisticLeads.length === 0 ? (
         <p className="py-8 text-center text-zinc-600 text-sm">No leads yet</p>
+      ) : view === "kanban" ? (
+        <LeadBoard leads={optimisticLeads} onMove={handleStatusChange} onOpen={setEditing} />
       ) : (
         <div className="space-y-6">
           {STATUSES.map((status) => {
             const group = optimisticLeads.filter((l) => statusOf(l) === status);
             if (group.length === 0) return null;
-            const style = STATUS_STYLES[status];
             return (
               <div key={status}>
-                <div className="flex items-center gap-2 mb-3 px-1">
-                  <div className={`w-2 h-2 rounded-full ${style.dot}`} />
-                  <span className={`text-xs font-semibold uppercase tracking-wider ${style.header}`}>
-                    {status}
-                  </span>
-                  <span className="text-xs text-zinc-600 ml-1">{group.length}</span>
-                </div>
+                <StatusHeading status={status} count={group.length} />
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <tbody className="divide-y divide-[#2a2e34]">
