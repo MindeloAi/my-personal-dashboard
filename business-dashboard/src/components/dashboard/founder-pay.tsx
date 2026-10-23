@@ -315,8 +315,8 @@ export function FounderPay({ ledger }: { ledger: Ledger }) {
               <th className="text-left pb-3 font-medium whitespace-nowrap">Number</th>
               <th className="text-left pb-3 font-medium whitespace-nowrap pl-4">Founder</th>
               <th className="text-left pb-3 font-medium whitespace-nowrap pl-4">Invoice</th>
-              <th className="text-right pb-3 font-medium whitespace-nowrap pl-4">Base</th>
-              <th className="text-right pb-3 font-medium whitespace-nowrap pl-4">Bonus</th>
+              <th className="hidden sm:table-cell text-right pb-3 font-medium whitespace-nowrap pl-4">Base</th>
+              <th className="hidden sm:table-cell text-right pb-3 font-medium whitespace-nowrap pl-4">Bonus</th>
               <th className="text-right pb-3 font-medium whitespace-nowrap pl-4">Total</th>
               <th className="text-left pb-3 font-medium whitespace-nowrap pl-6">Status</th>
               <th className="text-left pb-3 font-medium whitespace-nowrap pl-4">Paid out</th>
@@ -336,8 +336,8 @@ export function FounderPay({ ledger }: { ledger: Ledger }) {
                   <td className="py-3 text-zinc-300 font-medium whitespace-nowrap">{p.number}</td>
                   <td className="py-3 pl-4 text-zinc-300 whitespace-nowrap">{FOUNDER_LABEL[p.founder]}</td>
                   <td className="py-3 pl-4 text-zinc-400 whitespace-nowrap">{p.invoiceNumber ?? "None"}</td>
-                  <td className="py-3 pl-4 text-right text-zinc-400 whitespace-nowrap">{tt(p.base)}</td>
-                  <td className="py-3 pl-4 text-right text-zinc-400 whitespace-nowrap">{tt(p.bonus)}</td>
+                  <td className="hidden sm:table-cell py-3 pl-4 text-right text-zinc-400 whitespace-nowrap">{tt(p.base)}</td>
+                  <td className="hidden sm:table-cell py-3 pl-4 text-right text-zinc-400 whitespace-nowrap">{tt(p.bonus)}</td>
                   <td className="py-3 pl-4 text-right font-semibold text-white whitespace-nowrap">{tt(p.total)}</td>
                   <td className="py-3 pl-6 whitespace-nowrap"><StatusPill status={p.status} /></td>
                   <td className="py-3 pl-4 text-zinc-400 whitespace-nowrap">

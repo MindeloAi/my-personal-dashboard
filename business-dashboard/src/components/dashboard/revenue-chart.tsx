@@ -31,6 +31,9 @@ type PeriodData = {
   revenue: number;
   outstanding: number;
   netProfit: number;
+  /** All-time totals as at the end of this period, including before the range. */
+  revenueToDate: number;
+  profitToDate: number;
   paidInvoices: Invoice[];
   outstandingInvoices: Invoice[];
 };
@@ -43,13 +46,48 @@ function getWeekLabel(day: number): string {
 }
 
 function buildMonthlyData(invoices: Invoice[], expenses: Expense[], range: Range): PeriodData[] {
+  const { start, periods } = buildPeriods(invoices, expenses, range);
+  // Running totals start from everything before the range, so each point is the
+  // business's true all-time figure on that date.
+  let revenue = 0;
+  let profit = 0;
+  for (const inv of invoices) {
+    if (inv.Status === "Paid" && inv["Paid Date"] && isBefore(parseISO(inv["Paid Date"]), start)) {
+      revenue += inv.Amount ?? 0;
+      profit += inv.Amount ?? 0;
+    }
+  }
+  for (const exp of expenses) {
+    if (exp.Date && isBefore(parseISO(exp.Date), start)) profit -= exp.Amount ?? 0;
+  }
+  return periods.map((p) => {
+    revenue += p.revenue;
+    profit += p.netProfit;
+    return { ...p, revenueToDate: revenue, profitToDate: profit };
+  });
+}
+
+// ALL starts at the first month with any money in it, not a fixed year, so the
+// chart is not years of empty months squashed into a phone screen.
+function firstActivity(invoices: Invoice[], expenses: Expense[], now: Date): Date {
+  const dates = [
+    ...invoices.flatMap((i) => [i["Paid Date"], i["Issue Date"]]),
+    ...expenses.map((e) => e.Date),
+  ].filter((d): d is string => !!d);
+  if (dates.length === 0) return startOfMonth(now);
+  return startOfMonth(parseISO(dates.reduce((a, b) => (a < b ? a : b))));
+}
+
+type Bucket = Omit<PeriodData, "revenueToDate" | "profitToDate">;
+
+function buildPeriods(invoices: Invoice[], expenses: Expense[], range: Range): { start: Date; periods: Bucket[] } {
   const now = new Date();
 
   if (range === "1M") {
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
     const weeks = ["Wk 1", "Wk 2", "Wk 3", "Wk 4"];
-    const buckets = new Map<string, PeriodData>(
+    const buckets = new Map<string, Bucket>(
       weeks.map((w) => [w, { month: w, revenue: 0, outstanding: 0, netProfit: 0, paidInvoices: [], outstandingInvoices: [] }])
     );
 
@@ -83,7 +121,7 @@ function buildMonthlyData(invoices: Invoice[], expenses: Expense[], range: Range
     }
     for (const b of buckets.values()) b.netProfit += b.revenue;
 
-    return Array.from(buckets.values());
+    return { start: monthStart, periods: Array.from(buckets.values()) };
   }
 
   const cutoff =
@@ -91,9 +129,9 @@ function buildMonthlyData(invoices: Invoice[], expenses: Expense[], range: Range
       ? subMonths(startOfMonth(now), 5)
       : range === "YTD"
       ? new Date(now.getFullYear(), 0, 1)
-      : new Date(2020, 0, 1);
+      : firstActivity(invoices, expenses, now);
 
-  const buckets = new Map<string, PeriodData>();
+  const buckets = new Map<string, Bucket>();
   let cursor = new Date(cutoff);
   while (cursor <= now) {
     const key = format(cursor, "MMM yy");
@@ -130,7 +168,7 @@ function buildMonthlyData(invoices: Invoice[], expenses: Expense[], range: Range
   }
   for (const [key, b] of buckets) b.netProfit = b.revenue - (expenseByMonth.get(key) ?? 0);
 
-  return Array.from(buckets.values());
+  return { start: cutoff, periods: Array.from(buckets.values()) };
 }
 
 type TooltipPayloadItem = {
@@ -166,6 +204,12 @@ function CustomTooltip({ active, payload, label, onDrillDown }: CustomTooltipPro
             </span>
           </div>
         ))}
+        <div className="flex items-center justify-between gap-4 border-t border-[#2a2e34] pt-2">
+          <span className="text-xs text-zinc-400 pl-4">Profit to date</span>
+          <span className={`text-xs font-semibold ${data.profitToDate >= 0 ? "text-white" : "text-[#ff4d8b]"}`}>
+            ${data.profitToDate.toLocaleString()}
+          </span>
+        </div>
       </div>
       {(data.paidInvoices.length > 0 || data.outstandingInvoices.length > 0) && (
         <button
@@ -264,23 +308,29 @@ export function RevenueChart({ invoices, expenses }: Props) {
         </div>
       </div>
 
+      {/* Mouse clicks focus the chart and draw a white box; keep the ring for keyboards. */}
+      <div className="[&_.recharts-surface:focus:not(:focus-visible)]:outline-none [&_.recharts-wrapper:focus:not(:focus-visible)]:outline-none">
       <ResponsiveContainer width="100%" height={240}>
         <LineChart data={data} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="#2a2e34" strokeDasharray="3 3" />
           <XAxis dataKey="month" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+          {/* Running total on its own scale: it dwarfs the monthly lines. */}
+          <YAxis yAxisId="toDate" orientation="right" width={40} tick={{ fill: "#a78bfa", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
           <ReferenceLine y={0} stroke="#2a2e34" />
           {/* Click, not hover: Recharts gives the hover tooltip pointer-events:none, so its
               "View invoices" button could never be pressed (and hover never fires on touch). */}
           <Tooltip trigger="click" wrapperStyle={{ pointerEvents: "auto" }} content={<CustomTooltip onDrillDown={setDrillDown} />} cursor={{ stroke: "#2a2e34", strokeWidth: 1 }} />
           <Line type="linear" dataKey="revenue" name="Revenue" stroke="#bfff3a" strokeWidth={2.5} dot={{ fill: "#bfff3a", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#bfff3a", cursor: "pointer" }} animationDuration={800} />
           <Line type="linear" dataKey="outstanding" name="Outstanding" stroke="#ff4d8b" strokeWidth={2} strokeDasharray="5 3" dot={{ fill: "#ff4d8b", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#ff4d8b", cursor: "pointer" }} animationDuration={1000} />
+          <Line yAxisId="toDate" type="linear" dataKey="revenueToDate" name="Revenue to date" stroke="#a78bfa" strokeWidth={2} dot={{ fill: "#a78bfa", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#a78bfa", cursor: "pointer" }} animationDuration={1400} />
           <Line type="linear" dataKey="netProfit" name="Net Profit" stroke="#3affd1" strokeWidth={2} dot={{ fill: "#3affd1", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#3affd1", cursor: "pointer" }} animationDuration={1200} />
         </LineChart>
       </ResponsiveContainer>
+      </div>
 
-      <div className="flex gap-5 mt-3">
-        {[{ color: "#bfff3a", label: "Revenue" }, { color: "#ff4d8b", label: "Outstanding" }, { color: "#3affd1", label: "Net Profit" }].map(({ color, label }) => (
+      <div className="flex flex-wrap gap-x-5 gap-y-1 mt-3">
+        {[{ color: "#bfff3a", label: "Revenue" }, { color: "#ff4d8b", label: "Outstanding" }, { color: "#3affd1", label: "Net Profit" }, { color: "#a78bfa", label: "Revenue to date (right scale)" }].map(({ color, label }) => (
           <div key={label} className="flex items-center gap-1.5">
             <div className="w-3 h-0.5 rounded-full" style={{ background: color }} />
             <span className="text-[10px] text-zinc-500">{label}</span>

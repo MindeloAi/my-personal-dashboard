@@ -192,10 +192,10 @@ export function InvoicesTable({
           <thead>
             <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-[#2a2e34]">
               <th className="text-left pb-3 font-medium">Invoice</th>
-              <th className="text-left pb-3 font-medium">Type</th>
+              <th className="hidden sm:table-cell text-left pb-3 font-medium">Type</th>
               <th className="text-right pb-3 font-medium">Amount</th>
-              <th className="text-left pb-3 font-medium pl-6">Due</th>
-              <th className="text-left pb-3 font-medium">Status</th>
+              <th className="text-left pb-3 font-medium pl-3 sm:pl-6">Due</th>
+              <th className="hidden sm:table-cell text-left pb-3 font-medium">Status</th>
               <th className="pb-3" />
             </tr>
           </thead>
@@ -218,19 +218,27 @@ export function InvoicesTable({
                       onClick={() => setExpandedId(isExpanded ? null : inv.id)}
                       className="hover:bg-white/[0.02] transition-colors cursor-pointer"
                     >
-                      <td className="py-3 font-mono text-zinc-300 text-xs font-semibold">
+                      <td className="py-3 font-mono text-zinc-300 text-xs font-semibold whitespace-nowrap">
                         {inv["Invoice Number"] ?? "—"}
+                        {/* Phones drop the Type column; keep the type under the number. */}
+                        <span className="sm:hidden block mt-0.5 font-sans font-normal text-zinc-500">
+                          {TYPE_LABELS[inv["Invoice Type"] ?? ""] ?? inv["Invoice Type"] ?? "—"}
+                        </span>
                       </td>
-                      <td className="py-3 text-zinc-400">
+                      <td className="hidden sm:table-cell py-3 text-zinc-400">
                         {TYPE_LABELS[inv["Invoice Type"] ?? ""] ?? inv["Invoice Type"] ?? "—"}
                       </td>
                       <td className="py-3 text-right font-semibold text-white">
                         ${(inv.Amount ?? 0).toLocaleString()}
                       </td>
-                      <td className="py-3 pl-6 text-zinc-400">
+                      <td className="py-3 pl-3 sm:pl-6 text-zinc-400 whitespace-nowrap">
                         {inv["Due Date"] ? format(parseISO(inv["Due Date"]), "MMM d") : "—"}
+                        {/* Phones drop the Status column; the badge sits under the date. */}
+                        <span className="sm:hidden block mt-1">
+                          <StatusBadge status={renderStatus} />
+                        </span>
                       </td>
-                      <td className="py-3">
+                      <td className="hidden sm:table-cell py-3">
                         <StatusBadge status={renderStatus} />
                       </td>
                       <td className="py-3 text-right">
@@ -240,7 +248,7 @@ export function InvoicesTable({
                               e.stopPropagation();
                               setPayingInvoice(inv);
                             }}
-                            className="min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 hover:bg-[#bfff3a]/20 transition-colors"
+                            className="min-h-11 sm:min-h-0 whitespace-nowrap text-xs px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 hover:bg-[#bfff3a]/20 transition-colors"
                           >
                             Mark paid
                           </button>

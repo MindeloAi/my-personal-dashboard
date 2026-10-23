@@ -54,12 +54,16 @@ function check(name: string, ok: boolean, detail = "") {
   if (!ok) failures++;
 }
 
+// One transaction: deleting payments before transfers dips a pot below zero
+// midway, and the cash_never_negative guard (013) judges the end state.
 async function reset() {
-  await sql`delete from payments`;
-  await sql`delete from cash_movements where kind <> 'opening'`;
-  await sql`delete from cash_counts where note is distinct from 'Cutover count'`;
-  await sql`delete from invoices`;
-  await sql`delete from expenses`;
+  await sql.begin(async (tx) => {
+    await tx`delete from payments`;
+    await tx`delete from cash_movements where kind <> 'opening'`;
+    await tx`delete from cash_counts where note is distinct from 'Cutover count'`;
+    await tx`delete from invoices`;
+    await tx`delete from expenses`;
+  });
 }
 
 async function invoice(amount: number, michaelShare: number | null, extra: Record<string, unknown> = {}) {
@@ -400,6 +404,22 @@ try {
       }
     }
     check("   preview matches trigger to the cent (54 amount and share pairs)", mismatches === 0);
+  }
+
+  // 14 — no pot may go below zero (013). The real slip: a payment received by
+  // Mikey, paid out "from Zane", showed Zane at TT$-999.
+  await reset();
+  {
+    const inv = await invoice(2700, 1);
+    const msg = await rejection(() => pay(inv, 2700, { payOutFrom: "zane" }));
+    check("14 paying founders out of a pot that does not hold the money is refused", !!msg?.includes("Zane"), String(msg));
+    const [{ n }] = await sql`select count(*)::int as n from payments`;
+    check("   and nothing from the refused payment is saved", n === 0, `${n} payments`);
+    check("   paying them out from the pot that received it is fine", (await rejection(() => pay(inv, 2700, { payOutFrom: "mikey" }))) === null);
+    const tooMuch = await rejection(() =>
+      createTransfer({ movedAt: TODAY, fromLoc: "zane", toLoc: "mikey", amount: 1, note: null, createdBy: MICHAEL }),
+    );
+    check("   a transfer out of an empty pot is refused", !!tooMuch?.includes("Zane"), String(tooMuch));
   }
 
   await reset();
