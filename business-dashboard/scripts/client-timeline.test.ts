@@ -116,6 +116,11 @@ async function main() {
       check("mixed directions on one day are 'both'", groupDots([e1, e2], w)[0].direction === "both");
       check("entries before the window have no dot", groupDots([entry("e0", "2026-01-01", "sent")], w).length === 0);
 
+      check(
+        "entries on the window start and end days each get a dot",
+        deepEq(groupDots([entry("s", w.start, "sent"), entry("t", w.end, "sent")], w).map((d) => d.date), [w.start, w.end]),
+      );
+
       const inv: UnpaidInvoice = { id: "inv-sep30", number: "T-1", balance: 10, dueOn: "2026-09-30" };
       const pNov2 = prom("p-nov2", { dueOn: "2026-11-02" });
       const pNoDate = prom("p-nodate");
@@ -136,13 +141,34 @@ async function main() {
       check("a past diamond is late", ds.find((d) => d.date === "2026-09-30")!.late);
       check("a future diamond is not late", !ds.find((d) => d.date === "2026-11-02")!.late);
 
+      {
+        const mixed = owedItems(
+          [
+            prom("late-undated"),
+            prom("far", { dueOn: "2027-06-01" }),
+            prom("nov2", { dueOn: "2026-11-02" }),
+            prom("early", { dueOn: "2026-10-01" }),
+          ],
+          [{ id: "inv-nov2", number: "T-2", balance: 5, dueOn: "2026-11-02" }],
+          "client",
+        );
+        const dm = groupDiamonds(mixed, "client", TODAY, w);
+        check("diamonds drop undated and out-of-window items", dm.every((d) => !d.promiseIds.includes("late-undated") && !d.promiseIds.includes("far")));
+        check("diamonds are sorted by date", deepEq(dm.map((d) => d.date), ["2026-10-01", "2026-11-02"]));
+        check(
+          "a promise and an invoice due the same day share one diamond",
+          deepEq(dm[1], { date: "2026-11-02", side: "client", late: false, promiseIds: ["nov2"], invoiceIds: ["inv-nov2"] }),
+        );
+      }
+
       const A = prom("A", { dueOn: "2026-10-01", status: "replaced", replacedBy: "B", closedOn: TODAY });
       const B = prom("B", { dueOn: "2026-10-10", status: "replaced", replacedBy: "C", closedOn: TODAY });
       const C = prom("C", { dueOn: "2026-10-20" });
       check("moved from the direct predecessor", movedFrom(C, [A, B, C]) === B.dueOn);
       check("moved twice shows the previous date, not the first", movedFrom(C, [A, B, C]) === "2026-10-10");
       check("moved from an undated promise is null", movedFrom(prom("N"), [prom("M", { replacedBy: "N" }), prom("N")]) === null);
-      check("never moved", movedFrom(A0(), [A0()]) === undefined);
+      const A0 = prom("A0");
+      check("never moved", movedFrom(A0, [A0]) === undefined);
 
       const ps = [
         prom("p1", { entryId: "e6" }),
@@ -156,10 +182,6 @@ async function main() {
       check("items light their own ids", deepEq(litFromItems(["p1"], ["inv-sep30"], ps), { entries: ["e6"], promises: ["p1"], invoices: ["inv-sep30"] }));
       check("tag", entryTag("email", "received") === "Email received" && entryTag("call", "both") === "Call");
       check("tag for sent and meeting", entryTag("message", "sent") === "Message sent" && entryTag("meeting", "received") === "Meeting" && entryTag("document", "both") === "Document");
-
-      function A0() {
-        return prom("A0");
-      }
     }
 
     // ---- Migration 015: tables and constraints ----
