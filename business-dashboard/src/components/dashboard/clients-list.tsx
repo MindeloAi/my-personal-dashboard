@@ -10,7 +10,9 @@ import type { Client, Invoice, Project } from "@/lib/db";
 const STATUSES = ["Active", "Inactive", "Lead"] as const;
 type ClientStatus = (typeof STATUSES)[number];
 
-const STATUS_BADGE: Record<ClientStatus, string> = {
+export const PANEL = "bg-[#14181d] border border-[#2a2e34] rounded-[20px]";
+
+export const STATUS_BADGE: Record<ClientStatus, string> = {
   Active: "bg-[#bfff3a]/10 text-[#bfff3a] border-[#bfff3a]/20",
   Inactive: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
   Lead: "bg-[#3affd1]/10 text-[#3affd1] border-[#3affd1]/20",

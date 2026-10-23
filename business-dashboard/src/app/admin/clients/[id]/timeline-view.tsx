@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ClientModal } from "@/components/dashboard/clients-list";
+import { ClientModal, PANEL, STATUS_BADGE } from "@/components/dashboard/clients-list";
 import type { Client, Project } from "@/lib/db";
 import type { ClientPromise, Lit, TimelineEntry, UnpaidInvoice } from "@/lib/timeline";
 
@@ -15,13 +15,6 @@ type Props = {
   today: string;
 };
 
-const PANEL = "bg-[#14181d] border border-[#2a2e34] rounded-[20px]";
-
-const STATUS_BADGE = {
-  Active: "bg-[#bfff3a]/10 text-[#bfff3a] border-[#bfff3a]/20",
-  Inactive: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-  Lead: "bg-[#3affd1]/10 text-[#3affd1] border-[#3affd1]/20",
-} as const;
 
 export function TimelineView({ client, projects, entries, promises, invoices }: Props) {
   const [lit, setLit] = useState<Lit | null>(null);
