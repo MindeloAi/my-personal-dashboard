@@ -45,8 +45,8 @@ create table if not exists client_promises (
   note            text,
   created_by      text not null,
   created         timestamptz not null default now(),
-  check ((status = 'open') = (closed_on is null)),
-  check (status <> 'replaced' or replaced_by is not null)
+  constraint client_promises_closed_iff_not_open check ((status = 'open') = (closed_on is null)),
+  constraint client_promises_replaced_has_target check (status <> 'replaced' or replaced_by is not null)
 );
 
 create index if not exists client_entries_client_idx on client_entries (client_id, occurred_on desc);

@@ -57,14 +57,15 @@ async function fails(run: () => Promise<unknown>): Promise<Failure | null> {
     await run();
     return null;
   } catch (e) {
-    const err = e as { code?: string; constraint_name?: string; message: string };
-    return { code: err.code ?? "", constraint: err.constraint_name ?? "", message: err.message };
+    const err = e as { code?: string; constraint_name?: string; message?: string };
+    return { code: err.code ?? "", constraint: err.constraint_name ?? "", message: err.message ?? String(e) };
   }
 }
 
 const describeFailure = (f: Failure | null) => (f ? `${f.code} ${f.constraint} ${f.message}` : "no error");
 
 async function main() {
+  let failed = false;
   try {
     // ---- Migration 015: tables and constraints ----
     await reset();
@@ -93,12 +94,12 @@ async function main() {
       const err = await fails(run);
       check(name, err?.code === "23514" && err.constraint === constraint, describeFailure(err));
     };
-    await rejected("open promise with closed_on is rejected", () => promise("open", TODAY), "client_promises_check");
-    await rejected("done promise without closed_on is rejected", () => promise("done", null), "client_promises_check");
+    await rejected("open promise with closed_on is rejected", () => promise("open", TODAY), "client_promises_closed_iff_not_open");
+    await rejected("done promise without closed_on is rejected", () => promise("done", null), "client_promises_closed_iff_not_open");
     await rejected(
       "replaced promise without replaced_by is rejected",
       () => promise("replaced", TODAY),
-      "client_promises_check1",
+      "client_promises_replaced_has_target",
     );
 
     // Positive controls: the valid shapes of the same rows insert.
@@ -126,9 +127,17 @@ async function main() {
         check(`${role} cannot read ${table}`, err?.code === "42501", describeFailure(err));
       }
     }
+  } catch (e) {
+    failed = true;
+    throw e;
   } finally {
-    // Runs even when a section throws; the original error still reaches the catch below.
-    await reset();
+    // Runs even when a section throws. A reset error never replaces an earlier failure.
+    try {
+      await reset();
+    } catch (e) {
+      if (!failed) throw e;
+      console.error("reset() also failed:", e);
+    }
   }
 }
 
