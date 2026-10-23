@@ -319,9 +319,9 @@ export function ExpensesList({ expenses, cutover, categoryFilter, onClearCategor
           <thead>
             <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-[#2a2e34]">
               <th className="text-left pb-3 font-medium">Name</th>
-              <th className="text-left pb-3 font-medium">Category</th>
+              <th className="hidden sm:table-cell text-left pb-3 font-medium">Category</th>
               <th className="text-right pb-3 font-medium">Amount</th>
-              <th className="text-left pb-3 font-medium pl-6">Date</th>
+              <th className="text-left pb-3 font-medium pl-3 sm:pl-6">Date</th>
               <th className="pb-3" />
             </tr>
           </thead>
@@ -343,13 +343,21 @@ export function ExpensesList({ expenses, cutover, categoryFilter, onClearCategor
                       <span>{exp.Name}</span>
                       {exp.Recurring && <span className="ml-2 text-[10px] text-zinc-600">↻</span>}
                       {exp.Notes && <span className="ml-2 text-[10px] text-zinc-600 italic">{exp.Notes}</span>}
+                      {/* Phones drop the Category column; keep the pill under the name. */}
+                      {exp.Category && (
+                        <span className="sm:hidden block mt-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ color, background: `${color}18` }}>
+                            {exp.Category}
+                          </span>
+                        </span>
+                      )}
                       {paidLine && (
                         <span className={`block mt-0.5 text-[10px] font-normal ${owed ? "text-[#fbbf24]" : "text-zinc-500"}`}>
                           {paidLine}
                         </span>
                       )}
                     </td>
-                    <td className="py-3">
+                    <td className="hidden sm:table-cell py-3">
                       {exp.Category ? (
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ color, background: `${color}18` }}>
                           {exp.Category}
@@ -359,11 +367,11 @@ export function ExpensesList({ expenses, cutover, categoryFilter, onClearCategor
                     <td className="py-3 text-right font-semibold text-white text-xs">
                       ${(exp.Amount ?? 0).toLocaleString()}
                     </td>
-                    <td className="py-3 pl-6 text-zinc-400 text-xs">
+                    <td className="py-3 pl-3 sm:pl-6 text-zinc-400 text-xs whitespace-nowrap">
                       {exp.Date ? format(parseISO(exp.Date), "MMM d, yyyy") : "—"}
                     </td>
                     <td className="py-3 text-right">
-                      <div className="flex items-center gap-1 justify-end">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 justify-end">
                         {owed && (
                           <button
                             onClick={() => setReimbursing(exp)}

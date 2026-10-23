@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -519,7 +520,8 @@ function DraggableCard({
           onDetail();
         }
       }}
-      className="cursor-grab active:cursor-grabbing"
+      // No text selection or iOS callout menu stealing the long-press that starts a drag.
+      className="cursor-grab active:cursor-grabbing select-none [-webkit-touch-callout:none]"
     >
       <ProjectCard
         project={project}
@@ -546,7 +548,7 @@ function Column({
   const style = COLUMN_STYLES[status];
 
   return (
-    <div className="min-w-[220px] flex-1">
+    <div className="md:min-w-[220px] md:flex-1">
       <div className="flex items-center gap-2 mb-3 px-1">
         <div className={`w-2 h-2 rounded-full ${style.dot}`} />
         <span className={`text-xs font-semibold uppercase tracking-wider ${style.header}`}>
@@ -556,7 +558,7 @@ function Column({
       </div>
       <div
         ref={setNodeRef}
-        className={`min-h-[120px] rounded-2xl p-2 space-y-2 transition-colors ${
+        className={`min-h-14 md:min-h-[120px] rounded-2xl p-2 space-y-2 transition-colors ${
           isOver ? "bg-white/[0.03]" : ""
         }`}
       >
@@ -601,7 +603,11 @@ export function ProjectBoard({ projects, clients = [], initialClientId = null }:
     },
   );
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  // Touch needs a long-press, or every swipe to scroll the page picks up a card.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
 
   const activeProject = optimisticProjects.find((p) => p.id === activeId);
 
@@ -693,8 +699,10 @@ export function ProjectBoard({ projects, clients = [], initialClientId = null }:
         )}
       </div>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="overflow-x-auto pb-2">
-          <div className="flex gap-4 min-w-max md:min-w-0">
+        {/* Phones stack the columns: a sideways board showed only Lead, with no
+            hint the other four were off-screen. */}
+        <div className="md:overflow-x-auto pb-2">
+          <div className="flex flex-col md:flex-row gap-4">
             {COLUMNS.map((status) => (
               <Column
                 key={status}
