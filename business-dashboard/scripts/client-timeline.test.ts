@@ -48,49 +48,88 @@ async function reset() {
   });
 }
 
-async function fails(run: () => Promise<unknown>): Promise<string | null> {
+type Failure = { code: string; constraint: string; message: string };
+
+// Returns null when the statement succeeds, otherwise the Postgres error fields, so a
+// check can require the exact error and not just any error.
+async function fails(run: () => Promise<unknown>): Promise<Failure | null> {
   try {
     await run();
     return null;
   } catch (e) {
-    return (e as Error).message;
+    const err = e as { code?: string; constraint_name?: string; message: string };
+    return { code: err.code ?? "", constraint: err.constraint_name ?? "", message: err.message };
   }
 }
 
+const describeFailure = (f: Failure | null) => (f ? `${f.code} ${f.constraint} ${f.message}` : "no error");
+
 async function main() {
-  // ---- Migration 015: tables and constraints ----
-  await reset();
-  const [client] = await sql`insert into clients (name) values ('Test Client A') returning id`;
+  try {
+    // ---- Migration 015: tables and constraints ----
+    await reset();
+    const [client] = await sql`insert into clients (name) values ('Test Client A') returning id`;
 
-  {
-    const err = await fails(async () => {
-      const [e] = await sql`
-        insert into client_entries (client_id, occurred_on, kind, direction, summary, created_by)
-        values (${client.id}, ${TODAY}, 'call', 'both', 'Test call', ${ZANE}) returning id`;
-      await sql`
-        insert into client_promises (client_id, entry_id, owed_by, what, due_on, created_by)
-        values (${client.id}, ${e.id}, 'us', 'Send the draft', ${TODAY}, ${ZANE})`;
-    });
-    check("entry and open promise insert", err === null, err ?? "");
+    {
+      const err = await fails(async () => {
+        const [e] = await sql`
+          insert into client_entries (client_id, occurred_on, kind, direction, summary, created_by)
+          values (${client.id}, ${TODAY}, 'call', 'both', 'Test call', ${ZANE}) returning id`;
+        await sql`
+          insert into client_promises (client_id, entry_id, owed_by, what, due_on, created_by)
+          values (${client.id}, ${e.id}, 'us', 'Send the draft', ${TODAY}, ${ZANE})`;
+      });
+      check("entry and open promise insert", err === null, describeFailure(err));
+    }
+
+    const promise = (status: string, closedOn: string | null, replacedBy: string | null = null) =>
+      sql`insert into client_promises (client_id, owed_by, what, status, closed_on, replaced_by, created_by)
+          values (${client.id}, 'us', 'Test promise', ${status}, ${closedOn}, ${replacedBy}, ${ZANE})
+          returning id`;
+
+    // Rejection checks require check_violation (23514) on the named constraint, so a typo,
+    // a dropped connection or a missing table cannot turn them green.
+    const rejected = async (name: string, run: () => Promise<unknown>, constraint: string) => {
+      const err = await fails(run);
+      check(name, err?.code === "23514" && err.constraint === constraint, describeFailure(err));
+    };
+    await rejected("open promise with closed_on is rejected", () => promise("open", TODAY), "client_promises_check");
+    await rejected("done promise without closed_on is rejected", () => promise("done", null), "client_promises_check");
+    await rejected(
+      "replaced promise without replaced_by is rejected",
+      () => promise("replaced", TODAY),
+      "client_promises_check1",
+    );
+
+    // Positive controls: the valid shapes of the same rows insert.
+    {
+      const err = await fails(() => promise("done", TODAY));
+      check("done promise with closed_on inserts", err === null, describeFailure(err));
+    }
+    {
+      const err = await fails(async () => {
+        const [next] = await promise("open", null);
+        await promise("replaced", TODAY, next.id);
+      });
+      check("replaced promise with replaced_by and closed_on inserts", err === null, describeFailure(err));
+    }
+
+    // Permission checks: both roles, both tables.
+    for (const role of ["anon", "authenticated"]) {
+      for (const table of ["client_entries", "client_promises"]) {
+        const err = await fails(() =>
+          sql.begin(async (tx) => {
+            await tx.unsafe(`set local role ${role}`);
+            await tx.unsafe(`select 1 from ${table}`);
+          }),
+        );
+        check(`${role} cannot read ${table}`, err?.code === "42501", describeFailure(err));
+      }
+    }
+  } finally {
+    // Runs even when a section throws; the original error still reaches the catch below.
+    await reset();
   }
-
-  const promise = (status: string, closedOn: string | null) =>
-    sql`insert into client_promises (client_id, owed_by, what, status, closed_on, created_by)
-        values (${client.id}, 'us', 'Test promise', ${status}, ${closedOn}, ${ZANE})`;
-
-  check("open promise with closed_on is rejected", (await fails(() => promise("open", TODAY))) !== null);
-  check("done promise without closed_on is rejected", (await fails(() => promise("done", null))) !== null);
-  check("replaced promise without replaced_by is rejected", (await fails(() => promise("replaced", TODAY))) !== null);
-
-  {
-    const err = await fails(() => sql.begin(async (tx) => {
-      await tx`set local role anon`;
-      await tx`select 1 from client_entries`;
-    }));
-    check("anon cannot read client_entries", err !== null && /permission denied/i.test(err), err ?? "no error");
-  }
-
-  await reset();
 }
 
 // tsx runs .ts files as CommonJS, which has no top-level await, so the sections live in main().
