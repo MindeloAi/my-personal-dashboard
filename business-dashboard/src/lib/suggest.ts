@@ -1,14 +1,12 @@
 // Asks Claude which promises one pasted interaction contains. Reads and suggests only; it never writes.
 import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { SuggestionOutputSchema, cleanSuggestions } from "./timeline";
+import { z } from "zod";
+import { SuggestionOutputSchema, cleanSuggestions, textTooLong } from "./timeline";
 import type { ClientPromise, Direction, EntryKind, Suggestion } from "./timeline";
 
 export type SuggestResult =
   | { ok: true; summary: string; people: string; suggestions: Suggestion[] }
   | { ok: false; error: string };
-
-export const MAX_TEXT = 100_000;
 
 const SYSTEM = `You read one interaction between Mindelo (a two-person software studio: Zane and Mikkey, "us") and a client, and list the promises it contains.
 
@@ -36,7 +34,8 @@ export async function suggestPromises(input: {
   text: string;
   open: ClientPromise[];
 }): Promise<SuggestResult> {
-  if (input.text.length > MAX_TEXT) return fail("That text is too long. Paste up to 100,000 characters.");
+  const tooLong = textTooLong(input.text);
+  if (tooLong) return fail(tooLong);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     console.error("[suggest] ANTHROPIC_API_KEY is not set");
@@ -63,25 +62,35 @@ export async function suggestPromises(input: {
 
   try {
     const client = new Anthropic({ apiKey });
-    const res = await client.beta.messages.parse({
+    const res = await client.beta.messages.create({
       model: "claude-opus-5-5",
       max_tokens: 16000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       system: SYSTEM,
-      output_config: { effort: "medium", format: zodOutputFormat(SuggestionOutputSchema) },
+      output_config: { effort: "medium", format: { type: "json_schema", schema: z.toJSONSchema(SuggestionOutputSchema) } },
       messages: [{ role: "user", content: user }],
     });
     if (res.stop_reason === "refusal") {
-      console.error("[suggest] Claude refused the request");
+      console.error("[suggest] Claude refused the request", JSON.stringify(res.stop_details));
       return fail("Claude declined to read this text. Add the promises by hand.");
     }
-    if (!res.parsed_output) {
-      console.error(`[suggest] no parsed output, stop_reason ${res.stop_reason}`);
+    if (res.stop_reason === "max_tokens") {
+      console.error("[suggest] output cut off at max_tokens");
       return fail(FAILED);
     }
-    const out = res.parsed_output;
-    return { ok: true, summary: out.summary, people: out.people, suggestions: cleanSuggestions(out, input.open) };
+    // A fallback switch can leave the declined model's block first, so take the last text block.
+    const block = [...res.content].reverse().find((c) => c.type === "text");
+    if (!block || block.type !== "text") {
+      console.error(`[suggest] no text block, stop_reason ${res.stop_reason}`);
+      return fail(FAILED);
+    }
+    const out = SuggestionOutputSchema.safeParse(JSON.parse(block.text));
+    if (!out.success) {
+      console.error("[suggest] output did not match the schema:", out.error.message);
+      return fail(FAILED);
+    }
+    return { ok: true, summary: out.data.summary, people: out.data.people, suggestions: cleanSuggestions(out.data, input.open) };
   } catch (err) {
     console.error("[suggest] request failed:", err instanceof Anthropic.APIError ? `${err.status} ${err.message}` : err);
     return fail(FAILED);

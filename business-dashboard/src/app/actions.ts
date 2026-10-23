@@ -41,15 +41,16 @@ import {
   deleteLatestCashCount,
   reimburseExpense,
   undoReimburseExpense,
+  getClientById,
 } from "@/lib/db";
 import { HOLDERS, PAYMENT_METHODS } from "@/lib/ledger";
 import { z } from "zod";
-import { getClientById } from "@/lib/db";
 import { today } from "@/lib/subscriptions";
 import { suggestPromises, type SuggestResult } from "@/lib/suggest";
+import { MAX_QUOTE, MAX_SUGGESTIONS, MAX_TEXT, MAX_WHAT, textTooLong } from "@/lib/timeline";
 import {
   TimelineConflictError,
-  getClientTimeline,
+  getOpenPromises,
   saveEntry,
   createPromise,
   updatePromise,
@@ -342,6 +343,8 @@ export async function undoReimburseExpenseAction(id: string): Promise<ActionResu
 
 // ─── Client timeline ────────────────────────────────────────────────────────
 
+const INVALID = "That request was not valid.";
+
 // A stale suggestion (the promise changed while the dialog was open) comes back
 // as { error } so the dialog can show it; Next would redact a thrown message.
 async function runTimeline(fn: () => Promise<unknown>): Promise<ActionResult> {
@@ -349,6 +352,7 @@ async function runTimeline(fn: () => Promise<unknown>): Promise<ActionResult> {
     await fn();
   } catch (err) {
     if (err instanceof TimelineConflictError) return { error: err.message };
+    if (err instanceof z.ZodError) return { error: INVALID };
     throw err;
   }
   revalidatePath("/", "layout");
@@ -360,14 +364,14 @@ const Id = z.uuid();
 const Kind = z.enum(["call", "meeting", "email", "message", "document"]);
 const Dir = z.enum(["received", "sent", "both"]);
 const Side = z.enum(["us", "client"]);
-const Text = z.string().max(100_000);
+const Text = z.string().max(MAX_TEXT); // backstop; textTooLong gives the message
 const SuggestionForm = z.object({
   action: z.enum(["new", "done", "replace"]),
   promiseId: Id.nullable(),
   owedBy: Side,
-  what: z.string().min(1).max(1000),
+  what: z.string().min(1).max(MAX_WHAT),
   dueOn: Day.nullable(),
-  quote: z.string().max(5000),
+  quote: z.string().max(MAX_QUOTE),
 });
 const EntryFields = {
   occurredOn: Day,
@@ -378,45 +382,49 @@ const EntryFields = {
   body: Text.nullable(),
   link: z.string().max(2000).nullable(),
 };
+const EntryForm = z.object(EntryFields);
 const SuggestForm = z.object({ clientId: Id, occurredOn: Day, kind: Kind, direction: Dir, text: Text });
-const SaveEntryForm = z.object({ clientId: Id, ...EntryFields, suggestions: z.array(SuggestionForm).max(50) });
-const PromiseFields = { owedBy: Side, what: z.string().min(1).max(1000), dueOn: Day.nullable() };
+const SaveEntryForm = z.object({ clientId: Id, ...EntryFields, suggestions: z.array(SuggestionForm).max(MAX_SUGGESTIONS) });
+const PromiseFields = { owedBy: Side, what: z.string().min(1).max(MAX_WHAT), dueOn: Day.nullable() };
+const PromiseForm = z.object(PromiseFields);
 const CreatePromiseForm = z.object({ clientId: Id, entryId: Id.nullable(), ...PromiseFields });
 const ClosePromiseForm = z.object({ status: z.enum(["done", "dropped"]), note: z.string().max(1000).nullable() });
 
 // Reads and asks Claude; never writes. Failures come back as { ok: false, error }.
 export async function suggestPromisesAction(input: z.infer<typeof SuggestForm>): Promise<SuggestResult> {
   await requireAdmin();
+  const tooLong = typeof input?.text === "string" ? textTooLong(input.text) : null;
+  if (tooLong) return { ok: false, error: tooLong };
   const parsed = SuggestForm.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "That request was not valid." };
+  if (!parsed.success) return { ok: false, error: INVALID };
   const { clientId, ...rest } = parsed.data;
   const client = await getClientById(clientId);
   if (!client) return { ok: false, error: "That client no longer exists." };
-  const { promises } = await getClientTimeline(clientId);
-  return suggestPromises({ ...rest, clientName: client.Company || client.Name, open: promises.filter((p) => p.status === "open") });
+  return suggestPromises({ ...rest, clientName: client.Company || client.Name, open: await getOpenPromises(clientId) });
 }
 
 export async function saveEntryAction(input: z.infer<typeof SaveEntryForm>): Promise<ActionResult> {
   const admin = await requireAdmin();
-  const e = SaveEntryForm.parse(input);
-  return runTimeline(() => saveEntry({ ...e, createdBy: admin.email }));
+  const tooLong = typeof input?.body === "string" ? textTooLong(input.body) : null;
+  if (tooLong) return { error: tooLong };
+  return runTimeline(() => saveEntry({ ...SaveEntryForm.parse(input), createdBy: admin.email }));
 }
 
 export async function createPromiseAction(input: z.infer<typeof CreatePromiseForm>): Promise<ActionResult> {
   const admin = await requireAdmin();
-  const p = CreatePromiseForm.parse(input);
-  return runTimeline(() => createPromise({ ...p, createdBy: admin.email }));
+  return runTimeline(() => createPromise({ ...CreatePromiseForm.parse(input), createdBy: admin.email }));
 }
 
-export async function updatePromiseAction(id: string, input: z.infer<z.ZodObject<typeof PromiseFields>>): Promise<ActionResult> {
+export async function updatePromiseAction(id: string, input: z.infer<typeof PromiseForm>): Promise<ActionResult> {
   await requireAdmin();
-  return runTimeline(() => updatePromise(Id.parse(id), z.object(PromiseFields).parse(input)));
+  return runTimeline(() => updatePromise(Id.parse(id), PromiseForm.parse(input)));
 }
 
 export async function closePromiseAction(id: string, input: z.infer<typeof ClosePromiseForm>): Promise<ActionResult> {
   const admin = await requireAdmin();
-  const c = ClosePromiseForm.parse(input);
-  return runTimeline(() => closePromise(Id.parse(id), { ...c, closedOn: today(), closedBy: admin.email }));
+  return runTimeline(() =>
+    closePromise(Id.parse(id), { ...ClosePromiseForm.parse(input), closedOn: today(), closedBy: admin.email }),
+  );
 }
 
 export async function reopenPromiseAction(id: string): Promise<ActionResult> {
@@ -424,10 +432,11 @@ export async function reopenPromiseAction(id: string): Promise<ActionResult> {
   return runTimeline(() => reopenPromise(Id.parse(id)));
 }
 
-export async function replacePromiseAction(id: string, input: z.infer<z.ZodObject<typeof PromiseFields>>): Promise<ActionResult> {
+export async function replacePromiseAction(id: string, input: z.infer<typeof PromiseForm>): Promise<ActionResult> {
   const admin = await requireAdmin();
-  const p = z.object(PromiseFields).parse(input);
-  return runTimeline(() => replacePromise(Id.parse(id), { ...p, closedOn: today(), createdBy: admin.email }));
+  return runTimeline(() =>
+    replacePromise(Id.parse(id), { ...PromiseForm.parse(input), closedOn: today(), createdBy: admin.email }),
+  );
 }
 
 export async function deletePromiseAction(id: string): Promise<ActionResult> {
@@ -435,9 +444,9 @@ export async function deletePromiseAction(id: string): Promise<ActionResult> {
   return runTimeline(() => deletePromise(Id.parse(id)));
 }
 
-export async function updateEntryAction(id: string, input: z.infer<z.ZodObject<typeof EntryFields>>): Promise<ActionResult> {
+export async function updateEntryAction(id: string, input: z.infer<typeof EntryForm>): Promise<ActionResult> {
   await requireAdmin();
-  return runTimeline(() => updateEntry(Id.parse(id), z.object(EntryFields).parse(input)));
+  return runTimeline(() => updateEntry(Id.parse(id), EntryForm.parse(input)));
 }
 
 export async function deleteEntryAction(id: string): Promise<ActionResult> {

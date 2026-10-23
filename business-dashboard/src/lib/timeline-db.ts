@@ -67,6 +67,15 @@ export async function getClientTimeline(clientId: string) {
   return { entries: entries.map(toEntry), promises: promises.map(toPromise) };
 }
 
+/** Open promises only, without loading entry bodies. */
+export async function getOpenPromises(clientId: string): Promise<ClientPromise[]> {
+  const sql = getSql();
+  const rows = await sql`
+    select * from client_promises where client_id = ${clientId} and status = 'open'
+     order by due_on nulls last, created, id`;
+  return rows.map(toPromise);
+}
+
 /** Locks a promise and returns it only when it is open. */
 async function lockOpen(tx: Db, id: string): Promise<Row> {
   const [row] = await tx`select * from client_promises where id = ${id} for update`;

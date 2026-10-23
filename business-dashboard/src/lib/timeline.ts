@@ -175,22 +175,41 @@ export const SuggestionOutputSchema = z.object({
   ),
 });
 
+// Field limits, shared by cleanSuggestions and the save action so Claude output never fails save validation.
+export const MAX_TEXT = 100_000;
+export const MAX_WHAT = 1000;
+export const MAX_QUOTE = 5000;
+export const MAX_SUGGESTIONS = 50;
+export const TEXT_TOO_LONG = "That text is too long. Paste up to 100,000 characters.";
+
+export function textTooLong(text: string): string | null {
+  return text.length > MAX_TEXT ? TEXT_TOO_LONG : null;
+}
+
 // Drops what the model got wrong instead of trusting it: a done/replace needs the id of a promise
-// that is open now; new never carries an id; a due date must be YYYY-MM-DD.
+// that is open now and not already used; new never carries an id; a due date must be YYYY-MM-DD;
+// an empty "what" is dropped; long text is cut to the save limits.
 export function cleanSuggestions(raw: z.infer<typeof SuggestionOutputSchema>, open: ClientPromise[]): Suggestion[] {
   const openIds = new Set(open.filter((p) => p.status === "open").map((p) => p.id));
+  const used = new Set<string>();
   const out: Suggestion[] = [];
   for (const s of raw.suggestions) {
+    const what = s.what.trim().slice(0, MAX_WHAT);
+    if (!what) continue;
     const dueOn = s.due_on && /^\d{4}-\d{2}-\d{2}$/.test(s.due_on) ? s.due_on : null;
-    if (s.action !== "new" && !(s.promise_id && openIds.has(s.promise_id))) continue;
+    if (s.action !== "new") {
+      if (!(s.promise_id && openIds.has(s.promise_id)) || used.has(s.promise_id)) continue;
+      used.add(s.promise_id);
+    }
     out.push({
       action: s.action,
       promiseId: s.action === "new" ? null : s.promise_id,
       owedBy: s.owed_by,
-      what: s.what,
+      what,
       dueOn,
-      quote: s.quote,
+      quote: s.quote.slice(0, MAX_QUOTE),
     });
+    if (out.length >= MAX_SUGGESTIONS) break;
   }
   return out;
 }

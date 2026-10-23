@@ -19,6 +19,7 @@ import {
   deleteEntry,
   deletePromise,
   getClientTimeline,
+  getOpenPromises,
   getTimelineCounts,
   reopenPromise,
   replacePromise,
@@ -29,6 +30,10 @@ import {
 import {
   addDays,
   cleanSuggestions,
+  textTooLong,
+  MAX_SUGGESTIONS,
+  MAX_WHAT,
+  MAX_QUOTE,
   dueState,
   entryTag,
   groupDiamonds,
@@ -121,15 +126,31 @@ async function main() {
       check("clean: new with a promise_id gets null", cleanSuggestions(raw({ promise_id: OPEN }), open)[0]?.promiseId === null);
       check("clean: a malformed due_on becomes null", cleanSuggestions(raw({ due_on: "2 Nov" }), open)[0]?.dueOn === null);
       const kept = cleanSuggestions(raw({ action: "replace", promise_id: OPEN, due_on: "2026-11-02", what: "Later", owed_by: "client" }), open)[0];
-      check("clean: keeps a valid replace", kept?.action === "replace" && kept.promiseId === OPEN && kept.dueOn === "2026-11-02" && kept.what === "Later");
+      check("clean: keeps a valid replace", kept?.action === "replace" && kept.promiseId === OPEN && kept.dueOn === "2026-11-02" && kept.what === "Later" && kept.owedBy === "client" && kept.quote === "q", JSON.stringify(kept));
+      const two = raw({ action: "done", promise_id: OPEN });
+      two.suggestions.push({ ...two.suggestions[0], action: "replace", what: "second" });
+      check("clean: a second suggestion for the same promise is dropped", cleanSuggestions(two, open).length === 1 && cleanSuggestions(two, open)[0].action === "done");
+      check("clean: an empty what is dropped", cleanSuggestions(raw({ what: "  " }), open).length === 0);
+      const longOne = cleanSuggestions(raw({ what: "w".repeat(MAX_WHAT + 5), quote: "q".repeat(MAX_QUOTE + 5) }), open)[0];
+      check("clean: what and quote are cut to the save limits", longOne?.what.length === MAX_WHAT && longOne.quote.length === MAX_QUOTE);
+      const many = raw({});
+      many.suggestions = Array.from({ length: MAX_SUGGESTIONS + 10 }, (_, i) => ({ ...many.suggestions[0], what: "w" + i }));
+      check("clean: keeps at most 50", cleanSuggestions(many, open).length === MAX_SUGGESTIONS);
+      check("textTooLong: 100,000 passes", textTooLong("x".repeat(100_000)) === null);
+      check("textTooLong: 100,001 returns the message", textTooLong("x".repeat(100_001)) === "That text is too long. Paste up to 100,000 characters.");
 
       const input = { clientName: "Test Client A", occurredOn: TODAY, kind: "call" as const, direction: "both" as const, open: [] };
       const savedKey = process.env.ANTHROPIC_API_KEY;
       delete process.env.ANTHROPIC_API_KEY;
+      const realError = console.error;
+      const logged: string[] = [];
+      console.error = (...a: unknown[]) => void logged.push(a.join(" "));
       const huge = await suggestPromises({ ...input, text: "x".repeat(100_001) });
       check("huge paste refused before any call", !huge.ok && huge.error === "That text is too long. Paste up to 100,000 characters.", JSON.stringify(huge));
       const nokey = await suggestPromises({ ...input, text: "short" });
       check("no key", !nokey.ok && nokey.error.includes("ANTHROPIC_API_KEY"), JSON.stringify(nokey));
+      console.error = realError;
+      check("no key: logs ANTHROPIC_API_KEY", logged.some((m) => m.includes("ANTHROPIC_API_KEY")), logged.join("|"));
       if (savedKey !== undefined) process.env.ANTHROPIC_API_KEY = savedKey;
     }
 
@@ -492,6 +513,18 @@ async function main() {
           "getClientTimeline returns promises in all four statuses",
           statusOf(openP) === "open" && statusOf(doneP) === "done" && statusOf(dropP) === "dropped" && statusOf(replP) === "replaced" && statusOf(replacement) === "open" && ps.length === 5 && ps.every((x) => x.clientId === A),
         );
+      }
+
+      // open promises only, for one client
+      {
+        const a = await fresh();
+        const b = await newClient("Test Client B");
+        const x = await mk(a, "Open one");
+        const y = await mk(a, "Closed one");
+        await mk(b, "Other client");
+        await closePromise(y, { status: "done", closedOn: TODAY, closedBy: ZANE, note: null });
+        const got = await getOpenPromises(a);
+        check("getOpenPromises: only open promises of that client", got.length === 1 && got[0].id === x, JSON.stringify(got.map((p) => p.what)));
       }
 
       // counts
