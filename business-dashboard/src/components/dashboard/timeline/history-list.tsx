@@ -27,7 +27,14 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function HistoryList({ entries, promises, lit, onLight, onClear, clientId, today, scrollTo }: Props) {
   const [all, setAll] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
-  const [editing, setEditing] = useState<TimelineEntry | null>(null);
+  const [editing, setEditingState] = useState<TimelineEntry | null>(null);
+  // The dialog gives focus back to the Edit button, so closing it never drops focus on the page body.
+  const opener = useRef<HTMLElement | null>(null);
+  const setEditing = (e: TimelineEntry | null) => {
+    if (e) opener.current = document.activeElement as HTMLElement | null;
+    setEditingState(e);
+    if (!e) requestAnimationFrame(() => opener.current?.focus());
+  };
   const [confirming, setConfirming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const busy = useRef(false);
@@ -64,7 +71,7 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
   }
 
   return (
-    <section ref={root} className={`${PANEL} [&>*:last-child]:rounded-b-[20px]`} data-region="history" aria-label="History">
+    <section ref={root} className={`${PANEL} min-w-0 [&>*:last-child]:rounded-b-[20px]`} data-region="history" aria-label="History">
       <h2 className="px-3 py-3 text-sm font-semibold text-white">History</h2>
       {entries.length === 0 && <p className="px-3 pb-3 text-sm text-zinc-500">No calls, emails or messages yet. Add the first one.</p>}
 
@@ -95,13 +102,13 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
                 <span className="block text-xs text-zinc-500">
                   {formatDay(e.occurredOn)} · {entryTag(e.kind, e.direction)}
                 </span>
-                <span className="block text-sm text-zinc-100 break-words">{e.summary}</span>
-                {e.people && <span className="block text-xs text-zinc-400 break-words">{e.people}</span>}
+                <span className="block text-sm text-zinc-100 [overflow-wrap:anywhere]">{e.summary}</span>
+                {e.people && <span className="block text-xs text-zinc-400 [overflow-wrap:anywhere]">{e.people}</span>}
                 {(made > 0 || ticked.length > 0 || moved > 0) && (
                   <span className="mt-1 flex flex-wrap gap-1.5">
                     {made > 0 && <span className={CHIP}>{plural(made, "promise", "promises")} from this</span>}
                     {ticked.map((p) => (
-                      <span key={p.id} className={`${CHIP} break-words`}>
+                      <span key={p.id} className={`${CHIP} [overflow-wrap:anywhere]`}>
                         Ticked off: {p.what}
                       </span>
                     ))}
@@ -125,7 +132,7 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
 
             {expanded && (
               <div className="px-3 pb-3 space-y-2" onClick={(ev) => ev.stopPropagation()}>
-                {e.body && <p className="whitespace-pre-wrap break-words text-sm text-zinc-300">{e.body}</p>}
+                {e.body && <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-zinc-300">{e.body}</p>}
                 {e.link && (
                   <a href={e.link} target="_blank" rel="noopener noreferrer" className="block text-xs text-sky-400 hover:underline break-all">
                     {e.link}

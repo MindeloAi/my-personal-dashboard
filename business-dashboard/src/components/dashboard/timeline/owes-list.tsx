@@ -117,7 +117,14 @@ type Modal = { mode: "add" } | { mode: "edit" | "replace" | "drop"; promise: Cli
 export function OwesList({ side, title, promises, invoices, today, lit, onLight, onClear, clientId }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
-  const [modal, setModal] = useState<Modal | null>(null);
+  const [modal, setModalState] = useState<Modal | null>(null);
+  // The dialog gives focus back to whatever opened it, so closing it never drops focus on the page body.
+  const opener = useRef<HTMLElement | null>(null);
+  const setModal = (m: Modal | null) => {
+    if (m) opener.current = document.activeElement as HTMLElement | null;
+    setModalState(m);
+    if (!m) requestAnimationFrame(() => opener.current?.focus());
+  };
   const [confirming, setConfirming] = useState<string | null>(null);
   const [pend, setPend] = useState<ReadonlySet<string>>(new Set());
   const busy = useRef(new Set<string>());
@@ -160,9 +167,9 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
   const more = "w-full px-3 py-2 border-t border-[#23272d] text-left text-xs text-sky-400 hover:bg-white/5";
 
   return (
-    <section className={`${PANEL} [&>*:last-child]:rounded-b-[20px]`} data-region={`owes-${side}`} aria-label={title}>
+    <section className={`${PANEL} min-w-0 [&>*:last-child]:rounded-b-[20px]`} data-region={`owes-${side}`} aria-label={title}>
       <div className="flex items-center justify-between gap-2 px-3 py-3">
-        <h2 className="text-sm font-semibold text-white min-w-0 break-words">{title}</h2>
+        <h2 className="text-sm font-semibold text-white min-w-0 [overflow-wrap:anywhere]">{title}</h2>
         <button
           type="button"
           onClick={() => setModal({ mode: "add" })}
@@ -186,7 +193,7 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
               onClick={() => toggle(litFromItems([], [inv.id], promises))}
             >
               <button type="button" aria-pressed={on} className={`${lightBtn} text-zinc-200`}>
-                <span className="block">
+                <span className="block [overflow-wrap:anywhere]">
                   Invoice {inv.number} · {tt(inv.balance)}
                 </span>
                 <span className="block text-xs">
@@ -196,7 +203,7 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
               <Link
                 href={`/admin/finance?client=${clientId}`}
                 onClick={stop}
-                aria-label={`Open invoice ${inv.number} in Finance`}
+                aria-label={`Open in Finance: invoice ${inv.number}`}
                 className="text-xs text-sky-400 hover:underline self-center py-2"
               >
                 Open in Finance
@@ -223,7 +230,7 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
                 className="mt-0.5 size-5 sm:size-4 accent-[#bfff3a] cursor-pointer"
               />
               <button type="button" aria-pressed={on} className={`${lightBtn} text-zinc-200`}>
-                <span className="block break-words">{p.what}</span>
+                <span className="block [overflow-wrap:anywhere]">{p.what}</span>
                 <span className="block text-xs">
                   <DueLabel dueOn={p.dueOn} today={today} />
                 </span>
@@ -297,18 +304,18 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
                 />
               )}
               <button type="button" aria-pressed={on} className={lightBtn}>
-                <span className="block break-words line-through decoration-zinc-600">{p.what}</span>
+                <span className="block [overflow-wrap:anywhere] line-through decoration-zinc-600">{p.what}</span>
                 <span className="block text-xs text-zinc-500">
                   {p.status[0].toUpperCase() + p.status.slice(1)}
                   {p.closedOn ? ` ${formatDay(p.closedOn)}` : ""}
                   {p.closedBy ? ` by ${p.closedBy.split("@")[0]}` : ""}
                 </span>
-                {p.note && <span className="block text-xs text-zinc-500 break-words">{p.note}</span>}
+                {p.note && <span className="block text-xs text-zinc-500 [overflow-wrap:anywhere]">{p.note}</span>}
               </button>
               <button
                 type="button"
                 disabled={pend.has(p.id)}
-                aria-label={`Reopen promise: ${p.what}`}
+                aria-label={`Reopen: ${p.what}`}
                 onClick={(e) => {
                   stop(e);
                   act(p.id, () => reopenPromiseAction(p.id));
