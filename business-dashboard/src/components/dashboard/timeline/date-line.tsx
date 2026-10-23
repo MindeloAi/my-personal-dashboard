@@ -131,7 +131,7 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
         </span>
       </div>
       <div
-        className="relative mx-3 h-[114px]"
+        className="relative isolate mx-3 h-[114px]"
         data-testid="strip"
         onPointerDown={(e) => {
           // Touch never fires mouseleave, so a press outside any marker closes the card.
