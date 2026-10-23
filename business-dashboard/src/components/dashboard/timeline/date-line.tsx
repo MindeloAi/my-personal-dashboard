@@ -1,0 +1,245 @@
+"use client";
+
+import { useState } from "react";
+import { PANEL } from "@/components/dashboard/clients-list";
+import {
+  entryTag,
+  groupDiamonds,
+  groupDots,
+  lineWindow,
+  litFromEntry,
+  litFromItems,
+  owedItems,
+  pct,
+  type ClientPromise,
+  type Diamond,
+  type Dot,
+  type Lit,
+  type OwedBy,
+  type TimelineEntry,
+  type UnpaidInvoice,
+} from "@/lib/timeline";
+
+type Props = {
+  entries: TimelineEntry[];
+  promises: ClientPromise[];
+  invoices: UnpaidInvoice[];
+  today: string;
+  lit: Lit | null;
+  onLight: (l: Lit) => void;
+};
+
+type Tip = { at: number; title: string; lines: string[] };
+
+const DOT_COLOR = { received: "#34d399", sent: "#60a5fa", both: "#fbbf24" } as const;
+const SIDE_COLOR: Record<OwedBy, string> = { client: "#fbbf24", us: "#60a5fa" };
+const LATE_FILL = "#ff4d8b";
+const SIDE_LABEL: Record<OwedBy, string> = { client: "Client owes", us: "We owe" };
+// Vertical centre of each row inside the strip, in px. Client and us diamonds get their own row so both stay clickable.
+const ROW = { dot: 24, axis: 50, client: 68, us: 96 } as const;
+const RING = "0 0 0 3px rgba(96,165,250,.45)";
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function fmt(day: string): string {
+  const d = new Date(day + "T00:00:00Z");
+  return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
+// First day of each month inside the window, by string arithmetic.
+function monthStarts(start: string, end: string): { day: string; label: string }[] {
+  const out: { day: string; label: string }[] = [];
+  let y = Number(start.slice(0, 4));
+  let m = Number(start.slice(5, 7));
+  for (;;) {
+    const day = `${y}-${String(m).padStart(2, "0")}-01`;
+    if (day > end) return out;
+    if (day >= start) out.push({ day, label: MONTHS[m - 1] });
+    if (++m > 12) {
+      m = 1;
+      y++;
+    }
+  }
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+export function DateLine({ entries, promises, invoices, today, lit, onLight }: Props) {
+  const [tip, setTip] = useState<Tip | null>(null);
+
+  const owed = (["client", "us"] as const).map((side) => ({ side, items: owedItems(promises, invoices, side) }));
+  const dated = owed.flatMap(({ items }) =>
+    items.flatMap((i) => {
+      const date = i.type === "promise" ? i.promise.dueOn : i.invoice.dueOn;
+      return date ? [{ date, late: date < today }] : [];
+    }),
+  );
+  const w = lineWindow(today, dated);
+  const dots = groupDots(entries, w);
+  const diamonds = owed.flatMap(({ side, items }) => groupDiamonds(items, side, today, w));
+
+  const entryById = new Map(entries.map((e) => [e.id, e]));
+  const promiseById = new Map(promises.map((p) => [p.id, p]));
+  const invoiceById = new Map(invoices.map((i) => [i.id, i]));
+  const litEntries = new Set(lit?.entries);
+  const litPromises = new Set(lit?.promises);
+  const litInvoices = new Set(lit?.invoices);
+
+  const dotOn = (d: Dot) => d.entryIds.some((id) => litEntries.has(id));
+  const diaOn = (d: Diamond) =>
+    d.promiseIds.some((id) => litPromises.has(id)) || d.invoiceIds.some((id) => litInvoices.has(id));
+
+  const dotTip = (d: Dot): Tip => ({
+    at: pct(d.date, w),
+    title: fmt(d.date),
+    lines: d.entryIds.flatMap((id) => {
+      const e = entryById.get(id);
+      return e ? [`${entryTag(e.kind, e.direction)}: ${e.summary}`] : [];
+    }),
+  });
+  const diaTip = (d: Diamond): Tip => ({
+    at: pct(d.date, w),
+    title: `${fmt(d.date)} · ${SIDE_LABEL[d.side]}${d.late ? " · late" : ""}`,
+    lines: [
+      ...d.promiseIds.flatMap((id) => promiseById.get(id)?.what ?? []),
+      ...d.invoiceIds.flatMap((id) => {
+        const inv = invoiceById.get(id);
+        return inv ? [`Invoice ${inv.number}`] : [];
+      }),
+    ],
+  });
+
+  const show = (t: Tip) => ({
+    onMouseEnter: () => setTip(t),
+    onFocus: () => setTip(t),
+    onMouseLeave: () => setTip(null),
+    onBlur: () => setTip(null),
+  });
+  const hit =
+    "group absolute -ml-3.5 size-7 flex items-center justify-center rounded-full cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-400";
+  const mark = "block size-3 transition-transform duration-150 group-hover:scale-[1.45] group-focus-visible:scale-[1.45]";
+
+  return (
+    <section className={`${PANEL} p-4`} data-region="date-line" aria-label="Date line">
+      <div className="mb-2 flex flex-wrap justify-between gap-x-3 text-sm font-semibold text-white">
+        <span>
+          {fmt(w.start).slice(4)} to {fmt(w.end).slice(4)}
+        </span>
+        <span className="text-[11px] font-medium text-zinc-500">
+          top row = contact · bottom rows = due dates (amber client, blue us)
+        </span>
+      </div>
+      <div className="relative mx-3 h-[114px]" data-testid="strip">
+        <div className="absolute inset-x-0 h-0.5 bg-[#2e333b]" style={{ top: ROW.axis - 1 }} />
+        {monthStarts(w.start, w.end).map(({ day, label }) => (
+          <span
+            key={day}
+            className="absolute -translate-x-1/2 text-[10px] text-zinc-500"
+            style={{ left: `${pct(day, w)}%`, top: ROW.axis - 20 }}
+          >
+            {label}
+          </span>
+        ))}
+        <div className="absolute inset-y-0.5 -ml-px w-0.5 bg-blue-600" style={{ left: `${pct(today, w)}%` }}>
+          <span className="absolute -top-0.5 left-1.5 text-[10px] font-bold text-blue-400">Today</span>
+        </div>
+
+        {dots.map((d) => {
+          const on = dotOn(d);
+          const n = d.entryIds.length;
+          const first = entryById.get(d.entryIds[0]);
+          const what = n === 1 && first ? entryTag(first.kind, d.direction) : plural(n, "entry").replace("entrys", "entries");
+          const t = dotTip(d);
+          return (
+            <span key={d.date}>
+              <button
+                type="button"
+                className={hit}
+                style={{ left: `${pct(d.date, w)}%`, top: ROW.dot - 14 }}
+                aria-label={`${what}, ${fmt(d.date)}`}
+                aria-pressed={on}
+                onClick={() => {
+                  setTip(t);
+                  const parts = d.entryIds.map((id) => litFromEntry(id, promises));
+                  onLight({
+                    entries: parts.flatMap((p) => p.entries),
+                    promises: [...new Set(parts.flatMap((p) => p.promises))],
+                    invoices: [],
+                  });
+                }}
+                {...show(t)}
+              >
+                <span
+                  className={`${mark} rounded-full ${on ? "scale-[1.45]" : ""}`}
+                  style={{ background: DOT_COLOR[d.direction], boxShadow: on ? RING : undefined }}
+                />
+              </button>
+              {n > 1 && (
+                <span
+                  className="pointer-events-none absolute text-[10px] font-bold text-zinc-300"
+                  style={{ left: `calc(${pct(d.date, w)}% + 10px)`, top: ROW.dot - 8 }}
+                >
+                  {n}
+                </span>
+              )}
+            </span>
+          );
+        })}
+
+        {diamonds.map((d) => {
+          const on = diaOn(d);
+          const n = d.promiseIds.length + d.invoiceIds.length;
+          const row = ROW[d.side];
+          const t = diaTip(d);
+          return (
+            <span key={d.side + d.date}>
+              <button
+                type="button"
+                className={hit}
+                style={{ left: `${pct(d.date, w)}%`, top: row - 14 }}
+                aria-label={`${SIDE_LABEL[d.side]}: ${plural(n, "item")} due ${fmt(d.date)}${d.late ? ", late" : ""}`}
+                aria-pressed={on}
+                onClick={() => {
+                  setTip(t);
+                  onLight(litFromItems(d.promiseIds, d.invoiceIds, promises));
+                }}
+                {...show(t)}
+              >
+                <span
+                  className={`${mark} rotate-45 border-2 ${on ? "scale-[1.45]" : ""}`}
+                  style={{
+                    borderColor: SIDE_COLOR[d.side],
+                    background: d.late ? LATE_FILL : "#0b0d10",
+                    boxShadow: on ? RING : undefined,
+                  }}
+                />
+              </button>
+              {n > 1 && (
+                <span
+                  className="pointer-events-none absolute text-[10px] font-bold"
+                  style={{ left: `calc(${pct(d.date, w)}% + 10px)`, top: row - 8, color: SIDE_COLOR[d.side] }}
+                >
+                  {n}
+                </span>
+              )}
+            </span>
+          );
+        })}
+
+        {tip && (
+          <div
+            role="status"
+            className="pointer-events-none absolute z-10 w-[230px] max-w-full -translate-x-1/2 rounded-[7px] border border-[#343b48] bg-[#1f2430] px-2.5 py-2 text-[11.5px] text-zinc-300 shadow-[0_6px_20px_rgba(0,0,0,.4)]"
+            style={{ top: 118, left: `clamp(115px, ${tip.at}%, calc(100% - 115px))` }}
+          >
+            <b className="text-zinc-100">{tip.title}</b>
+            {tip.lines.map((l, i) => (
+              <div key={i}>{l}</div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ClientModal, PANEL, STATUS_BADGE } from "@/components/dashboard/clients-list";
+import { DateLine } from "@/components/dashboard/timeline/date-line";
 import type { Client, Project } from "@/lib/db";
 import type { ClientPromise, Lit, TimelineEntry, UnpaidInvoice } from "@/lib/timeline";
 
@@ -15,15 +16,14 @@ type Props = {
   today: string;
 };
 
-
-export function TimelineView({ client, projects, entries, promises, invoices }: Props) {
+export function TimelineView({ client, projects, entries, promises, invoices, today }: Props) {
   const [lit, setLit] = useState<Lit | null>(null);
   const light = (l: Lit) => setLit(l);
   const clear = () => setLit(null);
   const [editing, setEditing] = useState(false);
   const status = client.Status ?? "Active";
-  // Tasks 6 to 8 consume these; the placeholders below ignore them for now.
-  void [promises, invoices, lit, light, clear];
+  // Task 8 consumes clear; the placeholders below ignore it for now.
+  void clear;
 
   return (
     <div className="space-y-3">
@@ -70,10 +70,7 @@ export function TimelineView({ client, projects, entries, promises, invoices }: 
         </div>
       </header>
 
-      {/* Placeholder: Task 6 adds the date line (uses entries, promises, invoices, today, lit, light, clear). */}
-      <section className={`${PANEL} p-4 text-sm text-zinc-600`} data-region="date-line">
-        Date line
-      </section>
+      <DateLine entries={entries} promises={promises} invoices={invoices} today={today} lit={lit} onLight={light} />
 
       {/* Placeholder: Task 8 adds the two who-owes-what lists. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-region="lists">
