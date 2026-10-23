@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ClientModal, PANEL, STATUS_BADGE } from "@/components/dashboard/clients-list";
 import { DateLine } from "@/components/dashboard/timeline/date-line";
+import { EntryModal } from "@/components/dashboard/timeline/entry-modal";
 import type { Client, Project } from "@/lib/db";
 import type { ClientPromise, Lit, TimelineEntry, UnpaidInvoice } from "@/lib/timeline";
 
@@ -21,6 +22,7 @@ export function TimelineView({ client, projects, entries, promises, invoices, to
   const light = (l: Lit) => setLit(l);
   const clear = () => setLit(null);
   const [editing, setEditing] = useState(false);
+  const [adding, setAdding] = useState(false);
   const status = client.Status ?? "Active";
   // Task 8 consumes clear; the placeholders below ignore it for now.
   void clear;
@@ -53,9 +55,9 @@ export function TimelineView({ client, projects, entries, promises, invoices, to
           )}
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
-          {/* Task 7 wires this button to the entry dialog. */}
           <button
             type="button"
+            onClick={() => setAdding(true)}
             className="min-h-11 sm:min-h-0 text-xs px-3 py-2 rounded-lg font-semibold bg-[#bfff3a] text-black hover:bg-[#bfff3a]/80 transition-colors"
           >
             + Add call, email or message
@@ -87,6 +89,7 @@ export function TimelineView({ client, projects, entries, promises, invoices, to
         )}
       </section>
 
+      {adding && <EntryModal clientId={client.id} today={today} promises={promises} onClose={() => setAdding(false)} />}
       {editing && <ClientModal client={client} onClose={() => setEditing(false)} />}
     </div>
   );
