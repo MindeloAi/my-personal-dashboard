@@ -163,7 +163,7 @@ export function ClientsList({ clients, invoices, projects }: Props) {
   );
 }
 
-function ClientModal({
+export function ClientModal({
   client,
   onClose,
   onDelete,

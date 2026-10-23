@@ -1,0 +1,103 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { ClientModal } from "@/components/dashboard/clients-list";
+import type { Client, Project } from "@/lib/db";
+import type { ClientPromise, Lit, TimelineEntry, UnpaidInvoice } from "@/lib/timeline";
+
+type Props = {
+  client: Client;
+  projects: Project[];
+  entries: TimelineEntry[];
+  promises: ClientPromise[];
+  invoices: UnpaidInvoice[];
+  today: string;
+};
+
+const PANEL = "bg-[#14181d] border border-[#2a2e34] rounded-[20px]";
+
+const STATUS_BADGE = {
+  Active: "bg-[#bfff3a]/10 text-[#bfff3a] border-[#bfff3a]/20",
+  Inactive: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+  Lead: "bg-[#3affd1]/10 text-[#3affd1] border-[#3affd1]/20",
+} as const;
+
+export function TimelineView({ client, projects, entries, promises, invoices }: Props) {
+  const [lit, setLit] = useState<Lit | null>(null);
+  const light = (l: Lit) => setLit(l);
+  const clear = () => setLit(null);
+  const [editing, setEditing] = useState(false);
+  const status = client.Status ?? "Active";
+  // Tasks 6 to 8 consume these; the placeholders below ignore them for now.
+  void [promises, invoices, lit, light, clear];
+
+  return (
+    <div className="space-y-3">
+      <header className={`${PANEL} p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between`}>
+        <div className="min-w-0">
+          <Link href="/admin/clients" className="text-xs text-zinc-500 hover:text-zinc-300">
+            Clients
+          </Link>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <h1 className="text-xl font-semibold text-white leading-tight">{client.Company || client.Name}</h1>
+            <span className={`text-xs px-2 py-1 rounded-full border font-medium ${STATUS_BADGE[status]}`}>
+              {status}
+            </span>
+          </div>
+          {client.Company && client.Name !== client.Company && (
+            <p className="text-sm text-zinc-400">{client.Name}</p>
+          )}
+          {projects.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {projects.map((p) => (
+                <li key={p.id} className="text-xs px-2 py-1 rounded-full border border-[#2a2e34] text-zinc-300">
+                  {p.Name}
+                  {p.Status ? <span className="text-zinc-500"> · {p.Status}</span> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2 shrink-0">
+          {/* Task 7 wires this button to the entry dialog. */}
+          <button
+            type="button"
+            className="min-h-11 sm:min-h-0 text-xs px-3 py-2 rounded-lg font-semibold bg-[#bfff3a] text-black hover:bg-[#bfff3a]/80 transition-colors"
+          >
+            + Add call, email or message
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="min-h-11 sm:min-h-0 text-xs px-3 py-2 rounded-lg font-semibold border border-[#2a2e34] text-zinc-200 hover:bg-white/5 transition-colors"
+          >
+            Edit
+          </button>
+        </div>
+      </header>
+
+      {/* Placeholder: Task 6 adds the date line (uses entries, promises, invoices, today, lit, light, clear). */}
+      <section className={`${PANEL} p-4 text-sm text-zinc-600`} data-region="date-line">
+        Date line
+      </section>
+
+      {/* Placeholder: Task 8 adds the two who-owes-what lists. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-region="lists">
+        <section className={`${PANEL} p-4 text-sm text-zinc-600`}>Client owes us</section>
+        <section className={`${PANEL} p-4 text-sm text-zinc-600`}>We owe the client</section>
+      </div>
+
+      {/* Placeholder: Task 8 adds the history. */}
+      <section className={`${PANEL} p-4`} data-region="history">
+        {entries.length === 0 ? (
+          <p className="text-sm text-zinc-500">No calls, emails or messages yet. Add the first one.</p>
+        ) : (
+          <p className="text-sm text-zinc-600">History</p>
+        )}
+      </section>
+
+      {editing && <ClientModal client={client} onClose={() => setEditing(false)} />}
+    </div>
+  );
+}
