@@ -21,8 +21,16 @@ type Props = {
 
 export function TimelineView({ client, projects, entries, promises, invoices, today }: Props) {
   const [lit, setLit] = useState<Lit | null>(null);
-  const light = (l: Lit) => setLit(l);
-  const clear = () => setLit(null);
+  // A new object per dot click tells the history to scroll; row and diamond clicks leave it null.
+  const [scrollTo, setScrollTo] = useState<{ ids: string[] } | null>(null);
+  const light = (l: Lit, opts?: { scroll?: boolean }) => {
+    setLit(l);
+    setScrollTo(opts?.scroll ? { ids: l.entries } : null);
+  };
+  const clear = () => {
+    setLit(null);
+    setScrollTo(null);
+  };
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const status = client.Status ?? "Active";
@@ -36,7 +44,7 @@ export function TimelineView({ client, projects, entries, promises, invoices, to
             Clients
           </Link>
           <div className="flex flex-wrap items-center gap-2 mt-1">
-            <h1 className="text-xl font-semibold text-white leading-tight">{client.Company || client.Name}</h1>
+            <h1 className="text-xl font-semibold text-white leading-tight">{name}</h1>
             <span className={`text-xs px-2 py-1 rounded-full border font-medium ${STATUS_BADGE[status]}`}>
               {status}
             </span>
@@ -92,7 +100,7 @@ export function TimelineView({ client, projects, entries, promises, invoices, to
         ))}
       </div>
 
-      <HistoryList entries={entries} promises={promises} lit={lit} onLight={light} onClear={clear} clientId={client.id} today={today} />
+      <HistoryList entries={entries} promises={promises} lit={lit} onLight={light} onClear={clear} clientId={client.id} today={today} scrollTo={scrollTo} />
 
       {adding && <EntryModal clientId={client.id} today={today} promises={promises} onClose={() => setAdding(false)} />}
       {editing && <ClientModal client={client} onClose={() => setEditing(false)} />}

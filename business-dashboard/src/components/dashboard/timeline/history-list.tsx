@@ -4,10 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { deleteEntryAction } from "@/app/actions";
 import { PANEL } from "@/components/dashboard/clients-list";
-import { entryTag, formatDay, litFromEntry, type ClientPromise, type Lit, type TimelineEntry } from "@/lib/timeline";
+import { entryTag, formatDay, litFromEntry, sameLit, type ClientPromise, type Lit, type TimelineEntry } from "@/lib/timeline";
 import { EntryModal } from "./entry-modal";
-import { cancelBtn, THROWN } from "./form";
-import { LIT_ROW, sameLit } from "./owes-list";
+import { cancelBtn, LIT_ROW, THROWN } from "./form";
 
 type Props = {
   entries: TimelineEntry[];
@@ -17,13 +16,15 @@ type Props = {
   onClear: () => void;
   clientId: string;
   today: string;
+  // Set only by a dot click on the date line: the history scrolls to the first of these entries.
+  scrollTo: { ids: string[] } | null;
 };
 
 const SHOWN = 20;
 const CHIP = "text-[11px] px-2 py-0.5 rounded-full border border-[#2a2e34] text-zinc-300";
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-export function HistoryList({ entries, promises, lit, onLight, onClear, clientId, today }: Props) {
+export function HistoryList({ entries, promises, lit, onLight, onClear, clientId, today, scrollTo }: Props) {
   const [all, setAll] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<TimelineEntry | null>(null);
@@ -34,15 +35,17 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
 
   // Newest first; created breaks ties on the same day.
   const sorted = [...entries].sort((a, b) => b.occurredOn.localeCompare(a.occurredOn) || b.created.localeCompare(a.created));
-  const litId = sorted.find((e) => lit?.entries.includes(e.id))?.id;
-  // A lit entry behind Show older opens the list. Setting own state during render is the React pattern for this.
-  if (!all && litId && sorted.findIndex((e) => e.id === litId) >= SHOWN) setAll(true);
+  // Any lit entry behind Show older opens the list. Setting own state during render is the React pattern for this.
+  if (!all && sorted.slice(SHOWN).some((e) => lit?.entries.includes(e.id))) setAll(true);
   const visible = all ? sorted : sorted.slice(0, SHOWN);
 
   useEffect(() => {
-    if (!litId) return;
-    root.current?.querySelector(`[data-entry-id="${litId}"]`)?.scrollIntoView({ block: "nearest" });
-  }, [lit, litId]);
+    if (!scrollTo) return;
+    const first = sorted.find((e) => scrollTo.ids.includes(e.id));
+    if (first) root.current?.querySelector(`[data-entry-id="${first.id}"]`)?.scrollIntoView({ block: "nearest" });
+    // Only a new dot click (a new scrollTo object) scrolls, so sorted is deliberately not a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollTo]);
 
   async function remove(id: string) {
     if (busy.current) return;
@@ -61,7 +64,7 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
   }
 
   return (
-    <section ref={root} className={`${PANEL} overflow-hidden`} data-region="history" aria-label="History">
+    <section ref={root} className={`${PANEL} [&>*:last-child]:rounded-b-[20px]`} data-region="history" aria-label="History">
       <h2 className="px-3 py-3 text-sm font-semibold text-white">History</h2>
       {entries.length === 0 && <p className="px-3 pb-3 text-sm text-zinc-500">No calls, emails or messages yet. Add the first one.</p>}
 
@@ -84,14 +87,18 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
             }}
           >
             <div className="flex items-start gap-2 px-3 py-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-xs text-zinc-500">
+              <button
+                type="button"
+                aria-pressed={on}
+                className="min-w-0 flex-1 text-left cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-sky-400"
+              >
+                <span className="block text-xs text-zinc-500">
                   {formatDay(e.occurredOn)} · {entryTag(e.kind, e.direction)}
-                </p>
-                <p className="text-sm text-zinc-100 break-words">{e.summary}</p>
-                {e.people && <p className="text-xs text-zinc-400 break-words">{e.people}</p>}
+                </span>
+                <span className="block text-sm text-zinc-100 break-words">{e.summary}</span>
+                {e.people && <span className="block text-xs text-zinc-400 break-words">{e.people}</span>}
                 {(made > 0 || ticked.length > 0 || moved > 0) && (
-                  <div className="mt-1 flex flex-wrap gap-1.5">
+                  <span className="mt-1 flex flex-wrap gap-1.5">
                     {made > 0 && <span className={CHIP}>{plural(made, "promise", "promises")} from this</span>}
                     {ticked.map((p) => (
                       <span key={p.id} className={`${CHIP} break-words`}>
@@ -99,9 +106,9 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
                       </span>
                     ))}
                     {moved > 0 && <span className={CHIP}>Moved {plural(moved, "date", "dates")}</span>}
-                  </div>
+                  </span>
                 )}
-              </div>
+              </button>
               <button
                 type="button"
                 aria-expanded={expanded}
@@ -144,7 +151,7 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
                     >
                       Delete
                     </button>
-                    <button type="button" onClick={() => setConfirming(null)} className={cancelBtn}>
+                    <button type="button" autoFocus onClick={() => setConfirming(null)} className={cancelBtn}>
                       Cancel
                     </button>
                   </div>

@@ -11,6 +11,8 @@ export const cancelBtn =
   "min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors disabled:opacity-40";
 export const primaryBtn =
   "min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80";
+// The prototype highlight for a lit row: a blue wash and a blue bar on the left.
+export const LIT_ROW = "bg-[#172235] shadow-[inset_3px_0_#60a5fa]";
 export const THROWN = "That did not save. Check your connection and try again.";
 
 export function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {

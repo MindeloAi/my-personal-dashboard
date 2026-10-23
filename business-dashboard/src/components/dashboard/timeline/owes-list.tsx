@@ -1,22 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { closePromiseAction, deletePromiseAction, reopenPromiseAction } from "@/app/actions";
 import { PANEL } from "@/components/dashboard/clients-list";
+import { tt } from "@/lib/ledger";
 import {
   dueState,
   formatDay,
   litFromItems,
   movedFrom,
   owedItems,
+  sameLit,
   type ClientPromise,
   type Lit,
   type OwedBy,
   type UnpaidInvoice,
 } from "@/lib/timeline";
-import { cancelBtn, THROWN } from "./form";
+import { cancelBtn, LIT_ROW, THROWN } from "./form";
 import { PromiseModal } from "./promise-modal";
 
 type Props = {
@@ -33,19 +35,6 @@ type Props = {
 
 const SHOWN = 5;
 const LATE = "#ff4d8b";
-// The prototype highlight: a blue wash and a blue bar on the left.
-export const LIT_ROW = "bg-[#172235] shadow-[inset_3px_0_#60a5fa]";
-
-const sorted = (a: string[]) => [...a].sort().join("|");
-// True when lighting `next` would change nothing, so the click should clear instead.
-export function sameLit(a: Lit | null, b: Lit): boolean {
-  return (
-    !!a &&
-    sorted(a.entries) === sorted(b.entries) &&
-    sorted(a.promises) === sorted(b.promises) &&
-    sorted(a.invoices) === sorted(b.invoices)
-  );
-}
 
 function DueLabel({ dueOn, today }: { dueOn: string | null; today: string }) {
   const s = dueState(dueOn, today);
@@ -59,9 +48,12 @@ function DueLabel({ dueOn, today }: { dueOn: string | null; today: string }) {
   return <span className={s.kind === "soon" ? "text-amber-400" : "text-zinc-500"}>{formatDay(dueOn)}</span>;
 }
 
+// A disclosure, not an ARIA menu: the trigger toggles a list of plain buttons.
 function RowMenu({ what, items }: { what: string; items: [string, () => void][] }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const listId = useId();
+  const trigger = () => root.current?.querySelector<HTMLButtonElement>("button[aria-expanded]")?.focus();
   useEffect(() => {
     if (!open) return;
     const down = (e: MouseEvent) => {
@@ -79,14 +71,18 @@ function RowMenu({ what, items }: { what: string; items: [string, () => void][] 
         if (e.key === "Escape" && open) {
           e.stopPropagation();
           setOpen(false);
-          root.current?.querySelector("button")?.focus();
+          trigger();
         }
+      }}
+      onBlur={(e) => {
+        // Tab out closes it. A null relatedTarget (some browsers do not focus buttons on click) is left to the outside-click handler.
+        if (open && e.relatedTarget && !root.current?.contains(e.relatedTarget as Node)) setOpen(false);
       }}
     >
       <button
         type="button"
-        aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={listId}
         aria-label={`Actions for ${what}`}
         onClick={() => setOpen(!open)}
         className="size-8 sm:size-6 rounded-md text-zinc-400 hover:text-white hover:bg-white/10 leading-none"
@@ -94,22 +90,23 @@ function RowMenu({ what, items }: { what: string; items: [string, () => void][] 
         ⋯
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-30 mt-1 w-28 rounded-lg border border-[#2a2e34] bg-[#14171b] p-1 shadow-lg">
+        <ul id={listId} className="absolute right-0 z-30 mt-1 w-28 rounded-lg border border-[#2a2e34] bg-[#14171b] p-1 shadow-lg">
           {items.map(([label, fn]) => (
-            <button
-              key={label}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                fn();
-              }}
-              className="block w-full rounded-md px-2 py-2 sm:py-1 text-left text-xs text-zinc-200 hover:bg-white/10"
-            >
-              {label}
-            </button>
+            <li key={label}>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  if (label !== "Delete") trigger();
+                  fn();
+                }}
+                className="block w-full rounded-md px-2 py-2 sm:py-1 text-left text-xs text-zinc-200 hover:bg-white/10"
+              >
+                {label}
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
@@ -131,22 +128,25 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
     .sort((a, b) => (b.closedOn ?? "").localeCompare(a.closedOn ?? ""));
   const isLit = (i: (typeof items)[number]) =>
     i.type === "promise" ? !!lit?.promises.includes(i.promise.id) : !!lit?.invoices.includes(i.invoice.id);
-  // A lit row behind a Show button opens its section. Setting own state during render is the React pattern for this.
-  if (!expanded && items.findIndex(isLit) >= SHOWN) setExpanded(true);
+  // Any lit row behind a Show button opens its section. Setting own state during render is the React pattern for this.
+  if (!expanded && items.slice(SHOWN).some(isLit)) setExpanded(true);
   if (!showClosed && closed.some((p) => lit?.promises.includes(p.id))) setShowClosed(true);
   const visible = expanded ? items : items.slice(0, SHOWN);
 
   const toggle = (next: Lit) => (sameLit(lit, next) ? onClear() : onLight(next));
 
-  async function act(id: string, call: () => Promise<{ error?: string }>) {
-    if (busy.current.has(id)) return;
+  // Returns true when the action succeeded. On an error the toast shows and the row keeps its state.
+  async function act(id: string, call: () => Promise<{ error?: string }>): Promise<boolean> {
+    if (busy.current.has(id)) return false;
     busy.current.add(id);
     setPend(new Set(busy.current));
     try {
       const res = await call();
       if (res.error) toast.error(res.error);
+      return !res.error;
     } catch {
       toast.error(THROWN);
+      return false;
     } finally {
       busy.current.delete(id);
       setPend(new Set(busy.current));
@@ -154,11 +154,13 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
   }
 
   const row = "flex items-start gap-2 px-3 py-2 border-t border-[#23272d] cursor-pointer hover:bg-white/[0.03]";
+  // The text column is the keyboard control for the highlight. A click elsewhere on the row bubbles to the row handler.
+  const lightBtn = "min-w-0 flex-1 text-left text-sm cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-sky-400";
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   const more = "w-full px-3 py-2 border-t border-[#23272d] text-left text-xs text-sky-400 hover:bg-white/5";
 
   return (
-    <section className={`${PANEL} overflow-hidden`} data-region={`owes-${side}`} aria-label={title}>
+    <section className={`${PANEL} [&>*:last-child]:rounded-b-[20px]`} data-region={`owes-${side}`} aria-label={title}>
       <div className="flex items-center justify-between gap-2 px-3 py-3">
         <h2 className="text-sm font-semibold text-white min-w-0 break-words">{title}</h2>
         <button
@@ -183,17 +185,18 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
               data-lit={on || undefined}
               onClick={() => toggle(litFromItems([], [inv.id], promises))}
             >
-              <div className="min-w-0 flex-1 text-sm text-zinc-200">
-                <p>
-                  Invoice {inv.number} · TT${inv.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-xs">
+              <button type="button" aria-pressed={on} className={`${lightBtn} text-zinc-200`}>
+                <span className="block">
+                  Invoice {inv.number} · {tt(inv.balance)}
+                </span>
+                <span className="block text-xs">
                   <DueLabel dueOn={inv.dueOn} today={today} />
-                </p>
-              </div>
+                </span>
+              </button>
               <Link
                 href={`/admin/finance?client=${clientId}`}
                 onClick={stop}
+                aria-label={`Open invoice ${inv.number} in Finance`}
                 className="text-xs text-sky-400 hover:underline self-center py-2"
               >
                 Open in Finance
@@ -212,22 +215,22 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
             >
               <input
                 type="checkbox"
-                checked={false}
+                checked={pend.has(p.id)}
                 disabled={pend.has(p.id)}
                 aria-label={`Mark done: ${p.what}`}
                 onClick={stop}
                 onChange={() => act(p.id, () => closePromiseAction(p.id, { status: "done", note: null }))}
                 className="mt-0.5 size-5 sm:size-4 accent-[#bfff3a] cursor-pointer"
               />
-              <div className="min-w-0 flex-1 text-sm text-zinc-200">
-                <p className="break-words">{p.what}</p>
-                <p className="text-xs">
+              <button type="button" aria-pressed={on} className={`${lightBtn} text-zinc-200`}>
+                <span className="block break-words">{p.what}</span>
+                <span className="block text-xs">
                   <DueLabel dueOn={p.dueOn} today={today} />
-                </p>
+                </span>
                 {moved !== undefined && (
-                  <p className="text-xs text-zinc-500">moved from {moved ? formatDay(moved) : "no date"}</p>
+                  <span className="block text-xs text-zinc-500">moved from {moved ? formatDay(moved) : "no date"}</span>
                 )}
-              </div>
+              </button>
               <RowMenu
                 what={p.what}
                 items={[
@@ -244,13 +247,15 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
                 <button
                   type="button"
                   disabled={pend.has(p.id)}
-                  onClick={() => act(p.id, () => deletePromiseAction(p.id)).then(() => setConfirming(null))}
+                  onClick={async () => {
+                    if (await act(p.id, () => deletePromiseAction(p.id))) setConfirming(null);
+                  }}
                   className="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg font-semibold text-white disabled:opacity-40"
                   style={{ background: LATE }}
                 >
                   Delete
                 </button>
-                <button type="button" onClick={() => setConfirming(null)} className={cancelBtn}>
+                <button type="button" autoFocus onClick={() => setConfirming(null)} className={cancelBtn}>
                   Cancel
                 </button>
               </div>
@@ -283,26 +288,27 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
               {p.status === "done" && (
                 <input
                   type="checkbox"
-                  checked
+                  checked={!pend.has(p.id)}
                   disabled={pend.has(p.id)}
-                  aria-label={`Reopen: ${p.what}`}
+                  aria-label={`Mark not done: ${p.what}`}
                   onClick={stop}
                   onChange={() => act(p.id, () => reopenPromiseAction(p.id))}
                   className="mt-0.5 size-5 sm:size-4 accent-[#bfff3a] cursor-pointer"
                 />
               )}
-              <div className="min-w-0 flex-1 text-sm">
-                <p className="break-words line-through decoration-zinc-600">{p.what}</p>
-                <p className="text-xs text-zinc-500">
+              <button type="button" aria-pressed={on} className={lightBtn}>
+                <span className="block break-words line-through decoration-zinc-600">{p.what}</span>
+                <span className="block text-xs text-zinc-500">
                   {p.status[0].toUpperCase() + p.status.slice(1)}
                   {p.closedOn ? ` ${formatDay(p.closedOn)}` : ""}
                   {p.closedBy ? ` by ${p.closedBy.split("@")[0]}` : ""}
-                </p>
-                {p.note && <p className="text-xs text-zinc-500 break-words">{p.note}</p>}
-              </div>
+                </span>
+                {p.note && <span className="block text-xs text-zinc-500 break-words">{p.note}</span>}
+              </button>
               <button
                 type="button"
                 disabled={pend.has(p.id)}
+                aria-label={`Reopen promise: ${p.what}`}
                 onClick={(e) => {
                   stop(e);
                   act(p.id, () => reopenPromiseAction(p.id));

@@ -153,6 +153,17 @@ export function litFromItems(promiseIds: string[], invoiceIds: string[], promise
   return { entries: [...entries], promises: promiseIds, invoices: invoiceIds };
 }
 
+// True when lighting `next` would change nothing, so a second click clears instead.
+export function sameLit(current: Lit | null, next: Lit): boolean {
+  const key = (a: string[]) => [...a].sort().join("|");
+  return (
+    !!current &&
+    key(current.entries) === key(next.entries) &&
+    key(current.promises) === key(next.promises) &&
+    key(current.invoices) === key(next.invoices)
+  );
+}
+
 export function entryTag(kind: EntryKind, direction: Direction): string {
   const name = kind[0].toUpperCase() + kind.slice(1);
   if (kind === "call" || kind === "meeting" || direction === "both") return name;

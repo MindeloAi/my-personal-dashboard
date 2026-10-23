@@ -27,7 +27,8 @@ type Props = {
   invoices: UnpaidInvoice[];
   today: string;
   lit: Lit | null;
-  onLight: (l: Lit) => void;
+  // scroll is true only for a dot click, so the history scrolls to the entry.
+  onLight: (l: Lit, opts?: { scroll?: boolean }) => void;
 };
 
 type Tip = { at: number; title: string; lines: string[] };
@@ -170,7 +171,7 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
                     entries: parts.flatMap((p) => p.entries),
                     promises: [...new Set(parts.flatMap((p) => p.promises))],
                     invoices: [],
-                  });
+                  }, { scroll: true });
                 }}
                 {...show(t)}
               >

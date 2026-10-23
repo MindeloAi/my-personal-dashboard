@@ -45,6 +45,7 @@ import {
   movedFrom,
   owedItems,
   pct,
+  sameLit,
   type ClientPromise,
   type TimelineEntry,
   type UnpaidInvoice,
@@ -259,6 +260,11 @@ async function main() {
       check("an entry lights itself", deepEq(litFromEntry("e6", ps).entries, ["e6"]));
       check("a promise lights its source entry", litFromItems(["p1"], [], ps).entries[0] === "e6");
       check("items light their own ids", deepEq(litFromItems(["p1"], ["inv-sep30"], ps), { entries: ["e6"], promises: ["p1"], invoices: ["inv-sep30"] }));
+      const litA = { entries: ["e1", "e2"], promises: ["p1"], invoices: [] as string[] };
+      check("sameLit: equal", sameLit(litA, { entries: ["e1", "e2"], promises: ["p1"], invoices: [] }));
+      check("sameLit: different order", sameLit(litA, { entries: ["e2", "e1"], promises: ["p1"], invoices: [] }));
+      check("sameLit: different contents", !sameLit(litA, { entries: ["e1", "e2"], promises: ["p2"], invoices: [] }) && !sameLit(litA, { ...litA, invoices: ["i1"] }));
+      check("sameLit: null", !sameLit(null, litA));
       check("formatDay September and year boundary", formatDay("2026-09-29") === "Tue 29 Sep" && formatDay("2026-12-31") === "Thu 31 Dec" && formatDay("2027-01-01") === "Fri 1 Jan");
       check("tag", entryTag("email", "received") === "Email received" && entryTag("call", "both") === "Call");
       check("tag for sent and meeting", entryTag("message", "sent") === "Message sent" && entryTag("meeting", "received") === "Meeting" && entryTag("document", "both") === "Document");
