@@ -103,7 +103,7 @@ function gated(raw: Sql): Sql {
   });
 }
 
-function getSql(): Sql {
+export function getSql(): Sql {
   if (_sql) return _sql;
   // Reuse across dev hot-reloads so we don't leak a pool per edit.
   if (process.env.NODE_ENV !== "production" && globalThis.__dashboardSql) {
