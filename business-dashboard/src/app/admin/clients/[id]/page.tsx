@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { z } from "zod";
 import { requireAdminPage } from "@/lib/auth";
 import { getClientById, getInvoices, getProjects } from "@/lib/db";
 import { round2 } from "@/lib/ledger";
@@ -14,6 +15,8 @@ export const maxDuration = 60;
 export default async function ClientTimelinePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await requireAdminPage();
+  // A non-uuid segment would reach Postgres as a raw cast error (22P02) and render a 500.
+  if (!z.uuid().safeParse(id).success) notFound();
   const client = await getClientById(id);
   if (!client) notFound();
 
