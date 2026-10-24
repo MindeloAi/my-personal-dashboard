@@ -18,7 +18,7 @@ import {
   type OwedBy,
   type UnpaidInvoice,
 } from "@/lib/timeline";
-import { cancelBtn, LATE, LIT_ROW, THROWN } from "./form";
+import { ConfirmRow, LATE, LIT_ROW, THROWN, useFocusReturn } from "./form";
 import { PromiseModal } from "./promise-modal";
 
 type Props = {
@@ -116,14 +116,7 @@ type Modal = { mode: "add" } | { mode: "edit" | "replace" | "drop"; promise: Cli
 export function OwesList({ side, title, promises, invoices, today, lit, onLight, onClear, clientId }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
-  const [modal, setModalState] = useState<Modal | null>(null);
-  // The dialog gives focus back to whatever opened it, so closing it never drops focus on the page body.
-  const opener = useRef<HTMLElement | null>(null);
-  const setModal = (m: Modal | null) => {
-    if (m) opener.current = document.activeElement as HTMLElement | null;
-    setModalState(m);
-    if (!m) requestAnimationFrame(() => opener.current?.focus());
-  };
+  const [modal, setModal] = useFocusReturn<Modal>();
   const [confirming, setConfirming] = useState<string | null>(null);
   const [pend, setPend] = useState<ReadonlySet<string>>(new Set());
   const busy = useRef(new Set<string>());
@@ -246,23 +239,14 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
               />
             </div>
             {confirming === p.id && (
-              <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-[#1a1215] text-xs text-zinc-200" role="alert">
-                <span>Delete this promise?</span>
-                <button
-                  type="button"
-                  disabled={pend.has(p.id)}
-                  onClick={async () => {
-                    if (await act(p.id, () => deletePromiseAction(p.id))) setConfirming(null);
-                  }}
-                  className="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg font-semibold text-white disabled:opacity-40"
-                  style={{ background: LATE }}
-                >
-                  Delete
-                </button>
-                <button type="button" autoFocus onClick={() => setConfirming(null)} className={cancelBtn}>
-                  Cancel
-                </button>
-              </div>
+              <ConfirmRow
+                text="Delete this promise?"
+                busy={pend.has(p.id)}
+                onConfirm={async () => {
+                  if (await act(p.id, () => deletePromiseAction(p.id))) setConfirming(null);
+                }}
+                onCancel={() => setConfirming(null)}
+              />
             )}
           </div>
         );

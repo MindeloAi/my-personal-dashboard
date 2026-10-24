@@ -34,6 +34,51 @@ export function ErrorLine({ text }: { text: string | null }) {
   ) : null;
 }
 
+// An inline delete confirmation. Cancel takes focus when it opens; onConfirm closes the row itself, and only on success.
+export function ConfirmRow({
+  text,
+  busy,
+  onConfirm,
+  onCancel,
+  className = "",
+}: {
+  text: string;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-wrap items-center gap-2 bg-[#1a1215] px-3 py-2 text-xs text-zinc-200 ${className}`} role="alert">
+      <span>{text}</span>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onConfirm}
+        className="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg font-semibold text-white disabled:opacity-40"
+        style={{ background: LATE }}
+      >
+        Delete
+      </button>
+      <button type="button" autoFocus onClick={onCancel} className={cancelBtn}>
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+// Dialog state that gives focus back to whatever opened the dialog, so closing it never drops focus on the page body.
+export function useFocusReturn<T>() {
+  const [value, setValue] = useState<T | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  const set = (next: T | null) => {
+    if (next) opener.current = document.activeElement as HTMLElement | null;
+    setValue(next);
+    if (!next) requestAnimationFrame(() => opener.current?.focus());
+  };
+  return [value, set] as const;
+}
+
 // One action at a time. The ref closes the gap before React re-renders the disabled buttons,
 // so a fast double-click, or Suggest followed by Save, cannot send twice.
 export function useSave(onClose: () => void) {

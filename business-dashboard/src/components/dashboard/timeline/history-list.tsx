@@ -6,7 +6,7 @@ import { deleteEntryAction } from "@/app/actions";
 import { PANEL } from "@/components/dashboard/clients-list";
 import { entryTag, formatDay, litFromEntry, plural, sameLit, type ClientPromise, type Lit, type TimelineEntry } from "@/lib/timeline";
 import { EntryModal } from "./entry-modal";
-import { cancelBtn, LATE, LIT_ROW, THROWN } from "./form";
+import { cancelBtn, ConfirmRow, LIT_ROW, THROWN, useFocusReturn } from "./form";
 
 type Props = {
   entries: TimelineEntry[];
@@ -26,14 +26,8 @@ const CHIP = "text-[11px] px-2 py-0.5 rounded-full border border-[#2a2e34] text-
 export function HistoryList({ entries, promises, lit, onLight, onClear, clientId, today, scrollTo }: Props) {
   const [all, setAll] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
-  const [editing, setEditingState] = useState<TimelineEntry | null>(null);
-  // The dialog gives focus back to the Edit button, so closing it never drops focus on the page body.
-  const opener = useRef<HTMLElement | null>(null);
-  const setEditing = (e: TimelineEntry | null) => {
-    if (e) opener.current = document.activeElement as HTMLElement | null;
-    setEditingState(e);
-    if (!e) requestAnimationFrame(() => opener.current?.focus());
-  };
+  // The dialog gives focus back to the Edit button when it closes.
+  const [editing, setEditing] = useFocusReturn<TimelineEntry>();
   const [confirming, setConfirming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const busy = useRef(false);
@@ -145,21 +139,13 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
                   </button>
                 </div>
                 {confirming === e.id && (
-                  <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#1a1215] px-3 py-2 text-xs text-zinc-200" role="alert">
-                    <span>Delete this entry? Its promises stay.</span>
-                    <button
-                      type="button"
-                      disabled={deleting}
-                      onClick={() => remove(e.id)}
-                      className="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg font-semibold text-white disabled:opacity-40"
-                      style={{ background: LATE }}
-                    >
-                      Delete
-                    </button>
-                    <button type="button" autoFocus onClick={() => setConfirming(null)} className={cancelBtn}>
-                      Cancel
-                    </button>
-                  </div>
+                  <ConfirmRow
+                    text="Delete this entry? Its promises stay."
+                    busy={deleting}
+                    onConfirm={() => remove(e.id)}
+                    onCancel={() => setConfirming(null)}
+                    className="rounded-lg"
+                  />
                 )}
               </div>
             )}
