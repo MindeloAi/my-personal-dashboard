@@ -60,6 +60,45 @@ const inputCls =
   "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
 const selectCls = inputCls + " cursor-pointer";
 
+// Matches the project types on the public contact form, which writes leads too.
+const SERVICE_OPTIONS = [
+  "Website or Web App",
+  "Business Dashboard",
+  "Workflow Automation",
+  "System Integration",
+  "Custom Software",
+  "Not Sure Yet",
+];
+
+const SOURCE_OPTIONS = [
+  "Referral",
+  "Instagram",
+  "Facebook",
+  "LinkedIn",
+  "WhatsApp",
+  "Cold outreach",
+  "Website contact form",
+  "Intake form",
+  "Other",
+];
+
+// Leads saved before these lists existed hold free text, and the intake form
+// writes its own service names. Keep an unlisted value as its own option so
+// opening and saving the lead does not blank it.
+function OptionSelect({ name, value, options }: { name: string; value?: string; options: string[] }) {
+  return (
+    <select name={name} defaultValue={value ?? ""} className={selectCls}>
+      <option value="">Select…</option>
+      {value && !options.includes(value) && <option value={value}>{value}</option>}
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function statusOf(lead: Lead): LeadStatus {
   return (STATUSES as readonly string[]).includes(lead.Status ?? "")
     ? (lead.Status as LeadStatus)
@@ -206,7 +245,7 @@ function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Service Interest</label>
-              <input name="serviceInterest" defaultValue={lead?.["Service Interest"] ?? ""} placeholder="Web Dev, Automation…" className={inputCls} />
+              <OptionSelect name="serviceInterest" value={lead?.["Service Interest"]} options={SERVICE_OPTIONS} />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Budget Range</label>
@@ -216,7 +255,7 @@ function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Source</label>
-              <input name="source" defaultValue={lead?.Source ?? ""} placeholder="Referral, Instagram…" className={inputCls} />
+              <OptionSelect name="source" value={lead?.Source} options={SOURCE_OPTIONS} />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Status</label>
