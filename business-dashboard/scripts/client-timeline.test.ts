@@ -29,6 +29,8 @@ import {
 } from "../src/lib/timeline-db";
 import {
   addDays,
+  badLink,
+  CalendarDay,
   cleanSuggestions,
   textTooLong,
   MAX_SUGGESTIONS,
@@ -128,6 +130,17 @@ async function main() {
       check("clean: done with a null id is dropped", cleanSuggestions(raw({ action: "done", promise_id: null }), open).length === 0);
       check("clean: new with a promise_id gets null", cleanSuggestions(raw({ promise_id: OPEN }), open)[0]?.promiseId === null);
       check("clean: a malformed due_on becomes null", cleanSuggestions(raw({ due_on: "2 Nov" }), open)[0]?.dueOn === null);
+      check("clean: 2026-02-30 is not a calendar day, so due_on becomes null", cleanSuggestions(raw({ due_on: "2026-02-30" }), open)[0]?.dueOn === null);
+      check("clean: 2026-13-01 is not a calendar day, so due_on becomes null", cleanSuggestions(raw({ due_on: "2026-13-01" }), open)[0]?.dueOn === null);
+      check(
+        "CalendarDay: refuses 2026-02-30 and 2026-13-01, accepts 2028-02-29",
+        !CalendarDay.safeParse("2026-02-30").success && !CalendarDay.safeParse("2026-13-01").success && CalendarDay.safeParse("2028-02-29").success,
+      );
+      check(
+        "badLink: http and https pass, an empty link passes, no scheme or another scheme gets the message",
+        badLink("https://example.test/a") === null && badLink("http://example.test") === null && badLink("") === null &&
+          badLink("example.test/a") === "Start the link with https://" && badLink("javascript:alert(1)") === "Start the link with https://",
+      );
       const kept = cleanSuggestions(raw({ action: "replace", promise_id: OPEN, due_on: "2026-11-02", what: "Later", owed_by: "client" }), open)[0];
       check("clean: keeps a valid replace", kept?.action === "replace" && kept.promiseId === OPEN && kept.dueOn === "2026-11-02" && kept.what === "Later" && kept.owedBy === "client" && kept.quote === "q", JSON.stringify(kept));
       const two = raw({ action: "done", promise_id: OPEN });

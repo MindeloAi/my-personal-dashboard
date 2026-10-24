@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { saveEntryAction, suggestPromisesAction, updateEntryAction } from "@/app/actions";
 import { ModalShell } from "@/components/ui/modal-shell";
 import {
+  badLink,
   formatDay,
   MAX_LINE,
   MAX_WHAT,
@@ -77,6 +78,9 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
     setError(null);
     if (!date) return setSuggestError("Pick a date.");
     if (!text.trim()) return setSuggestError("Paste some text first, or use Save without suggestions.");
+    // The link input is on this step only, so a bad link is caught here, before step 2 hides it.
+    const notWeb = badLink(link.trim());
+    if (notWeb) return setSuggestError(notWeb);
     guardRef.current = true;
     setReading(true);
     try {
@@ -98,6 +102,8 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
     setSuggestError(null);
     if (!date) return setError("Pick a date.");
     if (!summary.trim()) return setError("Add a one-line summary first.");
+    const notWeb = badLink(link.trim());
+    if (notWeb) return setError(notWeb);
     const kept = withSuggestions ? (cards ?? []).filter((c) => c.keep) : [];
     if (kept.some((c) => !c.what.trim())) return setError("Every kept promise needs a description.");
     const suggestions = kept.map((c) => ({
@@ -117,6 +123,8 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
     if (!entry || guardRef.current || tooLong) return;
     if (!date) return setError("Pick a date.");
     if (!summary.trim()) return setError("Add a one-line summary first.");
+    const notWeb = badLink(link.trim());
+    if (notWeb) return setError(notWeb);
     run(() => updateEntryAction(entry.id, common()), "Entry updated");
   }
 

@@ -47,7 +47,18 @@ import { HOLDERS, PAYMENT_METHODS } from "@/lib/ledger";
 import { z } from "zod";
 import { today } from "@/lib/subscriptions";
 import { suggestPromises, type SuggestResult } from "@/lib/suggest";
-import { MAX_LINE, MAX_QUOTE, MAX_SUGGESTIONS, MAX_TEXT, MAX_WHAT, textTooLong } from "@/lib/timeline";
+import {
+  BAD_LINK,
+  CalendarDay,
+  MAX_LINE,
+  MAX_QUOTE,
+  MAX_SUGGESTIONS,
+  MAX_TEXT,
+  MAX_WHAT,
+  WEB_LINK,
+  badLink,
+  textTooLong,
+} from "@/lib/timeline";
 import {
   TimelineConflictError,
   getOpenPromises,
@@ -370,22 +381,22 @@ const SuggestionForm = z.object({
   promiseId: Id.nullable(),
   owedBy: Side,
   what: z.string().min(1).max(MAX_WHAT),
-  dueOn: Day.nullable(),
+  dueOn: CalendarDay.nullable(),
   quote: z.string().max(MAX_QUOTE),
 });
 const EntryFields = {
-  occurredOn: Day,
+  occurredOn: CalendarDay,
   kind: Kind,
   direction: Dir,
   summary: z.string().min(1).max(MAX_LINE),
   people: z.string().max(MAX_LINE).nullable(),
   body: Text.nullable(),
-  link: z.string().max(2000).nullable(),
+  link: z.string().max(2000).regex(WEB_LINK, BAD_LINK).nullable(), // backstop; badLink gives the message
 };
 const EntryForm = z.object(EntryFields);
-const SuggestForm = z.object({ clientId: Id, occurredOn: Day, kind: Kind, direction: Dir, text: Text });
+const SuggestForm = z.object({ clientId: Id, occurredOn: CalendarDay, kind: Kind, direction: Dir, text: Text });
 const SaveEntryForm = z.object({ clientId: Id, ...EntryFields, suggestions: z.array(SuggestionForm).max(MAX_SUGGESTIONS) });
-const PromiseFields = { owedBy: Side, what: z.string().min(1).max(MAX_WHAT), dueOn: Day.nullable() };
+const PromiseFields = { owedBy: Side, what: z.string().min(1).max(MAX_WHAT), dueOn: CalendarDay.nullable() };
 const PromiseForm = z.object(PromiseFields);
 const CreatePromiseForm = z.object({ clientId: Id, entryId: Id.nullable(), ...PromiseFields });
 const ClosePromiseForm = z.object({ status: z.enum(["done", "dropped"]), note: z.string().max(1000).nullable() });
@@ -407,6 +418,8 @@ export async function saveEntryAction(input: z.infer<typeof SaveEntryForm>): Pro
   const admin = await requireAdmin();
   const tooLong = typeof input?.body === "string" ? textTooLong(input.body) : null;
   if (tooLong) return { error: tooLong };
+  const notWeb = typeof input?.link === "string" ? badLink(input.link) : null;
+  if (notWeb) return { error: notWeb };
   return runTimeline(() => saveEntry({ ...SaveEntryForm.parse(input), createdBy: admin.email }));
 }
 
@@ -446,6 +459,8 @@ export async function deletePromiseAction(id: string): Promise<ActionResult> {
 
 export async function updateEntryAction(id: string, input: z.infer<typeof EntryForm>): Promise<ActionResult> {
   await requireAdmin();
+  const notWeb = typeof input?.link === "string" ? badLink(input.link) : null;
+  if (notWeb) return { error: notWeb };
   return runTimeline(() => updateEntry(Id.parse(id), EntryForm.parse(input)));
 }
 
