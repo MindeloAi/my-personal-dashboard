@@ -19,9 +19,9 @@ export const STATUS_BADGE: Record<ClientStatus, string> = {
   Lead: "bg-[#3affd1]/10 text-[#3affd1] border-[#3affd1]/20",
 };
 
-const inputCls =
+export const inputCls =
   "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
-const selectCls = inputCls + " cursor-pointer";
+export const selectCls = inputCls + " cursor-pointer";
 
 type TimelineCounts = Record<string, { entries: number; promises: number }>;
 type Props = {

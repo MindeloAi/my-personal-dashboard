@@ -83,7 +83,7 @@ export function TimelineView({ client, projects, entries, promises, invoices, to
 
       <DateLine entries={entries} promises={promises} invoices={invoices} today={today} lit={lit} onLight={light} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start" data-region="lists">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
         {(["client", "us"] as const).map((side) => (
           <OwesList
             key={side}

@@ -9,8 +9,10 @@ import {
   lineWindow,
   litFromEntry,
   litFromItems,
+  MONTHS,
   owedItems,
   pct,
+  plural,
   type ClientPromise,
   formatDay,
   type Diamond,
@@ -20,6 +22,7 @@ import {
   type TimelineEntry,
   type UnpaidInvoice,
 } from "@/lib/timeline";
+import { LATE } from "./form";
 
 type Props = {
   entries: TimelineEntry[];
@@ -35,15 +38,10 @@ type Tip = { at: number; title: string; lines: string[] };
 
 const DOT_COLOR = { received: "#34d399", sent: "#60a5fa", both: "#fbbf24" } as const;
 const SIDE_COLOR: Record<OwedBy, string> = { client: "#fbbf24", us: "#60a5fa" };
-const LATE_FILL = "#ff4d8b";
 const SIDE_LABEL: Record<OwedBy, string> = { client: "Client owes", us: "We owe" };
 // Vertical centre of each row inside the strip, in px. Client and us diamonds get their own row so both stay clickable.
 const ROW = { dot: 24, axis: 50, client: 68, us: 96 } as const;
 const RING = "0 0 0 3px rgba(96,165,250,.45)";
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-const fmt = formatDay;
 
 // First day of each month inside the window, by string arithmetic.
 function monthStarts(start: string, end: string): { day: string; label: string }[] {
@@ -60,8 +58,6 @@ function monthStarts(start: string, end: string): { day: string; label: string }
     }
   }
 }
-
-const plural = (n: number, word: string, many = word + "s") => `${n} ${n === 1 ? word : many}`;
 
 export function DateLine({ entries, promises, invoices, today, lit, onLight }: Props) {
   const [tip, setTip] = useState<Tip | null>(null);
@@ -90,7 +86,7 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
 
   const dotTip = (d: Dot): Tip => ({
     at: pct(d.date, w),
-    title: fmt(d.date),
+    title: formatDay(d.date),
     lines: d.entryIds.flatMap((id) => {
       const e = entryById.get(id);
       return e ? [`${entryTag(e.kind, e.direction)}: ${e.summary}`] : [];
@@ -98,7 +94,7 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
   });
   const diaTip = (d: Diamond): Tip => ({
     at: pct(d.date, w),
-    title: `${fmt(d.date)} · ${SIDE_LABEL[d.side]}${d.late ? " · late" : ""}`,
+    title: `${formatDay(d.date)} · ${SIDE_LABEL[d.side]}${d.late ? " · late" : ""}`,
     lines: [
       ...d.promiseIds.flatMap((id) => promiseById.get(id)?.what ?? []),
       ...d.invoiceIds.flatMap((id) => {
@@ -119,10 +115,10 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
   const mark = "block size-3 transition-transform duration-150 group-hover:scale-[1.45] group-focus-visible:scale-[1.45]";
 
   return (
-    <section className={`${PANEL} p-4`} data-region="date-line" aria-label="Date line">
+    <section className={`${PANEL} p-4`} aria-label="Date line">
       <div className="mb-2 flex flex-wrap justify-between gap-x-3 text-sm font-semibold text-white">
         <span>
-          {fmt(w.start).slice(4)} to {fmt(w.end).slice(4)}
+          {formatDay(w.start).slice(4)} to {formatDay(w.end).slice(4)}
         </span>
         <span className="text-[11px] font-medium text-zinc-500">
           top row = contact · bottom rows = due dates (amber client, blue us)
@@ -130,7 +126,6 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
       </div>
       <div
         className="relative isolate mx-3 h-[114px]"
-        data-testid="strip"
         onPointerDown={(e) => {
           // Touch never fires mouseleave, so a press outside any marker closes the card.
           if (!(e.target as Element).closest("button")) setTip(null);
@@ -162,7 +157,7 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
                 type="button"
                 className={`${hit}${on ? " z-10" : ""}`}
                 style={{ left: `${pct(d.date, w)}%`, top: ROW.dot - 14 }}
-                aria-label={`${what}, ${fmt(d.date)}`}
+                aria-label={`${what}, ${formatDay(d.date)}`}
                 aria-pressed={on}
                 onClick={() => {
                   setTip(t);
@@ -200,7 +195,7 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
                 type="button"
                 className={`${hit}${on ? " z-10" : ""}`}
                 style={{ left: `${pct(d.date, w)}%`, top: row - 14 }}
-                aria-label={`${SIDE_LABEL[d.side]}: ${plural(n, "item")} due ${fmt(d.date)}${d.late ? ", late" : ""}`}
+                aria-label={`${SIDE_LABEL[d.side]}: ${plural(n, "item")} due ${formatDay(d.date)}${d.late ? ", late" : ""}`}
                 aria-pressed={on}
                 onClick={() => {
                   setTip(t);
@@ -212,7 +207,7 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
                   className={`${mark} rotate-45 border-2 ${on ? "scale-[1.45]" : ""}`}
                   style={{
                     borderColor: SIDE_COLOR[d.side],
-                    background: d.late ? LATE_FILL : "#0b0d10",
+                    background: d.late ? LATE : "#0b0d10",
                     boxShadow: on ? RING : undefined,
                   }}
                 />

@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { deleteEntryAction } from "@/app/actions";
 import { PANEL } from "@/components/dashboard/clients-list";
-import { entryTag, formatDay, litFromEntry, sameLit, type ClientPromise, type Lit, type TimelineEntry } from "@/lib/timeline";
+import { entryTag, formatDay, litFromEntry, plural, sameLit, type ClientPromise, type Lit, type TimelineEntry } from "@/lib/timeline";
 import { EntryModal } from "./entry-modal";
-import { cancelBtn, LIT_ROW, THROWN } from "./form";
+import { cancelBtn, LATE, LIT_ROW, THROWN } from "./form";
 
 type Props = {
   entries: TimelineEntry[];
@@ -22,7 +22,6 @@ type Props = {
 
 const SHOWN = 20;
 const CHIP = "text-[11px] px-2 py-0.5 rounded-full border border-[#2a2e34] text-zinc-300";
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export function HistoryList({ entries, promises, lit, onLight, onClear, clientId, today, scrollTo }: Props) {
   const [all, setAll] = useState(false);
@@ -71,7 +70,7 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
   }
 
   return (
-    <section ref={root} className={`${PANEL} min-w-0 [&>*:last-child]:rounded-b-[20px]`} data-region="history" aria-label="History">
+    <section ref={root} className={`${PANEL} min-w-0 [&>*:last-child]:rounded-b-[20px]`} aria-label="History">
       <h2 className="px-3 py-3 text-sm font-semibold text-white">History</h2>
       {entries.length === 0 && <p className="px-3 pb-3 text-sm text-zinc-500">No calls, emails or messages yet. Add the first one.</p>}
 
@@ -85,7 +84,6 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
           <div
             key={e.id}
             data-entry-id={e.id}
-            data-lit={on || undefined}
             className={`border-t border-[#23272d] cursor-pointer hover:bg-white/[0.03] ${on ? LIT_ROW : ""}`}
             onClick={() => {
               const next = litFromEntry(e.id, promises);
@@ -106,13 +104,13 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
                 {e.people && <span className="block text-xs text-zinc-400 [overflow-wrap:anywhere]">{e.people}</span>}
                 {(made > 0 || ticked.length > 0 || moved > 0) && (
                   <span className="mt-1 flex flex-wrap gap-1.5">
-                    {made > 0 && <span className={CHIP}>{plural(made, "promise", "promises")} from this</span>}
+                    {made > 0 && <span className={CHIP}>{plural(made, "promise")} from this</span>}
                     {ticked.map((p) => (
                       <span key={p.id} className={`${CHIP} [overflow-wrap:anywhere]`}>
                         Ticked off: {p.what}
                       </span>
                     ))}
-                    {moved > 0 && <span className={CHIP}>Moved {plural(moved, "date", "dates")}</span>}
+                    {moved > 0 && <span className={CHIP}>Moved {plural(moved, "date")}</span>}
                   </span>
                 )}
               </button>
@@ -154,7 +152,7 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
                       disabled={deleting}
                       onClick={() => remove(e.id)}
                       className="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg font-semibold text-white disabled:opacity-40"
-                      style={{ background: "#ff4d8b" }}
+                      style={{ background: LATE }}
                     >
                       Delete
                     </button>

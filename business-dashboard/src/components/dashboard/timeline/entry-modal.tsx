@@ -5,6 +5,7 @@ import { saveEntryAction, suggestPromisesAction, updateEntryAction } from "@/app
 import { ModalShell } from "@/components/ui/modal-shell";
 import {
   formatDay,
+  MAX_LINE,
   MAX_WHAT,
   textTooLong,
   type ClientPromise,
@@ -15,8 +16,6 @@ import {
   type TimelineEntry,
 } from "@/lib/timeline";
 import { cancelBtn, ErrorLine, Field, inputCls, primaryBtn, selectCls, useSave } from "./form";
-
-const MAX_LINE = 500;
 
 const KINDS: EntryKind[] = ["call", "meeting", "email", "message", "document"];
 const DIRECTIONS: { value: Direction; label: string }[] = [
@@ -166,7 +165,7 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
 
   const summaryField = (
     <Field id={id("summary")} label="One-line summary">
-      <input id={id("summary")} value={summary} maxLength={500} onChange={(e) => setSummary(e.target.value)} className={inputCls} />
+      <input id={id("summary")} value={summary} maxLength={MAX_LINE} onChange={(e) => setSummary(e.target.value)} className={inputCls} />
     </Field>
   );
   const linkField = (
@@ -184,7 +183,7 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
           {basics}
           {summaryField}
           <Field id={id("people")} label="People (optional)">
-            <input id={id("people")} value={people} maxLength={500} onChange={(e) => setPeople(e.target.value)} className={inputCls} />
+            <input id={id("people")} value={people} maxLength={MAX_LINE} onChange={(e) => setPeople(e.target.value)} className={inputCls} />
           </Field>
           <Field id={id("text")} label="Text of the call, email or message (optional)">
             <textarea id={id("text")} rows={6} value={text} onChange={(e) => setText(e.target.value)} className={inputCls} />
@@ -223,7 +222,7 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
         <div className="flex flex-col gap-4">
           {summaryField}
           <Field id={id("people")} label="People">
-            <input id={id("people")} value={people} maxLength={500} onChange={(e) => setPeople(e.target.value)} className={inputCls} />
+            <input id={id("people")} value={people} maxLength={MAX_LINE} onChange={(e) => setPeople(e.target.value)} className={inputCls} />
           </Field>
           {cards.length === 0 ? (
             <p className="text-sm text-zinc-400">No promises found in this text.</p>
@@ -242,7 +241,9 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
                 setCards(null);
                 setPeople("");
               }}
-              disabled={busy} className={cancelBtn}>
+              disabled={busy}
+              className={cancelBtn}
+            >
               Back
             </button>
             <div className="flex flex-col-reverse sm:flex-row gap-2">

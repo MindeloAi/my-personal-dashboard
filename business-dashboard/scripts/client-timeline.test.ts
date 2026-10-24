@@ -45,6 +45,7 @@ import {
   movedFrom,
   owedItems,
   pct,
+  plural,
   sameLit,
   type ClientPromise,
   type TimelineEntry,
@@ -266,6 +267,10 @@ async function main() {
       check("sameLit: different contents", !sameLit(litA, { entries: ["e1", "e2"], promises: ["p2"], invoices: [] }) && !sameLit(litA, { ...litA, invoices: ["i1"] }));
       check("sameLit: null", !sameLit(null, litA));
       check("formatDay September and year boundary", formatDay("2026-09-29") === "Tue 29 Sep" && formatDay("2026-12-31") === "Thu 31 Dec" && formatDay("2027-01-01") === "Fri 1 Jan");
+      check(
+        "plural: one, many, the default s and zero",
+        plural(1, "entry", "entries") === "1 entry" && plural(2, "entry", "entries") === "2 entries" && plural(1, "item") === "1 item" && plural(3, "item") === "3 items" && plural(0, "date") === "0 dates",
+      );
       check("tag", entryTag("email", "received") === "Email received" && entryTag("call", "both") === "Call");
       check("tag for sent and meeting", entryTag("message", "sent") === "Message sent" && entryTag("meeting", "received") === "Meeting" && entryTag("document", "both") === "Document");
     }

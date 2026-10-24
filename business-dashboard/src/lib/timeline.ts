@@ -62,13 +62,16 @@ export function dueState(dueOn: string | null, today: string): DueState {
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // "Tue 29 Sep" from a YYYY-MM-DD string, in UTC so the day never shifts.
 export function formatDay(day: string): string {
   const d = new Date(day + "T00:00:00Z");
   return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
+
+// "1 entry", "2 entries": the plural defaults to the word plus "s".
+export const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
 export function lineWindow(today: string, dated: { date: string; late: boolean }[]): LineWindow {
   let start = addDays(today, -45);
@@ -198,6 +201,8 @@ export const SuggestionOutputSchema = z.object({
 // Field limits, shared by cleanSuggestions and the save action so Claude output never fails save validation.
 export const MAX_TEXT = 100_000;
 export const MAX_WHAT = 1000;
+// An entry's one-line summary and its people.
+export const MAX_LINE = 500;
 export const MAX_QUOTE = 5000;
 export const MAX_SUGGESTIONS = 50;
 export const TEXT_TOO_LONG = "That text is too long. Paste up to 100,000 characters.";

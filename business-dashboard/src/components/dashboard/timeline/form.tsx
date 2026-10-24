@@ -3,16 +3,16 @@
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-// Same look as the client dialogs (their copies are not exported).
-export const inputCls =
-  "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
-export const selectCls = inputCls + " cursor-pointer";
+// Same look as the client dialogs.
+export { inputCls, selectCls } from "@/components/dashboard/clients-list";
 export const cancelBtn =
   "min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors disabled:opacity-40";
 export const primaryBtn =
   "min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80";
 // The prototype highlight for a lit row: a blue wash and a blue bar on the left.
 export const LIT_ROW = "bg-[#172235] shadow-[inset_3px_0_#60a5fa]";
+// Late labels, late diamonds, errors and delete buttons. Applied as an inline style, so the colour lives only here.
+export const LATE = "#ff4d8b";
 export const THROWN = "That did not save. Check your connection and try again.";
 
 export function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
@@ -28,7 +28,7 @@ export function Field({ id, label, children }: { id: string; label: string; chil
 
 export function ErrorLine({ text }: { text: string | null }) {
   return text ? (
-    <p role="alert" className="text-xs text-[#ff4d8b]">
+    <p role="alert" className="text-xs" style={{ color: LATE }}>
       {text}
     </p>
   ) : null;

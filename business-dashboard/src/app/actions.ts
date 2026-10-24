@@ -47,7 +47,7 @@ import { HOLDERS, PAYMENT_METHODS } from "@/lib/ledger";
 import { z } from "zod";
 import { today } from "@/lib/subscriptions";
 import { suggestPromises, type SuggestResult } from "@/lib/suggest";
-import { MAX_QUOTE, MAX_SUGGESTIONS, MAX_TEXT, MAX_WHAT, textTooLong } from "@/lib/timeline";
+import { MAX_LINE, MAX_QUOTE, MAX_SUGGESTIONS, MAX_TEXT, MAX_WHAT, textTooLong } from "@/lib/timeline";
 import {
   TimelineConflictError,
   getOpenPromises,
@@ -377,8 +377,8 @@ const EntryFields = {
   occurredOn: Day,
   kind: Kind,
   direction: Dir,
-  summary: z.string().min(1).max(500),
-  people: z.string().max(500).nullable(),
+  summary: z.string().min(1).max(MAX_LINE),
+  people: z.string().max(MAX_LINE).nullable(),
   body: Text.nullable(),
   link: z.string().max(2000).nullable(),
 };

@@ -18,7 +18,7 @@ import {
   type OwedBy,
   type UnpaidInvoice,
 } from "@/lib/timeline";
-import { cancelBtn, LIT_ROW, THROWN } from "./form";
+import { cancelBtn, LATE, LIT_ROW, THROWN } from "./form";
 import { PromiseModal } from "./promise-modal";
 
 type Props = {
@@ -34,7 +34,6 @@ type Props = {
 };
 
 const SHOWN = 5;
-const LATE = "#ff4d8b";
 
 function DueLabel({ dueOn, today }: { dueOn: string | null; today: string }) {
   const s = dueState(dueOn, today);
@@ -167,7 +166,7 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
   const more = "w-full px-3 py-2 border-t border-[#23272d] text-left text-xs text-sky-400 hover:bg-white/5";
 
   return (
-    <section className={`${PANEL} min-w-0 [&>*:last-child]:rounded-b-[20px]`} data-region={`owes-${side}`} aria-label={title}>
+    <section className={`${PANEL} min-w-0 [&>*:last-child]:rounded-b-[20px]`} aria-label={title}>
       <div className="flex items-center justify-between gap-2 px-3 py-3">
         <h2 className="text-sm font-semibold text-white min-w-0 [overflow-wrap:anywhere]">{title}</h2>
         <button
@@ -189,7 +188,6 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
             <div
               key={`i-${inv.id}`}
               className={`${row} ${on ? LIT_ROW : ""}`}
-              data-lit={on || undefined}
               onClick={() => toggle(litFromItems([], [inv.id], promises))}
             >
               <button type="button" aria-pressed={on} className={`${lightBtn} text-zinc-200`}>
@@ -217,7 +215,6 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
           <div key={p.id}>
             <div
               className={`${row} ${on ? LIT_ROW : ""}`}
-              data-lit={on || undefined}
               onClick={() => toggle(litFromItems([p.id], [], promises))}
             >
               <input
@@ -289,7 +286,6 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
             <div
               key={p.id}
               className={`${row} text-zinc-400 ${on ? LIT_ROW : ""}`}
-              data-lit={on || undefined}
               onClick={() => toggle(litFromItems([p.id], [], promises))}
             >
               {p.status === "done" && (
