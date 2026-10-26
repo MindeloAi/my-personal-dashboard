@@ -5,9 +5,14 @@ import { TopClients } from "@/components/dashboard/top-clients";
 import { ClientsList } from "@/components/dashboard/clients-list";
 import type { Client, Invoice, Project } from "@/lib/db";
 
-type Props = { clients: Client[]; invoices: Invoice[]; projects: Project[] };
+type Props = {
+  clients: Client[];
+  invoices: Invoice[];
+  projects: Project[];
+  timelineCounts: Record<string, { entries: number; promises: number }>;
+};
 
-export function ClientsView({ clients, invoices, projects }: Props) {
+export function ClientsView({ clients, invoices, projects, timelineCounts }: Props) {
   const router = useRouter();
 
   return (
@@ -22,7 +27,12 @@ export function ClientsView({ clients, invoices, projects }: Props) {
           if (clientId) router.push(`/admin/finance?client=${encodeURIComponent(clientId)}`);
         }}
       />
-      <ClientsList clients={clients} invoices={invoices} projects={projects} />
+      <ClientsList
+        clients={clients}
+        invoices={invoices}
+        projects={projects}
+        timelineCounts={timelineCounts}
+      />
     </div>
   );
 }

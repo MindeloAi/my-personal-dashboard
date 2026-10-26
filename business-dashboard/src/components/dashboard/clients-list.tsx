@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ModalShell } from "@/components/ui/modal-shell";
@@ -10,19 +11,27 @@ import type { Client, Invoice, Project } from "@/lib/db";
 const STATUSES = ["Active", "Inactive", "Lead"] as const;
 type ClientStatus = (typeof STATUSES)[number];
 
-const STATUS_BADGE: Record<ClientStatus, string> = {
+export const PANEL = "bg-[#14181d] border border-[#2a2e34] rounded-[20px]";
+
+export const STATUS_BADGE: Record<ClientStatus, string> = {
   Active: "bg-[#bfff3a]/10 text-[#bfff3a] border-[#bfff3a]/20",
   Inactive: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
   Lead: "bg-[#3affd1]/10 text-[#3affd1] border-[#3affd1]/20",
 };
 
-const inputCls =
+export const inputCls =
   "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
-const selectCls = inputCls + " cursor-pointer";
+export const selectCls = inputCls + " cursor-pointer";
 
-type Props = { clients: Client[]; invoices: Invoice[]; projects: Project[] };
+type TimelineCounts = Record<string, { entries: number; promises: number }>;
+type Props = {
+  clients: Client[];
+  invoices: Invoice[];
+  projects: Project[];
+  timelineCounts: TimelineCounts;
+};
 
-export function ClientsList({ clients, invoices, projects }: Props) {
+export function ClientsList({ clients, invoices, projects, timelineCounts }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState<Client | null>(null);
   const [creating, setCreating] = useState(false);
@@ -77,10 +86,9 @@ export function ClientsList({ clients, invoices, projects }: Props) {
             return (
               <li key={client.id} className="py-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(client)}
-                    className="flex-1 text-left min-w-0"
+                  <Link
+                    href={`/admin/clients/${encodeURIComponent(client.id)}`}
+                    className="flex-1 text-left min-w-0 rounded-lg px-1 -mx-1 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#bfff3a]"
                   >
                     <p className="font-medium text-white leading-tight truncate">
                       {client.Company || client.Name}
@@ -88,11 +96,18 @@ export function ClientsList({ clients, invoices, projects }: Props) {
                     {client.Company && client.Name !== client.Company && (
                       <p className="text-xs text-zinc-500 truncate">{client.Name}</p>
                     )}
-                  </button>
+                  </Link>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`text-xs px-2 py-1 rounded-full border font-medium ${STATUS_BADGE[status]}`}>
                       {status}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => setEditing(client)}
+                      className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-lg border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+                    >
+                      Edit
+                    </button>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -143,7 +158,11 @@ export function ClientsList({ clients, invoices, projects }: Props) {
       {confirmDelete && (
         <DeleteClientModal
           client={confirmDelete}
-          counts={linkCounts(confirmDelete.id)}
+          counts={{
+            ...linkCounts(confirmDelete.id),
+            timelineEntries: timelineCounts[confirmDelete.id]?.entries ?? 0,
+            timelinePromises: timelineCounts[confirmDelete.id]?.promises ?? 0,
+          }}
           onClose={() => setConfirmDelete(null)}
           onConfirm={() => {
             const target = confirmDelete;
@@ -163,7 +182,7 @@ export function ClientsList({ clients, invoices, projects }: Props) {
   );
 }
 
-function ClientModal({
+export function ClientModal({
   client,
   onClose,
   onDelete,
@@ -295,25 +314,37 @@ function DeleteClientModal({
   onConfirm,
 }: {
   client: Client;
-  counts: { projectCount: number; invoiceCount: number };
+  counts: {
+    projectCount: number;
+    invoiceCount: number;
+    timelineEntries: number;
+    timelinePromises: number;
+  };
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  const { projectCount, invoiceCount } = counts;
-  const hasLinks = projectCount > 0 || invoiceCount > 0;
+  const { projectCount, invoiceCount, timelineEntries, timelinePromises } = counts;
+  const hasTimeline = timelineEntries > 0 || timelinePromises > 0;
+  const hasDependents = projectCount > 0 || invoiceCount > 0 || hasTimeline;
 
   return (
     <ModalShell title="Delete client" onClose={onClose}>
       <p className="text-sm text-zinc-300">
         Delete <span className="font-medium text-white">{client.Company || client.Name}</span>?
       </p>
-      {hasLinks && (
+      {hasDependents && (
         <div className="mt-3 rounded-xl border border-[#fbbf24]/30 bg-[#fbbf24]/10 p-3">
           <p className="text-xs text-[#fbbf24] leading-relaxed">
             This will detach {projectCount} {projectCount === 1 ? "project" : "projects"} and{" "}
-            {invoiceCount} {invoiceCount === 1 ? "invoice" : "invoices"}. They are not deleted, but
+            {invoiceCount} {invoiceCount === 1 ? "invoice" : "invoices"}
+            {hasTimeline &&
+              ` and ${timelineEntries} ${timelineEntries === 1 ? "timeline entry" : "timeline entries"} and ${timelinePromises} ${timelinePromises === 1 ? "promise" : "promises"}`}
+            . They are not deleted, but
             they will no longer belong to any client, will disappear from the client filter, and
-            will stop counting toward Top Clients revenue. This cannot be undone.
+            will stop counting toward Top Clients revenue.
+            {hasTimeline &&
+              " The timeline entries and promises stay in the database but no longer appear on any client page."}{" "}
+            This cannot be undone.
           </p>
         </div>
       )}
