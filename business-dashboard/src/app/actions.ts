@@ -310,7 +310,14 @@ export async function undoPayoutPaidOutAction(id: string): Promise<ActionResult>
 }
 
 const TransferForm = z
-  .object({ movedAt: Day, fromLoc: Holder, toLoc: Holder, amount: Money, note: z.string().nullable() })
+  .object({
+    movedAt: Day,
+    fromLoc: Holder,
+    toLoc: Holder,
+    amount: Money,
+    note: z.string().nullable(),
+    paymentId: z.string().uuid().nullable().optional(),
+  })
   .refine((t) => t.fromLoc !== t.toLoc, "From and to must differ");
 
 export async function recordTransferAction(input: z.infer<typeof TransferForm>): Promise<ActionResult> {

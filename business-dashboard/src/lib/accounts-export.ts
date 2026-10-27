@@ -50,7 +50,7 @@ function tables(d: AccountsExport): Table[] {
     ["Net profit (income minus expenses; founder pay not deducted)", s.netProfit],
     ["Founder pay paid out", s.payoutsPaidOut],
     ["Founder pay still due", s.payoutsDue],
-    ...HOLDERS.map((h): Cell[] => [`Business cash held by ${HOLDER_LABEL[h]}, as at ${d.to}`, d.cashAtEnd[h] ?? 0]),
+    ...HOLDERS.map((h): Cell[] => [`${h === "business" ? "Business cash (safe)" : `Held by ${HOLDER_LABEL[h]}`}, as at ${d.to}`, d.cashAtEnd[h] ?? 0]),
     [`Owed to us, as of ${d.today}`, d.owedToUsNow],
   ];
   if (d.from < d.cutover) {

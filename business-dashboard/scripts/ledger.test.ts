@@ -257,22 +257,22 @@ try {
   {
     const inv = await invoice(1000, 0.5);
     await pay(inv, 1000, { createdBy: ZANE });
-    await createTransfer({ movedAt: TODAY, fromLoc: "mikey", toLoc: "vantage", amount: 100, note: null, createdBy: MICHAEL });
-    await createCashCount({ countedAt: TODAY, location: "vantage", amount: 100, note: null, createdBy: MICHAEL });
+    await createTransfer({ movedAt: TODAY, fromLoc: "mikey", toLoc: "business", amount: 100, note: null, createdBy: MICHAEL });
+    await createCashCount({ countedAt: TODAY, location: "business", amount: 100, note: null, createdBy: MICHAEL });
     const [pm] = await sql`select created_by from payments`;
     const po = await payoutsFor(inv);
     const [mv] = await sql`select created_by from cash_movements where kind = 'transfer'`;
-    const [ct] = await sql`select created_by from cash_counts where location = 'vantage'`;
+    const [ct] = await sql`select created_by from cash_counts where location = 'business'`;
     check("12 every row records who entered it",
       pm.created_by === ZANE && po.every((r) => r.created_by === ZANE) && mv.created_by === MICHAEL && ct.created_by === MICHAEL);
 
-    const vantage = (await getLedger(TODAY)).cashCheck.find((c) => c.location === "vantage");
-    await createCashCount({ countedAt: TODAY, location: "vantage", amount: 90, note: null, createdBy: MICHAEL });
-    const short = (await getLedger(TODAY)).cashCheck.find((c) => c.location === "vantage");
-    await deleteLatestCashCount("vantage");
-    const restored = (await getLedger(TODAY)).cashCheck.find((c) => c.location === "vantage");
+    const business = (await getLedger(TODAY)).cashCheck.find((c) => c.location === "business");
+    await createCashCount({ countedAt: TODAY, location: "business", amount: 90, note: null, createdBy: MICHAEL });
+    const short = (await getLedger(TODAY)).cashCheck.find((c) => c.location === "business");
+    await deleteLatestCashCount("business");
+    const restored = (await getLedger(TODAY)).cashCheck.find((c) => c.location === "business");
     check("   cash check: matches at 0, shows 10 short, deleting the count restores the earlier one",
-      vantage?.variance === 0 && short?.variance === -10 && restored?.variance === 0);
+      business?.variance === 0 && short?.variance === -10 && restored?.variance === 0);
   }
 
   // Cash check is as at the count, including same-day entries.
@@ -420,6 +420,49 @@ try {
       createTransfer({ movedAt: TODAY, fromLoc: "zane", toLoc: "mikey", amount: 1, note: null, createdBy: MICHAEL }),
     );
     check("   a transfer out of an empty pot is refused", !!tooMuch?.includes("Zane"), String(tooMuch));
+  }
+
+  // 15 — collections (016): Zane collects, hands to Mikey, Mikey puts the
+  // business share in the safe and pays both founders. 1000 at 50/50 under
+  // rule 1 = 185 each, 630 for the business.
+  await reset();
+  {
+    const inv = await invoice(1000, 0.5);
+    const { id: paymentId } = await pay(inv, 1000, { receivedBy: "zane" });
+    let l = await getLedger(TODAY);
+    const c = l.collections[0];
+    check("15 a collection shows its split and what is still to sort",
+      c?.businessShare === 630 && c.handoverDue === 1000 && c.businessDue === 630 && c.zanePayout === 185 && c.michaelPayout === 185,
+      JSON.stringify(c));
+    check("   totals: received, hand over, into business cash, give Zane, Mikey keeps",
+      l.toSort.received === 1000 && l.toSort.handover === 1000 && l.toSort.business === 630 && l.toSort.giveZane === 185 && l.toSort.mikeyKeeps === 185,
+      JSON.stringify(l.toSort));
+
+    const move = (fromLoc: "zane" | "mikey", toLoc: "mikey" | "business", amount: number) =>
+      createTransfer({ movedAt: TODAY, fromLoc, toLoc, amount, note: null, createdBy: MICHAEL, paymentId });
+    await move("zane", "mikey", 1000);
+    const twice = await rejection(() => move("zane", "mikey", 1));
+    check("   handing the same collection over twice is refused", !!twice?.includes("for a payment of"), String(twice));
+    await move("mikey", "business", 630);
+    for (const p of l.payouts.filter((p) => p.paymentId === paymentId)) await markPayoutPaidOut(p.id, TODAY, "mikey");
+
+    l = await getLedger(TODAY);
+    const done = l.collections[0];
+    check("   once sorted nothing is left to do, the safe holds the business share",
+      done.handoverDue === 0 && done.businessDue === 0 && l.toSort.giveZane === 0 && l.toSort.mikeyKeeps === 0 &&
+        l.cash.business === 630 && l.cash.zane === 0 && l.cash.mikey === 1200,
+      JSON.stringify({ done, toSort: l.toSort, cash: l.cash }));
+    const p = l.payouts.find((p) => p.paymentId === paymentId);
+    check("   payouts say where they came from", p?.paymentAmount === 1000 && p.invoiceNumber === "TEST-1000", JSON.stringify(p));
+
+    await deletePayment(paymentId);
+    const [{ n }] = await sql`select count(*)::int as n from cash_movements where kind = 'transfer'`;
+    check("   deleting the payment takes its moves with it", n === 0 && (await cash()).total === 1200, `${n} transfers`);
+
+    const direct = await invoice(500, 1);
+    await pay(direct, 500, { receivedBy: "business" });
+    const d = (await getLedger(TODAY)).collections[0];
+    check("   paid straight into the business: nothing to hand over or put in", d.handoverDue === 0 && d.businessDue === 0, JSON.stringify(d));
   }
 
   await reset();

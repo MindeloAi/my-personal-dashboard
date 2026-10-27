@@ -59,7 +59,7 @@ try {
   const l2 = await inv("LED-2", 1000, "Sent", TO, null, 0.5);
   await recordPayment({ invoiceId: l1, amount: 2700, paidAt: TO, receivedBy: "mikey", method: "Bank", note: TRICKY_NOTE, payOutFrom: "mikey", createdBy: ME });
   await recordPayment({ invoiceId: l2, amount: 400, paidAt: TO, receivedBy: "zane", method: "Cash", note: null, payOutFrom: null, createdBy: ME });
-  await createTransfer({ movedAt: TO, fromLoc: "mikey", toLoc: "vantage", amount: 100, note: null, createdBy: ME });
+  await createTransfer({ movedAt: TO, fromLoc: "mikey", toLoc: "business", amount: 100, note: null, createdBy: ME });
   // Expenses on both edges and a day outside each.
   await sql`insert into expenses (name, amount, date, notes) values
     ('edge-from', 100, ${FROM}, ${TRICKY_NOTE}), ('edge-to', 50, ${TO}, null),
@@ -75,7 +75,7 @@ try {
   const due = d.founderPay.filter((r) => r.status === "due").reduce((a, r) => a + r.total, 0);
   check("  founder pay split into paid out (2700's) and due (400's)", s.payoutsPaidOut > 0 && Math.abs(s.payoutsDue - due) < 0.001 && due > 0);
   const live = Object.fromEntries((await sql`select location, balance from cash_by_location`).map((r) => [r.location, Number(r.balance)]));
-  check("  cash at end matches cash_by_location", ["mikey", "zane", "vantage"].every((h) => d.cashAtEnd[h as "mikey"] === live[h]), JSON.stringify(d.cashAtEnd));
+  check("  cash at end matches cash_by_location", ["mikey", "zane", "business"].every((h) => d.cashAtEnd[h as "mikey"] === live[h]), JSON.stringify(d.cashAtEnd));
   check("  owed to us now = 1000 - 400 still owed on LED-2", d.owedToUsNow === 600, String(d.owedToUsNow));
 
   // 2 Inclusive edges.
