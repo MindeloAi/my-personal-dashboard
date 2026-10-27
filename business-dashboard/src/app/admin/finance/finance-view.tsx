@@ -7,6 +7,7 @@ import { ExpensesBreakdown } from "@/components/dashboard/expenses-breakdown";
 import { ExpensesList } from "@/components/dashboard/expenses-list";
 import { SubscriptionsList } from "@/components/dashboard/subscriptions-list";
 import { CashPanel } from "@/components/dashboard/cash-panel";
+import { MoneyReceived } from "@/components/dashboard/money-received";
 import { FounderPay } from "@/components/dashboard/founder-pay";
 import { ExportButton } from "@/components/dashboard/export-modal";
 import type { Client, Project, Invoice, Expense, Subscription, Ledger } from "@/lib/db";
@@ -51,6 +52,7 @@ export function FinanceView({
         <ExportButton firstDate={firstDate} />
       </div>
       <CashPanel ledger={ledger} />
+      <MoneyReceived ledger={ledger} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className="lg:col-span-2">

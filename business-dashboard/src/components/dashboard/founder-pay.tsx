@@ -314,7 +314,7 @@ export function FounderPay({ ledger }: { ledger: Ledger }) {
             <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-[#2a2e34]">
               <th className="text-left pb-3 font-medium whitespace-nowrap">Number</th>
               <th className="text-left pb-3 font-medium whitespace-nowrap pl-4">Founder</th>
-              <th className="text-left pb-3 font-medium whitespace-nowrap pl-4">Invoice</th>
+              <th className="text-left pb-3 font-medium whitespace-nowrap pl-4">Came from</th>
               <th className="hidden sm:table-cell text-right pb-3 font-medium whitespace-nowrap pl-4">Base</th>
               <th className="hidden sm:table-cell text-right pb-3 font-medium whitespace-nowrap pl-4">Bonus</th>
               <th className="text-right pb-3 font-medium whitespace-nowrap pl-4">Total</th>
@@ -335,7 +335,21 @@ export function FounderPay({ ledger }: { ledger: Ledger }) {
                 <tr key={p.id} className="hover:bg-white/[0.02] transition-colors text-xs">
                   <td className="py-3 text-zinc-300 font-medium whitespace-nowrap">{p.number}</td>
                   <td className="py-3 pl-4 text-zinc-300 whitespace-nowrap">{FOUNDER_LABEL[p.founder]}</td>
-                  <td className="py-3 pl-4 text-zinc-400 whitespace-nowrap">{p.invoiceNumber ?? "None"}</td>
+                  <td className="py-3 pl-4 min-w-[16rem] max-w-md align-top">
+                    <p className="text-zinc-200 font-medium">
+                      {p.client ?? "No client"}
+                      {p.project && <span className="text-zinc-400 font-normal"> · {p.project}</span>}
+                    </p>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                      {p.invoiceNumber ?? "No invoice no."} · collected {tt(p.paymentAmount)} on {dayLabel(p.paidAt)}
+                      {p.invoiceAmount != null && p.invoiceAmount !== p.paymentAmount && ` (invoice ${tt(p.invoiceAmount)})`}
+                    </p>
+                    {p.invoiceNotes && (
+                      <p className="text-[11px] text-zinc-300 mt-1 border-l-2 border-[#bfff3a]/40 pl-2 whitespace-pre-line break-words">
+                        {p.invoiceNotes}
+                      </p>
+                    )}
+                  </td>
                   <td className="hidden sm:table-cell py-3 pl-4 text-right text-zinc-400 whitespace-nowrap">{tt(p.base)}</td>
                   <td className="hidden sm:table-cell py-3 pl-4 text-right text-zinc-400 whitespace-nowrap">{tt(p.bonus)}</td>
                   <td className="py-3 pl-4 text-right font-semibold text-white whitespace-nowrap">{tt(p.total)}</td>

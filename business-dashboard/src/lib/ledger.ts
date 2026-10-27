@@ -4,9 +4,10 @@
 // on_payment_insert() trigger (migration 011); this mirrors its rounding so the
 // preview and the saved payouts agree to the cent.
 
-export const HOLDERS = ["mikey", "zane", "vantage"] as const;
+// mikey/zane = money in a founder's hand not sorted yet; business = the safe.
+export const HOLDERS = ["mikey", "zane", "business"] as const;
 export type Holder = (typeof HOLDERS)[number];
-export const HOLDER_LABEL: Record<Holder, string> = { mikey: "Mikey", zane: "Zane", vantage: "Vantage" };
+export const HOLDER_LABEL: Record<Holder, string> = { mikey: "Mikey", zane: "Zane", business: "Business cash" };
 
 export const FOUNDERS = ["michael", "zane"] as const;
 export type Founder = (typeof FOUNDERS)[number];
@@ -28,7 +29,7 @@ export type SplitRule = {
 export const PAID_WITH = [
   { value: "cash:mikey", label: "Business cash held by Mikey" },
   { value: "cash:zane", label: "Business cash held by Zane" },
-  { value: "cash:vantage", label: "Business cash held by Vantage" },
+  { value: "cash:business", label: "Business cash (safe)" },
   { value: "own:michael", label: "Michael's own money" },
   { value: "own:zane", label: "Zane's own money" },
 ] as const;
@@ -80,7 +81,8 @@ export function tt(n: number): string {
 export function holderLine(byHolder: Record<Holder, number>): string {
   const held = HOLDERS.filter((h) => byHolder[h] !== 0);
   if (held.length === 0) return "Nothing held";
-  if (held.length === 1 && byHolder[held[0]] > 0) return `All with ${HOLDER_LABEL[held[0]]}`;
+  if (held.length === 1 && byHolder[held[0]] > 0)
+    return held[0] === "business" ? "All in business cash" : `All with ${HOLDER_LABEL[held[0]]}`;
   return held.map((h) => `${HOLDER_LABEL[h]} ${tt(byHolder[h])}`).join(", ");
 }
 

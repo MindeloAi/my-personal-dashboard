@@ -299,10 +299,10 @@ export const ExpenseSchema = z.object({
   Reference: z.string().optional(),
   // Founder ledger (migration 011). Who paid: a business cash holder, or a
   // founder personally (then owed back until reimbursed).
-  "Paid From": z.enum(["mikey", "zane", "vantage"]).optional(),
+  "Paid From": z.enum(["mikey", "zane", "business"]).optional(),
   "Paid Personally By": z.enum(["michael", "zane"]).optional(),
   "Reimbursed At": z.string().optional(),
-  "Reimbursed From": z.enum(["mikey", "zane", "vantage"]).optional(),
+  "Reimbursed From": z.enum(["mikey", "zane", "business"]).optional(),
 });
 export type Expense = z.infer<typeof ExpenseSchema>;
 
@@ -483,7 +483,7 @@ export const ExpenseWriteSchema = z.object({
   "USD Amount": z.number().optional(),
   Reference: z.string().optional(),
   // "" clears (toColumns). Reimbursement is written only by reimburseExpense().
-  "Paid From": z.enum(["mikey", "zane", "vantage", ""]).optional(),
+  "Paid From": z.enum(["mikey", "zane", "business", ""]).optional(),
   "Paid Personally By": z.enum(["michael", "zane", ""]).optional(),
 });
 export type ExpenseWrite = z.infer<typeof ExpenseWriteSchema>;
@@ -1288,7 +1288,13 @@ export type Payout = {
   founder: Founder;
   invoiceId: string;
   invoiceNumber: string | null;
+  invoiceNotes: string | null;
+  invoiceAmount: number | null;
+  client: string | null;
+  project: string | null;
   paymentId: string;
+  /** The whole collection this payout was split from. */
+  paymentAmount: number;
   paidAt: string;
   base: number;
   bonus: number;
@@ -1319,6 +1325,31 @@ export type CashMovement = {
   amount: number;
   note: string | null;
   createdBy: string | null;
+  /** The collection this transfer moves on (migration 016), if any. */
+  paymentId: string | null;
+};
+
+/** One payment and where its money should end up (the collections view, migration 016). */
+export type Collection = {
+  paymentId: string;
+  invoiceId: string;
+  paidAt: string;
+  amount: number;
+  receivedBy: Holder;
+  method: string | null;
+  note: string | null;
+  createdBy: string | null;
+  invoiceNumber: string | null;
+  invoiceNotes: string | null;
+  client: string | null;
+  project: string | null;
+  michaelPayout: number;
+  zanePayout: number;
+  businessShare: number;
+  /** Zane still to hand to Mikey. */
+  handoverDue: number;
+  /** Business share not in the safe yet. */
+  businessDue: number;
 };
 
 export type CashCheckRow = {
@@ -1342,6 +1373,9 @@ export type Ledger = {
   payouts: Payout[];
   payments: Payment[];
   movements: CashMovement[];
+  collections: Collection[];
+  /** Totals across every collection. giveZane / mikeyKeeps are payouts still due. */
+  toSort: { received: number; handover: number; business: number; giveZane: number; mikeyKeeps: number };
   /** This calendar month, counted from cutover at the earliest. */
   month: { payments: number; expenses: number; payoutsPaidOut: number; net: number };
   /** What the founders would earn if every unpaid invoice (overdue at full value) were paid today. */
@@ -1408,6 +1442,8 @@ export async function getLedger(today: string): Promise<Ledger> {
     [month],
     projectionRows,
     [projected],
+    collections,
+    [toSort],
   ] = await Promise.all([
     getLedgerBasics(today),
     sql`select * from business_cash`,
@@ -1416,10 +1452,14 @@ export async function getLedger(today: string): Promise<Ledger> {
     sql`select * from owed_to_founders`,
     sql`select * from founder_pay order by month desc, founder`,
     sql`
-      select po.*, i.invoice_number, pm.paid_at
+      select po.*, i.invoice_number, i.notes as invoice_notes, i.amount as invoice_amount,
+             pm.paid_at, pm.amount as payment_amount,
+             coalesce(nullif(c.company, ''), c.name) as client, pr.name as project
         from payouts po
         join invoices i on i.id = po.invoice_id
         join payments pm on pm.id = po.payment_id
+        left join projects pr on pr.id = i.project_id
+        left join clients c on c.id = coalesce(i.client_id, pr.client_id)
        order by po.number desc`,
     sql`select * from payments order by paid_at desc, created_at desc`,
     sql`select * from cash_movements order by moved_at desc, created_at desc`,
@@ -1447,6 +1487,14 @@ export async function getLedger(today: string): Promise<Ledger> {
              (select coalesce(sum(total), 0) from payouts where status = 'due' and founder = 'michael') as michael_due,
              (select coalesce(sum(total), 0) from payouts where status = 'due' and founder = 'zane') as zane_due
         from founder_projection) t`,
+    sql`select * from collections order by paid_at desc, invoice_number`,
+    sql`
+      select (select coalesce(sum(amount), 0) from payments) as received,
+             (select coalesce(sum(handover_due), 0) from collections) as handover,
+             (select coalesce(sum(business_due), 0) from collections) as business,
+             coalesce(sum(total) filter (where founder = 'zane'), 0)    as give_zane,
+             coalesce(sum(total) filter (where founder = 'michael'), 0) as mikey_keeps
+        from payouts where status = 'due'`,
   ]);
 
   const owedTo =Object.fromEntries(owedFounders.map((r) => [r.founder, Number(r.owed)]));
@@ -1457,7 +1505,7 @@ export async function getLedger(today: string): Promise<Ledger> {
       total: Number(cash.total),
       mikey: Number(cash.mikey),
       zane: Number(cash.zane),
-      vantage: Number(cash.vantage),
+      business: Number(cash.business),
     },
     cashCheck: cashCheck.map((r) => ({
       location: r.location as Holder,
@@ -1482,7 +1530,12 @@ export async function getLedger(today: string): Promise<Ledger> {
       founder: r.founder as Founder,
       invoiceId: String(r.invoice_id),
       invoiceNumber: str(r.invoice_number),
+      invoiceNotes: str(r.invoice_notes),
+      invoiceAmount: r.invoice_amount == null ? null : Number(r.invoice_amount),
+      client: str(r.client),
+      project: str(r.project),
       paymentId: String(r.payment_id),
+      paymentAmount: Number(r.payment_amount),
       paidAt: String(r.paid_at),
       base: Number(r.base),
       bonus: Number(r.bonus),
@@ -1511,7 +1564,34 @@ export async function getLedger(today: string): Promise<Ledger> {
       amount: Number(r.amount),
       note: str(r.note),
       createdBy: str(r.created_by),
+      paymentId: str(r.payment_id),
     })),
+    collections: collections.map((r) => ({
+      paymentId: String(r.payment_id),
+      invoiceId: String(r.invoice_id),
+      paidAt: String(r.paid_at),
+      amount: Number(r.amount),
+      receivedBy: r.received_by as Holder,
+      method: str(r.method),
+      note: str(r.note),
+      createdBy: str(r.created_by),
+      invoiceNumber: str(r.invoice_number),
+      invoiceNotes: str(r.invoice_notes),
+      client: str(r.client),
+      project: str(r.project),
+      michaelPayout: Number(r.michael_payout),
+      zanePayout: Number(r.zane_payout),
+      businessShare: Number(r.business_share),
+      handoverDue: Number(r.handover_due),
+      businessDue: Number(r.business_due),
+    })),
+    toSort: {
+      received: Number(toSort.received),
+      handover: Number(toSort.handover),
+      business: Number(toSort.business),
+      giveZane: Number(toSort.give_zane),
+      mikeyKeeps: Number(toSort.mikey_keeps),
+    },
     month: {
       payments: Number(month.payments),
       expenses: Number(month.expenses),
@@ -1615,11 +1695,12 @@ export async function createTransfer(t: {
   amount: number;
   note: string | null;
   createdBy: string;
+  paymentId?: string | null;
 }): Promise<void> {
   const sql = getSql();
   await sql`
-    insert into cash_movements (moved_at, kind, from_loc, to_loc, amount, note, created_by)
-    values (${t.movedAt}, 'transfer', ${t.fromLoc}, ${t.toLoc}, ${t.amount}, ${t.note}, ${t.createdBy})`;
+    insert into cash_movements (moved_at, kind, from_loc, to_loc, amount, note, created_by, payment_id)
+    values (${t.movedAt}, 'transfer', ${t.fromLoc}, ${t.toLoc}, ${t.amount}, ${t.note}, ${t.createdBy}, ${t.paymentId ?? null})`;
 }
 
 /** Correction. Transfers only: the opening balance is fixed. */
@@ -1796,7 +1877,7 @@ export async function getAccountsExport(from: string, to: string, today: string)
        order by i.issue_date, i.invoice_number`;
     const cash = await tx`
       select l.location, coalesce(sum(f.amount), 0) as balance
-        from (values ('mikey'), ('zane'), ('vantage')) l(location)
+        from (values ('mikey'), ('zane'), ('business')) l(location)
         left join cash_flows f on f.location = l.location and f.on_date <= ${to}
        group by l.location`;
     const [owed] = await tx`select coalesce(sum(remaining), 0) as total from owed_to_us`;

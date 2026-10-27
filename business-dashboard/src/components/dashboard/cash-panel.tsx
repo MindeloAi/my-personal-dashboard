@@ -28,7 +28,7 @@ const textButtonCls =
 const day = (s: string) => format(parseISO(s.slice(0, 10)), "d MMM");
 
 /** Runs a ledger action; toasts and returns the error message, or null on success. */
-async function runAction(fn: () => Promise<ActionResult>, fallback: string): Promise<string | null> {
+export async function runAction(fn: () => Promise<ActionResult>, fallback: string): Promise<string | null> {
   try {
     const res = await fn();
     if (res.error) {
@@ -294,11 +294,13 @@ export function CashPanel({ ledger }: { ledger: Ledger }) {
       <div className={cardCls}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className={titleCls}>Business cash</p>
-            <p className={`text-2xl font-bold mt-1 tabular-nums ${ledger.cash.total < 0 ? "text-[#ff4d8b]" : "text-white"}`}>
-              {tt(ledger.cash.total)}
+            <p className={titleCls}>Business cash (safe)</p>
+            <p className={`text-2xl font-bold mt-1 tabular-nums ${ledger.cash.business < 0 ? "text-[#ff4d8b]" : "text-white"}`}>
+              {tt(ledger.cash.business)}
             </p>
-            <p className="text-xs text-zinc-500 mt-1">{holderLine(ledger.cash)}</p>
+            <p className="text-xs text-zinc-500 mt-1">
+              All money {tt(ledger.cash.total)}: {holderLine(ledger.cash)}
+            </p>
           </div>
           <button type="button" onClick={() => setModal("transfer")} className={buttonCls}>
             Record transfer
