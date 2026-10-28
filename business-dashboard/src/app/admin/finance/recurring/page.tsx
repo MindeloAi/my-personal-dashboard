@@ -16,7 +16,7 @@ export default async function RecurringPage() {
     getClients(),
     getProjects(),
     getLedger(today()),
-    getFinanceHistory(),
+    getFinanceHistory(today()),
   ]);
   return (
     <>

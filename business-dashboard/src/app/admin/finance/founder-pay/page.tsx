@@ -10,7 +10,7 @@ export const revalidate = 0;
 
 export default async function FounderPayPage() {
   await requireAdminPage();
-  const [ledger, history] = await Promise.all([getLedger(today()), getFinanceHistory()]);
+  const [ledger, history] = await Promise.all([getLedger(today()), getFinanceHistory(today())]);
   return (
     <>
       <PageHeader title="Founder pay" purpose="What Michael and Zane have earned from collected payments, what is still due to them, and what unpaid invoices will add." />

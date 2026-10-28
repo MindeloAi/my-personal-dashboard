@@ -27,7 +27,7 @@ export default async function InvoicesPage({
     getInvoices(),
     getSubscriptions(),
     getLedger(today()),
-    getFinanceHistory(),
+    getFinanceHistory(today()),
   ]);
 
   const initialStatus = STATUSES.includes(status as InvoiceStatusFilter)

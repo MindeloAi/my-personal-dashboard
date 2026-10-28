@@ -2132,7 +2132,8 @@ export type FinanceHistory = {
   payouts: { month: string; founder: Founder; base: number; bonus: number; paidOut: number; due: number }[];
 };
 
-export async function getFinanceHistory(): Promise<FinanceHistory> {
+/** `today` is Trinidad's date (subscriptions.today()); the DB clock is UTC. */
+export async function getFinanceHistory(today: string): Promise<FinanceHistory> {
   const sql = getSql();
   const [collected, split, cash, toSort, intoSafe, daysToSafe, counts, payouts] = await Promise.all([
     sql`
@@ -2149,7 +2150,7 @@ export async function getFinanceHistory(): Promise<FinanceHistory> {
         from collections group by 1 order by 1`,
     sql`
       with f as (select location, on_date::date as d, sum(amount) as a from cash_flows group by 1, 2),
-      days as (select generate_series((select min(d) from f), current_date, interval '1 day')::date as d),
+      days as (select generate_series((select min(d) from f), ${today}::date, interval '1 day')::date as d),
       locs as (select unnest(array['mikey', 'zane', 'business']) as location)
       select to_char(days.d, 'YYYY-MM-DD') as day, locs.location,
              (sum(coalesce(f.a, 0)) over (partition by locs.location order by days.d))::float8 as balance
@@ -2161,7 +2162,7 @@ export async function getFinanceHistory(): Promise<FinanceHistory> {
         select payment_id, sum(total) filter (where founder = 'michael') as michael,
                sum(total) filter (where founder = 'zane') as zane
           from payouts group by 1),
-      days as (select generate_series((select cutover_date from ledger_settings), current_date, interval '1 day')::date as d)
+      days as (select generate_series((select cutover_date from ledger_settings), ${today}::date, interval '1 day')::date as d)
       select to_char(days.d, 'YYYY-MM-DD') as day,
              coalesce(sum(case when p.received_by = 'zane'
                                then greatest(p.amount - coalesce(po.zane, 0) - coalesce(m.to_mikey, 0), 0)

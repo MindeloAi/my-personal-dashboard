@@ -10,7 +10,7 @@ export const revalidate = 0;
 
 export default async function ExpensesPage() {
   await requireAdminPage();
-  const [expenses, ledger, history] = await Promise.all([getExpenses(), getLedger(today()), getFinanceHistory()]);
+  const [expenses, ledger, history] = await Promise.all([getExpenses(), getLedger(today()), getFinanceHistory(today())]);
   return (
     <>
       <PageHeader title="Expenses" purpose="Everything the business has spent, by category, and what still needs reimbursing." />

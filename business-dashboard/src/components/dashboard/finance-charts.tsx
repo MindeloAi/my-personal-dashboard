@@ -26,11 +26,6 @@ const HOLDER_SERIES = [
   { key: "zane", name: "Zane", color: ORANGE },
   { key: "mikey", name: "Mikey", color: AQUA },
 ];
-const SPLIT_SERIES = [
-  { key: "business", name: "Business share", color: BLUE },
-  { key: "michael", name: "Michael", color: AQUA },
-  { key: "zane", name: "Zane", color: ORANGE },
-];
 
 /** The charts for one Finance page, each with its explanation and records. */
 export function FinanceCharts({ page, invoices = [], expenses = [], projects = [], clients = [], subscriptions = [], history, ledger }: Props) {
@@ -52,13 +47,13 @@ export function FinanceCharts({ page, invoices = [], expenses = [], projects = [
         description="The unpaid balance on every sent invoice, by how late it is. Money more than 60 days late is the hardest to collect: chase it first." />,
       <RankedBars key="clients" title="Revenue by client, top 10 (all time)" data={f.clientsTop} valueLabel="Paid revenue" records={r.client}
         description="Paid invoices per client since the business started; smaller clients are grouped as Everything else. One client far ahead of the rest is a dependency risk." />,
-      <SeriesChart key="service" kind="stacked" total title="Revenue by service type per month" rows={f.serviceByMonth} series={f.serviceSeries.map((s) => ({ key: s, name: s }))} records={r.serviceMonth}
-        description="Paid invoices each month, split by the service type of their project. Shows which kinds of work bring the money in, and how that changes." />,
-      <SeriesChart key="expenses" kind="stacked" total title="Expenses by category per month" rows={f.expensesByMonth} series={["Software", "Subcontractors", "Hosting", "Hardware", "Marketing", "Other"].map((c) => ({ key: c, name: c }))} records={r.spent}
-        description="Everything spent each month, split by category. A category that keeps growing is worth a look." />,
+      <Donut key="service" title="Revenue by service type (last 12 months)" data={f.serviceTotals} centre="Revenue" records={r.serviceType}
+        description="Paid invoices over the last 12 months, by the service type of their project. Shows which kinds of work bring the money in. Click a slice to see its invoices." />,
+      <Donut key="expenses" title="Expenses by category (last 12 months)" data={f.expenseTotals} centre="Spent" records={r.categoryInYear}
+        description="Everything spent over the last 12 months, by category. Click a slice to see the expenses in it." />,
       <SeriesChart key="profit" kind="line" title="Profit per month" rows={f.profit} series={[{ key: "profit", name: "Profit" }]} records={r.profit}
         description="Cash collected minus expenses, each month, before founder pay. Below zero means the business spent more than it took in that month." />,
-      <SeriesChart key="split" kind="stacked" total title="Where each month's payments go" rows={f.split} series={SPLIT_SERIES} records={r.split}
+      <Donut key="split" title="Where the payments go" data={f.splitTotals} centre="Collected" records={r.splitPart}
         description={`Every payment collected, split into the business share and each founder's pay under the split rules.${since}`} />,
       <SeriesChart key="cash" kind="line" title="Cash held over time" rows={f.cash} series={HOLDER_SERIES}
         description={`End-of-day balance in the safe and with each founder. Money with a founder should fall back to zero as it is sorted.${since}`} />,

@@ -63,6 +63,8 @@ assert.equal(sumCol(r.collected("Sep 26").rows, 3), 1000, "Sep collected records
 
 assert.equal(row(f.invoicedVsCollected, "Oct 26").invoiced, 1000, "drafts are not invoiced");
 assert.equal(row(f.profit, "Oct 26").profit, 600 - 150);
+assert.equal(sumCol(r.profit("Oct 26").rows, 4), 600 - 150, "profit records: collected minus expenses");
+assert.equal(sumCol(r.collector("Sep 26").rows, 3), 0, "collector bars are ledger-only, so are their records");
 
 const ages = Object.fromEntries(f.ages.map((a) => [a.label, a.value]));
 assert.equal(ages["Not yet due"], 400);
@@ -80,5 +82,9 @@ assert.equal(sumCol(r.expected("Dec 26").rows, 2), 1500);
 assert.equal(f.founders.find((x) => x.key === "zane")!.due, 111);
 assert.equal(row(f.split, "Oct 26").business, 378);
 assert.equal(f.split.length, 1, "ledger charts start at the cutover month");
+assert.deepEqual(f.splitTotals.map((x) => x.value), [378, 111, 111]);
+assert.deepEqual(f.serviceTotals, [{ name: "Website", value: 1000 }, { name: "Automation", value: 600 }]);
+assert.equal(sumCol(r.serviceType("Automation").rows, 3), 600, "pie slice records sum to the slice");
+assert.equal(sumCol(r.categoryInYear("Hosting").rows, 3), 100);
 
 console.log("finance-data: all checks pass");
