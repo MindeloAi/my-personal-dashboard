@@ -29,6 +29,7 @@ import {
   type SubscriptionWrite,
 } from "@/lib/airtable";
 import {
+  getAnalytics,
   getCutoverDate,
   ledgerErrorMessage,
   recordPayment,
@@ -49,6 +50,7 @@ import {
   getClientById,
 } from "@/lib/db";
 import { HOLDERS, PAYMENT_METHODS } from "@/lib/ledger";
+import { BREAKDOWNS, MEASURES, isAllowed, type AnalyticsQuery, type AnalyticsRow, type Breakdown, type Measure } from "@/lib/analytics";
 import { z } from "zod";
 import { today } from "@/lib/subscriptions";
 import { suggestPromises, type SuggestResult } from "@/lib/suggest";
@@ -528,4 +530,20 @@ export async function signOutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+const AnalyticsQuerySchema = z.object({
+  measure: z.enum(Object.keys(MEASURES) as [Measure, ...Measure[]]),
+  breakdown: z.enum(Object.keys(BREAKDOWNS) as [Breakdown, ...Breakdown[]]),
+  split: z.enum(Object.keys(BREAKDOWNS) as [Breakdown, ...Breakdown[]]).nullable(),
+  from: CalendarDay,
+  to: CalendarDay,
+});
+
+/** Analytics chart builder: one whitelisted, read-only query. */
+export async function analyticsAction(input: AnalyticsQuery): Promise<{ ok: true; rows: AnalyticsRow[] } | { ok: false; error: string }> {
+  await requireAdmin();
+  const q = AnalyticsQuerySchema.safeParse(input);
+  if (!q.success || q.data.from > q.data.to || !isAllowed(q.data)) return { ok: false, error: "That combination is not available." };
+  return { ok: true, rows: await getAnalytics(q.data) };
 }

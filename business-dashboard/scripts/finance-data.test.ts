@@ -87,4 +87,10 @@ assert.deepEqual(f.serviceTotals, [{ name: "Website", value: 1000 }, { name: "Au
 assert.equal(sumCol(r.serviceType("Automation").rows, 3), 600, "pie slice records sum to the slice");
 assert.equal(sumCol(r.categoryInYear("Hosting").rows, 3), 100);
 
+assert.deepEqual(f.collectorTotals, [{ name: "Zane", value: 600 }], "who received the money");
+assert.deepEqual(f.founderTotals, [{ name: "Zane", value: 111 }]);
+assert.deepEqual(f.baseBonus.map((x) => x.value), [100, 11]);
+assert.deepEqual(f.paidDue, [{ name: "Still due", value: 111 }]);
+assert.equal(sumCol(r.received("Zane").rows, 3), 600, "slice records sum to the slice");
+
 console.log("finance-data: all checks pass");

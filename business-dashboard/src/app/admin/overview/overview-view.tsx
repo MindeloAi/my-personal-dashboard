@@ -76,6 +76,7 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
   // Month charts report their label ("Oct 26"); the records want the month key.
   const monthKeyOf = (label: string) => d.months.find((m) => m.month === label)?.key ?? "";
   const clientNames = d.clientsTop.map((c) => c.name);
+  const owedPie = topWithOther(d.owed, 5);
   const serviceNames = d.services.map((x) => x.name);
   const stage = (s: string) => d.stages.find((x) => x.name === s)?.value ?? 0;
 
@@ -130,7 +131,7 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
         <MonthlyMoneyChart data={d.months} records={(m) => d.recs.month(monthKeyOf(m))} />
         <ProfitBarsChart data={d.months} records={(m) => d.recs.month(monthKeyOf(m))} />
         <MoneyHeldChart data={d.held} records={d.recs.held} />
-        <OwedByClientChart data={d.owed} records={d.recs.owedBy} />
+        <OwedByClientChart data={owedPie} records={(c) => d.recs.owedBy(c, owedPie.map((x) => x.name))} />
         <RevenueToDateChart data={d.months} records={(m) => d.recs.paidIn(monthKeyOf(m))} />
         <ServiceMixChart data={d.services} records={(t) => d.recs.service(t, serviceNames)} />
         <TopClientsChart data={d.clientsTop} records={(c) => d.recs.paidBy(c, clientNames)} />

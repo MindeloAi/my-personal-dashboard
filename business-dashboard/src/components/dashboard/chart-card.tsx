@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ModalShell } from "@/components/ui/modal-shell";
+import { DownloadButtons, useRegisterChart } from "./chart-export";
 
 export type ChartTable = { columns: string[]; rows: (string | number)[][] };
 
@@ -37,6 +38,7 @@ export function ChartCard({ title, description, table, records, chart, className
     setSelected(null);
   };
   const detail = selected && records ? records(selected) : null;
+  useRegisterChart(title, table);
 
   return (
     <section className={`flex flex-col border border-[#DCE1E8] bg-white p-4 sm:p-5 break-inside-avoid ${className ?? ""}`}>
@@ -82,6 +84,7 @@ export function ChartCard({ title, description, table, records, chart, className
               </div>
             )}
             {!detail && <DataTable table={table} />}
+            <DownloadButtons title={detail ? `${title} - ${selected}` : title} table={detail ?? table} />
           </div>
         </ModalShell>
       )}
@@ -91,7 +94,7 @@ export function ChartCard({ title, description, table, records, chart, className
 
 const MONEY = /^-?TT\$/;
 
-function DataTable({ table }: { table: ChartTable }) {
+export function DataTable({ table }: { table: ChartTable }) {
   const moneyCol = table.columns.map((_, i) => table.rows.some((r) => MONEY.test(String(r[i]))));
   return (
     <div className="overflow-x-auto border border-[#DCE1E8]">

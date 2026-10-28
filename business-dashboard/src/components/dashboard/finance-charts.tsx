@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { SeriesChart, RankedBars, Donut, SERIES } from "./chart-kit";
+import { SeriesChart, RankedBars, Donut, SERIES, PEOPLE_COLORS } from "./chart-kit";
 import { buildFinance, dayLabel } from "@/lib/finance-data";
+import { topWithOther } from "@/lib/overview-data";
 import { today } from "@/lib/subscriptions";
 import { tt } from "@/lib/ledger";
 import type { Client, Project, Invoice, Expense, Subscription, FinanceHistory, Ledger } from "@/lib/db";
@@ -20,7 +21,7 @@ type Props = {
   ledger: Ledger;
 };
 
-const [BLUE, ORANGE, AQUA, YELLOW] = SERIES;
+const [BLUE, ORANGE, AQUA] = SERIES;
 const HOLDER_SERIES = [
   { key: "business", name: "Business cash (safe)", color: BLUE },
   { key: "zane", name: "Zane", color: ORANGE },
@@ -53,7 +54,7 @@ export function FinanceCharts({ page, invoices = [], expenses = [], projects = [
         description="Everything spent over the last 12 months, by category. Click a slice to see the expenses in it." />,
       <SeriesChart key="profit" kind="line" title="Profit per month" rows={f.profit} series={[{ key: "profit", name: "Profit" }]} records={r.profit}
         description="Cash collected minus expenses, each month, before founder pay. Below zero means the business spent more than it took in that month." />,
-      <Donut key="split" title="Where the payments go" data={f.splitTotals} centre="Collected" records={r.splitPart}
+      <Donut key="split" colors={PEOPLE_COLORS} title="Where the payments go" data={f.splitTotals} centre="Collected" records={r.splitPart}
         description={`Every payment collected, split into the business share and each founder's pay under the split rules.${since}`} />,
       <SeriesChart key="cash" kind="line" title="Cash held over time" rows={f.cash} series={HOLDER_SERIES}
         description={`End-of-day balance in the safe and with each founder. Money with a founder should fall back to zero as it is sorted.${since}`} />,
@@ -63,28 +64,28 @@ export function FinanceCharts({ page, invoices = [], expenses = [], projects = [
         description="Average days from an invoice's issue date to its paid date, for invoices paid that month. Rising means clients are paying slower." />,
     ],
     received: [
-      <SeriesChart key="collector" kind="stacked" total title="Collections per month, by who received the money" rows={f.byCollector} series={HOLDER_SERIES} records={r.collector}
-        description={`Payments collected each month: by Mikey, by Zane, or paid straight to the business.${since}`} />,
+      <Donut key="collector" colors={PEOPLE_COLORS} title="Who received the money" data={f.collectorTotals} centre="Collected" records={r.received}
+        description={`Every payment collected, by who received it: Mikey, Zane, or paid straight to the business.${since}`} />,
       <SeriesChart key="tosort" kind="line" title="Money still to sort over time" rows={f.toSort} series={[{ key: "handover", name: "Zane still to hand over", color: ORANGE }, { key: "business", name: "Business share not yet in the safe", color: BLUE }]}
         description={`End-of-day money not sorted yet. Both lines should drop to zero soon after each payment.${since}`} />,
       <SeriesChart key="tosafe" kind="bar" format="days" title="Days from client payment to the safe" rows={f.daysToSafe} series={[{ key: "days", name: "Average days" }]}
         description={`On average, how many days the business share took to reach the safe after the client paid, by payment month. Only payments already in the safe count.${since}`} />,
     ],
     invoices: [
-      <SeriesChart key="status" kind="bar" title="Invoices by status" rows={f.byStatus} series={[{ key: "value", name: "Value" }]} records={r.status}
-        description="Total value of invoices at each status; the number of invoices is in brackets. Overdue is a Sent invoice past its due date." />,
+      <Donut key="status" title="Invoices by status" data={f.byStatus.map((x) => ({ name: x.label, value: x.value }))} centre="Invoiced" records={r.status}
+        description="The value of all invoices at each status; the number of invoices is in brackets. Overdue is a Sent invoice past its due date." />,
       <SeriesChart key="invoiced" kind="bar" title="Value invoiced per month" rows={f.invoicedVsCollected} series={[{ key: "invoiced", name: "Invoiced" }]} records={r.invoiced}
         description="The value of invoices sent each month, by issue date (drafts and voided invoices left out)." />,
       <SeriesChart key="avg" kind="line" title="Average invoice size per month" rows={f.averageInvoice} series={[{ key: "average", name: "Average invoice" }]} records={r.invoiced}
         description="The average value of invoices sent each month. Bigger average invoices usually mean bigger projects or fewer small retainers." />,
     ],
     "founder-pay": [
-      <SeriesChart key="pm" kind="bar" title="Founder pay per month" rows={f.payoutsByMonth} series={[{ key: "michael", name: "Michael", color: AQUA }, { key: "zane", name: "Zane", color: ORANGE }]} records={r.payoutsMonth}
-        description={`What each founder earned from the payments collected that month, base plus bonus.${since}`} />,
-      <SeriesChart key="bb" kind="stacked" total title="Base vs bonus per founder" rows={f.founders} series={[{ key: "base", name: "Base", color: BLUE }, { key: "bonus", name: "Bonus", color: YELLOW }]} records={r.founder}
-        description={`Each founder's total pay split into the fixed base share and the bonus set per invoice.${since}`} />,
-      <SeriesChart key="pd" kind="stacked" total title="Paid out vs still due" rows={f.founders} series={[{ key: "paidOut", name: "Paid out", color: AQUA }, { key: "due", name: "Still due", color: ORANGE }]} records={r.founder}
-        description={`How much of each founder's pay has been handed over, and how much is still owed to them.${since}`} />,
+      <Donut key="pm" colors={PEOPLE_COLORS} title="Founder pay by founder" data={f.founderTotals} centre="Founder pay" records={r.founder}
+        description={`What each founder has earned from the payments collected, base plus bonus.${since}`} />,
+      <Donut key="bb" title="Base vs bonus" data={f.baseBonus} centre="Founder pay" records={r.payPart}
+        description={`All founder pay split into the fixed base share and the bonus set per invoice.${since}`} />,
+      <Donut key="pd" title="Paid out vs still due" data={f.paidDue} centre="Founder pay" records={r.payStatus}
+        description={`How much founder pay has been handed over, and how much is still owed to the founders.${since}`} />,
     ],
     cash: [
       <SeriesChart key="bal" kind="line" title="Business cash balance over time" rows={f.cash} series={[HOLDER_SERIES[0]]}
@@ -99,14 +100,14 @@ export function FinanceCharts({ page, invoices = [], expenses = [], projects = [
         description="Every expense recorded, grouped by category." />,
       <SeriesChart key="pmc" kind="stacked" total title="Spending per month by category" rows={f.expensesByMonth} series={["Software", "Subcontractors", "Hosting", "Hardware", "Marketing", "Other"].map((c) => ({ key: c, name: c }))} records={r.spent}
         description="Everything spent each month, split by category." />,
-      <RankedBars key="payer" title="Who paid for expenses" data={f.byPayer} valueLabel="Spent" records={r.payer}
+      <Donut key="payer" title="Who paid for expenses" data={f.byPayer} centre="Spent" records={r.payer}
         description="Expenses paid from business cash versus paid personally by a founder. Still owed back is money the business must reimburse; expenses from before the ledger have no payer recorded." />,
     ],
     recurring: [
       <SeriesChart key="mrr" kind="line" title="Monthly recurring revenue over time" rows={f.mrr} series={[{ key: "mrr", name: "Monthly recurring revenue" }]} records={r.mrrMonth}
         description="What live retainers and subscriptions were worth per month at the end of each month." />,
-      <RankedBars key="rc" title="Recurring revenue by client" data={f.recurringByClient} valueLabel="Per month" records={r.recurringClient}
-        description="What each client's live subscriptions are worth per month (yearly and quarterly ones counted per month)." />,
+      <Donut key="rc" title="Recurring revenue by client" data={topWithOther(f.recurringByClient, 5)} centre="Per month" records={r.recurringClient}
+        description="What each client's live subscriptions are worth per month (yearly and quarterly ones counted per month). Smaller clients are grouped as Everything else." />,
       <SeriesChart key="exp" kind="bar" title="Recurring invoices expected, this month and the next two" rows={f.expected} series={[{ key: "amount", name: "Expected" }]} records={r.expected}
         description="What live subscriptions are due to bill in each month. This month includes any billing already due but not invoiced yet." />,
     ],

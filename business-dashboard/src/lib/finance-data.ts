@@ -100,6 +100,11 @@ export function buildFinance(
   });
 
   const clientsTop = topWithOther(revenueByClient(invoices, projects, clients), 10);
+  const recurringByClient = [...subscriptions.filter((s) => isActive(s, todayIso)).reduce((m, s) => {
+      const c = clients.find((x) => x.id === s.Client?.[0]);
+      const n = c ? c.Company || c.Name : s.Name;
+      return m.set(n, (m.get(n) ?? 0) + monthlyAmount(s));
+    }, new Map<string, number>())].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value) as Slice[];
 
   return {
     months,
@@ -160,17 +165,28 @@ export function buildFinance(
     // Cash & safe
     intoSafe: byMonth(ledgerMonths, (k) => ({ amount: history.intoSafe.find((s) => s.month === k)?.amount ?? 0 })),
     counts: history.counts.map((c, i) => ({ key: String(i), label: `${dayLabel(c.day)} · ${HOLDER_LABEL[c.location]}`, variance: c.variance, counted: c.counted, expected: c.expected })) as Row[],
+    // Pies: one total split into its parts.
+    collectorTotals: [
+      { name: "Business cash (safe)", value: sum(history.collected.filter((c) => c.source === "business"), (c) => c.amount) },
+      { name: "Zane", value: sum(history.collected.filter((c) => c.source === "zane"), (c) => c.amount) },
+      { name: "Mikey", value: sum(history.collected.filter((c) => c.source === "mikey"), (c) => c.amount) },
+    ].filter((x) => x.value > 0),
+    founderTotals: founderRows.map((f) => ({ name: f.label, value: f.base + f.bonus })).filter((x) => x.value > 0),
+    baseBonus: [
+      { name: "Base", value: sum(founderRows, (f) => f.base) },
+      { name: "Bonus", value: sum(founderRows, (f) => f.bonus) },
+    ].filter((x) => x.value > 0),
+    paidDue: [
+      { name: "Paid out", value: sum(founderRows, (f) => f.paidOut) },
+      { name: "Still due", value: sum(founderRows, (f) => f.due) },
+    ].filter((x) => x.value > 0),
     // Expenses
     byCategory: EXPENSE_CATEGORIES.map((c) => ({ name: c, value: sum(expenses.filter((e) => (e.Category ?? "Other") === c), (e) => e.Amount ?? 0) })).filter((s) => s.value > 0),
     byPayer: ["Paid from business cash", "Paid personally, reimbursed", "Paid personally, still owed back", "Not recorded (before the ledger)"]
       .map((p) => ({ name: p, value: sum(expenses.filter((e) => payer(e) === p), (e) => e.Amount ?? 0) }))
       .filter((s) => s.value > 0),
     // Recurring
-    recurringByClient: [...subscriptions.filter((s) => isActive(s, todayIso)).reduce((m, s) => {
-      const c = clients.find((x) => x.id === s.Client?.[0]);
-      const n = c ? c.Company || c.Name : s.Name;
-      return m.set(n, (m.get(n) ?? 0) + monthlyAmount(s));
-    }, new Map<string, number>())].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value) as Slice[],
+    recurringByClient,
     expected: byMonth(ahead, (k) => ({ amount: sum(billing.filter((b) => b.date.slice(0, 7) === k), (b) => b.sub.Amount ?? 0) })),
 
     /** The records behind one mark. Each list sums to its mark. */
@@ -259,6 +275,24 @@ export function buildFinance(
             p.number, FOUNDER_LABEL[p.founder], p.invoiceNumber ?? "", p.client ?? "", money(p.base), money(p.bonus), money(p.total), p.status === "paid_out" ? "Paid out" : "Due",
           ]),
         }),
+        received: (name: string): RecordTable => {
+          const h = name === "Zane" ? "zane" : name === "Mikey" ? "mikey" : "business";
+          return {
+            columns: ["Date", "Invoice", "Client", "Amount", "Notes"],
+            rows: ledger.payments.filter((p) => p.receivedBy === h).map((p) => {
+              const i = invoiceById.get(p.invoiceId);
+              return [p.paidAt.slice(0, 10), i?.["Invoice Number"] ?? "", i ? nameOf(i) : "", money(p.amount), i?.Notes ?? ""];
+            }),
+          };
+        },
+        payPart: (name: string): RecordTable => ({
+          columns: ["Pay", "Founder", "Invoice", "Client", name],
+          rows: ledger.payouts.map((p) => [p.number, FOUNDER_LABEL[p.founder], p.invoiceNumber ?? "", p.client ?? "", money(name === "Base" ? p.base : p.bonus)]),
+        }),
+        payStatus: (name: string): RecordTable => ({
+          columns: ["Pay", "Founder", "Invoice", "Client", "Total"],
+          rows: ledger.payouts.filter((p) => (name === "Paid out" ? p.status === "paid_out" : p.status === "due")).map((p) => [p.number, FOUNDER_LABEL[p.founder], p.invoiceNumber ?? "", p.client ?? "", money(p.total)]),
+        }),
         founder: (label: string): RecordTable => ({
           columns: ["Pay", "Invoice", "Client", "Base", "Bonus", "Total", "Status"],
           rows: ledger.payouts.filter((p) => FOUNDER_LABEL[p.founder] === label).map((p) => [
@@ -276,11 +310,15 @@ export function buildFinance(
         }),
         category: (name: string): RecordTable => ({ columns: EXP, rows: expenses.filter((e) => (e.Category ?? "Other") === name).map(exp) }),
         payer: (name: string): RecordTable => ({ columns: EXP, rows: expenses.filter((e) => payer(e) === name).map(exp) }),
-        recurringClient: (name: string): RecordTable => ({
-          columns: ["Subscription", "Amount", "Per month", "Started"],
-          rows: subscriptions.filter((s) => isActive(s, todayIso) && ((clients.find((c) => c.id === s.Client?.[0])?.Company || clients.find((c) => c.id === s.Client?.[0])?.Name || s.Name) === name))
-            .map((s) => [s.Name, money(s.Amount ?? 0), money(monthlyAmount(s)), s["Start Date"] ?? ""]),
-        }),
+        recurringClient: (name: string): RecordTable => {
+          const owner = (s: Subscription) => { const c = clients.find((x) => x.id === s.Client?.[0]); return c ? c.Company || c.Name : s.Name; };
+          const shown = topWithOther(recurringByClient, 5).map((x) => x.name);
+          return {
+            columns: ["Subscription", "Amount", "Per month", "Started"],
+            rows: subscriptions.filter((s) => isActive(s, todayIso) && (name === OTHER ? !shown.includes(owner(s)) : owner(s) === name))
+              .map((s) => [s.Name, money(s.Amount ?? 0), money(monthlyAmount(s)), s["Start Date"] ?? ""]),
+          };
+        },
         expected: (label: string): RecordTable => ({
           columns: ["Subscription", "Due", "Amount"],
           rows: billing.filter((b) => b.date.slice(0, 7) === monthKeyOf(label)).map((b) => [b.sub.Name, b.late ? "Already due, not invoiced" : b.date, money(b.sub.Amount ?? 0)]),
