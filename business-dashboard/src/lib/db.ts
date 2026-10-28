@@ -1663,6 +1663,8 @@ export async function recordPayment(p: PaymentInput): Promise<{ id: string }> {
         update payouts
            set status = 'paid_out', paid_out_at = ${p.paidAt}, paid_from = ${p.payOutFrom}
          where payment_id = ${row.id}`;
+    } else if (p.receivedBy === "zane") {
+      await zaneKeepsShare(tx, String(row.id));
     }
     return String(row.id);
   });
@@ -1693,8 +1695,27 @@ export async function setCollector(invoiceId: string, holder: Holder): Promise<s
          where p.invoice_id = ${invoiceId}) as moved`;
     if (moved) return "Some of this invoice's money has already been moved. Undo those steps in Money received first.";
     await tx`update payments set received_by = ${holder} where invoice_id = ${invoiceId}`;
+    for (const { id } of await tx`select id from payments where invoice_id = ${invoiceId}`) {
+      if (holder === "zane") await zaneKeepsShare(tx, String(id));
+      // No longer his money to keep: his share is owed to him again.
+      else await tx`
+        update payouts set status = 'due', paid_out_at = null, paid_from = null
+         where payment_id = ${id} and founder = 'zane' and paid_from = 'zane'`;
+    }
     return null;
   });
+}
+
+/**
+ * When Zane collects, his share is in his hands from that moment: his payouts
+ * for the payment are paid out, from Zane, on the day the client paid.
+ */
+async function zaneKeepsShare(tx: postgres.TransactionSql, paymentId: string): Promise<void> {
+  await tx`
+    update payouts po set status = 'paid_out', paid_out_at = pm.paid_at, paid_from = 'zane'
+      from payments pm
+     where pm.id = po.payment_id and po.payment_id = ${paymentId}
+       and po.founder = 'zane' and po.status = 'due'`;
 }
 
 /** Correction. Its payouts go with it; a Paid invoice reopens as Sent. */
@@ -1798,10 +1819,8 @@ export async function undoCollectionStep(paymentId: string, step: CollectionStep
     const unmove = (toLoc: string) => tx`delete from cash_movements where payment_id = ${paymentId} and to_loc = ${toLoc}`;
 
     if (step === "handover" || step === "business") {
-      if (step === "handover") {
-        await unmove("mikey");
-        if (p.received_by === "zane") await unpay("zane");
-      }
+      // Zane's share stays paid out: he has it whether or not he handed over.
+      if (step === "handover") await unmove("mikey");
       await unmove("business");
       await unpay("michael");
     } else {

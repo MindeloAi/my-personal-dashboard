@@ -473,6 +473,10 @@ try {
     // Recorded as Mikey's by mistake: correct it to Zane.
     const wrong = await invoice(2000, 0.5);
     const { id: wrongPay } = await pay(wrong, 2000);
+    const zaneShare = async () => (await sql`select status, paid_from from payouts where payment_id = ${wrongPay} and founder = 'zane'`)[0];
+    check("   switching the collector back and forth keeps Zane's share right",
+      (await setCollector(wrong, "zane")) === null && (await zaneShare()).paid_from === "zane" &&
+      (await setCollector(wrong, "mikey")) === null && (await zaneShare()).status === "due");
     check("   the collector can be corrected", (await setCollector(wrong, "zane")) === null &&
       (await getLedger(TODAY)).collections.find((x) => x.paymentId === wrongPay)?.handoverDue === 1630);
     await createTransfer({ movedAt: TODAY, fromLoc: "zane", toLoc: "mikey", amount: 100, note: null, createdBy: MICHAEL, paymentId: wrongPay });
@@ -494,7 +498,7 @@ try {
     };
     await doCollectionStep(id, "handover", TODAY, MICHAEL);
     let s = await state();
-    check("17 handing over also ticks Zane keeping his share",
+    check("17 Zane's share is paid out the moment he collects; handing over moves the rest",
       s.c.handoverDue === 0 && s.zane === "paid_out" && s.michael === "due" && s.cash.zane === 0 && s.cash.mikey === 2015,
       JSON.stringify(s));
     await doCollectionStep(id, "business", TODAY, MICHAEL);
@@ -503,8 +507,8 @@ try {
       s.c.businessDue === 0 && s.michael === "paid_out" && s.cash.business === 630 && s.cash.mikey === 1200, JSON.stringify(s));
     await undoCollectionStep(id, "handover");
     s = await state();
-    check("   undoing the handover undoes everything after it",
-      s.zane === "due" && s.michael === "due" && s.cash.zane === 1000 && s.cash.mikey === 1200 && s.cash.business === 0,
+    check("   undoing the handover undoes everything after it, but he still has his share",
+      s.zane === "paid_out" && s.michael === "due" && s.cash.zane === 815 && s.cash.mikey === 1200 && s.cash.business === 0,
       JSON.stringify(s));
 
     await doCollectionStep(id, "handover", TODAY, MICHAEL);
@@ -516,7 +520,7 @@ try {
     const [hand] = await sql`select id from cash_movements where payment_id = ${id} and to_loc = 'mikey'`;
     await deleteTransfer(String(hand.id));
     s = await state();
-    check("   deleting the handover transfer from the cash panel does the same as undo", s.zane === "due" && s.cash.zane === 1000, JSON.stringify(s));
+    check("   deleting the handover transfer from the cash panel does the same as undo", s.zane === "paid_out" && s.cash.zane === 815, JSON.stringify(s));
 
     const mine = await invoice(500, 0.5);
     const { id: mineId } = await pay(mine, 500);
