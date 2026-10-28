@@ -712,7 +712,7 @@ function shapeProject(r: Row) {
     Name: r.name,
     Client: link(r.client_id),
     Lead: link(r.lead_id),
-    Internal: r.internal ?? false,
+    Internal: r.internal,
     Status: r.status,
     "Payment Structure": r.payment_structure,
     "Total Value": r.total_value,
@@ -1218,7 +1218,9 @@ export async function convertLeadToClient(
   return sql.begin(async (tx) => {
     const [lead] = await tx`select * from leads where id = ${leadId} for update`;
     if (!lead) throw new Error(`[db] lead ${leadId} not found`);
-    let clientId = existingClientId;
+    // Reuse the lead's client if it has one: a lead converted twice, or pre-linked
+    // by the cleanup migration, must not create a duplicate client.
+    let clientId = existingClientId ?? (lead.client_id ? String(lead.client_id) : null);
     if (!clientId) {
       const [c] = await tx`
         insert into clients (name, company, email, phone, status)

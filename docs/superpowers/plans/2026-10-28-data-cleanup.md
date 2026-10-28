@@ -302,6 +302,8 @@ Add before the final `await reset();` inside `try`:
       insert into leads (name, business_name, email, phone_whatsapp, status)
       values ('Robert', 'Aeromarine', 'r@aero.tt', '+1868', 'Won') returning id`;
     await sql`insert into projects (name, lead_id) values ('Aero site', ${l.id})`;
+    const [other] = await sql`insert into clients (name) values ('Other client') returning id`;
+    await sql`insert into projects (name, lead_id, client_id) values ('Aero extra', ${l.id}, ${other.id})`;
     const { clientId } = await convertLeadToClient(String(l.id), null);
     const [c] = await sql`select name, company, email, phone, status from clients where id = ${clientId}`;
     const [lead] = await sql`select client_id from leads where id = ${l.id}`;
@@ -312,11 +314,19 @@ Add before the final `await reset();` inside `try`:
     check("  links the lead to it", String(lead.client_id) === clientId);
     check("  and moves the lead's projects to the client, keeping the lead as history",
       String(p.client_id) === clientId && String(p.lead_id) === String(l.id), JSON.stringify(p));
+    const [px] = await sql`select client_id from projects where name = 'Aero extra'`;
+    check("  a lead project already on another client stays there", String(px.client_id) === String(other.id), JSON.stringify(px));
+
+    const again = await convertLeadToClient(String(l.id), null);
+    const [{ n: n1 }] = await sql`select count(*)::int as n from clients`;
+    check("  converting the same lead again reuses its client", again.clientId === clientId && n1 === 2, `${again.clientId} n=${n1}`);
 
     const [l2] = await sql`insert into leads (name, status) values ('Again', 'Won') returning id`;
     const reused = await convertLeadToClient(String(l2.id), clientId);
     const [{ n }] = await sql`select count(*)::int as n from clients`;
-    check("  converting onto an existing client links it without creating another", reused.clientId === clientId && n === 1);
+    const [lead2] = await sql`select client_id from leads where id = ${l2.id}`;
+    check("  converting onto an existing client links it without creating another",
+      reused.clientId === clientId && n === 2 && String(lead2.client_id) === clientId);
   }
 ```
 
@@ -387,7 +397,7 @@ In `shapeProject`, after `Client: link(r.client_id),` add:
 
 ```ts
     Lead: link(r.lead_id),
-    Internal: r.internal ?? false,
+    Internal: r.internal,
 ```
 
 In `shapeLead` (the function that builds a lead record from a row; find it with `grep -n "function shapeLead" src/lib/db.ts`), add as its last property:
@@ -415,7 +425,9 @@ export async function convertLeadToClient(
   return sql.begin(async (tx) => {
     const [lead] = await tx`select * from leads where id = ${leadId} for update`;
     if (!lead) throw new Error(`[db] lead ${leadId} not found`);
-    let clientId = existingClientId;
+    // Reuse the lead's client if it has one: a lead converted twice, or pre-linked
+    // by the cleanup migration, must not create a duplicate client.
+    let clientId = existingClientId ?? (lead.client_id ? String(lead.client_id) : null);
     if (!clientId) {
       const [c] = await tx`
         insert into clients (name, company, email, phone, status)
