@@ -1295,6 +1295,8 @@ export type Payout = {
   paymentId: string;
   /** The whole collection this payout was split from. */
   paymentAmount: number;
+  /** Who collected that payment. */
+  receivedBy: Holder;
   paidAt: string;
   base: number;
   bonus: number;
@@ -1453,7 +1455,7 @@ export async function getLedger(today: string): Promise<Ledger> {
     sql`select * from founder_pay order by month desc, founder`,
     sql`
       select po.*, i.invoice_number, i.notes as invoice_notes, i.amount as invoice_amount,
-             pm.paid_at, pm.amount as payment_amount,
+             pm.paid_at, pm.amount as payment_amount, pm.received_by,
              coalesce(nullif(c.company, ''), c.name) as client, pr.name as project
         from payouts po
         join invoices i on i.id = po.invoice_id
@@ -1538,6 +1540,7 @@ export async function getLedger(today: string): Promise<Ledger> {
       project: str(r.project),
       paymentId: String(r.payment_id),
       paymentAmount: Number(r.payment_amount),
+      receivedBy: r.received_by as Holder,
       paidAt: String(r.paid_at),
       base: Number(r.base),
       bonus: Number(r.bonus),
@@ -1736,8 +1739,75 @@ export async function createTransfer(t: {
 /** Correction. Transfers only: the opening balance is fixed. */
 export async function deleteTransfer(id: string): Promise<void> {
   const sql = getSql();
-  const [row] = await sql`delete from cash_movements where id = ${id} and kind = 'transfer' returning id`;
+  const [row] = await sql`select payment_id, to_loc from cash_movements where id = ${id} and kind = 'transfer'`;
   if (!row) throw new Error(`[db] transfer ${id} not found`);
+  // A collection's handover or safe deposit: undo it with everything after it.
+  if (row.payment_id) return undoCollectionStep(String(row.payment_id), row.to_loc === "mikey" ? "handover" : "business");
+  await sql`delete from cash_movements where id = ${id}`;
+}
+
+// ---------------------------------------------------------------------------
+// Sorting a collection (Money received). Each step and each undo is one
+// transaction. Steps tick what they imply: once Zane hands over the rest, what
+// he still holds is his share; once the business share is in the safe, what
+// Mikey still holds of it is his. Undo takes everything that depended on it.
+// Zane's share of money Mikey collected is a real hand-off, so it never ticks
+// itself. Amounts come from the collections view, never from here.
+// ---------------------------------------------------------------------------
+
+export type CollectionStep = "handover" | "business" | "zane" | "michael";
+
+export async function doCollectionStep(paymentId: string, step: CollectionStep, on: string, createdBy: string): Promise<void> {
+  const sql = getSql();
+  await sql.begin(async (tx) => {
+    await tx`select id from payments where id = ${paymentId} for update`;
+    const [c] = await tx`select received_by, handover_due, business_due from collections where payment_id = ${paymentId}`;
+    if (!c) throw new Error(`[db] payment ${paymentId} not found`);
+    const zaneCollected = c.received_by === "zane";
+    const from = c.received_by === "business" ? "business" : "mikey";
+    const payOut = (founder: Founder, holder: string) => tx`
+      update payouts set status = 'paid_out', paid_out_at = ${on}, paid_from = ${holder}
+       where payment_id = ${paymentId} and founder = ${founder} and status = 'due'`;
+    const move = (fromLoc: string, toLoc: string, amount: number) => tx`
+      insert into cash_movements (moved_at, kind, from_loc, to_loc, amount, created_by, payment_id)
+      values (${on}, 'transfer', ${fromLoc}, ${toLoc}, ${amount}, ${createdBy}, ${paymentId})`;
+
+    if (step === "handover") {
+      if (!zaneCollected) throw new Error("[db] only a collection Zane took is handed over");
+      if (Number(c.handover_due) > 0) await move("zane", "mikey", Number(c.handover_due));
+      await payOut("zane", "zane");
+    } else if (step === "business") {
+      if (Number(c.business_due) > 0) await move(from, "business", Number(c.business_due));
+      await payOut("michael", from);
+    } else if (step === "zane") {
+      await payOut("zane", zaneCollected ? "zane" : from);
+    } else {
+      await payOut("michael", from);
+    }
+  });
+}
+
+export async function undoCollectionStep(paymentId: string, step: CollectionStep): Promise<void> {
+  const sql = getSql();
+  await sql.begin(async (tx) => {
+    const [p] = await tx`select received_by from payments where id = ${paymentId} for update`;
+    if (!p) throw new Error(`[db] payment ${paymentId} not found`);
+    const unpay = (founder: Founder) => tx`
+      update payouts set status = 'due', paid_out_at = null, paid_from = null
+       where payment_id = ${paymentId} and founder = ${founder} and status = 'paid_out'`;
+    const unmove = (toLoc: string) => tx`delete from cash_movements where payment_id = ${paymentId} and to_loc = ${toLoc}`;
+
+    if (step === "handover" || step === "business") {
+      if (step === "handover") {
+        await unmove("mikey");
+        if (p.received_by === "zane") await unpay("zane");
+      }
+      await unmove("business");
+      await unpay("michael");
+    } else {
+      await unpay(step);
+    }
+  });
 }
 
 export async function createCashCount(c: {

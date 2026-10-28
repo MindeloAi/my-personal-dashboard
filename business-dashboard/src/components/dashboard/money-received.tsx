@@ -9,17 +9,10 @@
 import { useState, useTransition } from "react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
-import {
-  deleteTransferAction,
-  markPayoutPaidOutAction,
-  recordTransferAction,
-  setCollectorAction,
-  undoPayoutPaidOutAction,
-} from "@/app/actions";
+import { doCollectionStepAction, setCollectorAction, undoCollectionStepAction } from "@/app/actions";
 import { runAction } from "@/components/dashboard/cash-panel";
 import { FOUNDER_LABEL, HOLDERS, HOLDER_LABEL, tt, type Founder, type Holder } from "@/lib/ledger";
-import { today } from "@/lib/subscriptions";
-import type { Collection, Ledger } from "@/lib/db";
+import type { Collection, CollectionStep, Ledger } from "@/lib/db";
 
 const cardCls = "bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-5";
 const titleCls = "text-[10px] text-zinc-500 font-medium tracking-wider uppercase";
@@ -28,9 +21,6 @@ const actionCls =
 const undoCls = "min-h-11 sm:min-h-0 text-[11px] text-zinc-500 hover:text-white disabled:opacity-40 transition-colors";
 
 const day = (s: string) => format(parseISO(s.slice(0, 10)), "d MMM yyyy");
-
-/** Where this collection's unsorted money is once Zane has handed it over. */
-const heldBy = (c: Collection): Holder => (c.receivedBy === "business" ? "business" : "mikey");
 
 type Step = {
   label: string;
@@ -41,26 +31,27 @@ type Step = {
   doneText: string;
   action?: { label: string; run: () => Promise<string | null> };
   undo?: () => Promise<string | null>;
+  /** Later steps the undo takes with it, for the confirm message. */
+  undoAlso?: string[];
 };
 
+// Every step and undo is one server transaction (db.ts doCollectionStep /
+// undoCollectionStep): handing over also ticks Zane's share, putting the
+// business share in the safe also ticks Mikey's, and an undo takes every step
+// that depended on it.
 function steps(c: Collection, ledger: Ledger): Step[] {
-  const from = heldBy(c);
-  // Nothing is shared out until Zane has passed the money to Mikey.
-  const waiting = c.receivedBy === "zane" && c.handoverDue > 0;
-  const moves = ledger.movements.filter((m) => m.paymentId === c.paymentId);
-  const lastMove = (to: Holder) => moves.find((m) => m.toLoc === to); // newest first
-  const payouts = (f: Founder) => ledger.payouts.filter((p) => p.paymentId === c.paymentId && p.founder === f);
-  const move = (fromLoc: Holder, toLoc: Holder, amount: number) => () =>
-    runAction(
-      () => recordTransferAction({ movedAt: today(), fromLoc, toLoc, amount, note: null, paymentId: c.paymentId }),
-      "Failed to record the move",
-    );
-  const undoMove = (to: Holder) => {
-    const m = lastMove(to);
-    return m ? () => runAction(() => deleteTransferAction(m.id), "Failed to undo") : undefined;
-  };
-
   const zaneCollected = c.receivedBy === "zane";
+  // Nothing is shared out until Zane has passed the money to Mikey.
+  const waiting = zaneCollected && c.handoverDue > 0;
+  const moved = (to: Holder) => ledger.movements.some((m) => m.paymentId === c.paymentId && m.toLoc === to);
+  const payouts = (f: Founder) => ledger.payouts.filter((p) => p.paymentId === c.paymentId && p.founder === f);
+  const paid = (f: Founder) => payouts(f).some((p) => p.status === "paid_out");
+  const act = (step: CollectionStep) => () =>
+    runAction(() => doCollectionStepAction(c.paymentId, step), "Failed to save");
+  const undo = (step: CollectionStep) => () =>
+    runAction(() => undoCollectionStepAction(c.paymentId, step), "Failed to undo");
+
+  const zaneLabel = zaneCollected ? "Zane keeps his share" : "Give Zane";
   const out: Step[] = [];
   if (zaneCollected) {
     // He keeps his own share and sends Mikey the rest (018).
@@ -70,8 +61,13 @@ function steps(c: Collection, ledger: Ledger): Step[] {
       left: c.handoverDue,
       done: c.handoverDue === 0,
       doneText: "Handed over",
-      action: c.handoverDue > 0 ? { label: "Mark handed over", run: move("zane", "mikey", c.handoverDue) } : undefined,
-      undo: undoMove("mikey"),
+      action: c.handoverDue > 0 ? { label: "Mark handed over", run: act("handover") } : undefined,
+      undo: moved("mikey") ? undo("handover") : undefined,
+      undoAlso: [
+        ...(moved("business") ? ["Into business cash"] : []),
+        ...(paid("zane") ? [zaneLabel] : []),
+        ...(paid("michael") ? ["Mikey keeps"] : []),
+      ],
     });
   }
   out.push({
@@ -80,20 +76,16 @@ function steps(c: Collection, ledger: Ledger): Step[] {
     left: c.businessDue,
     done: c.businessDue === 0,
     doneText: c.receivedBy === "business" ? "Paid straight in" : "In the safe",
-    action:
-      c.businessDue > 0 && !waiting
-        ? { label: "Put in business cash", run: move(from, "business", c.businessDue) }
-        : undefined,
-    undo: c.receivedBy === "business" ? undefined : undoMove("business"),
+    action: c.businessDue > 0 && !waiting ? { label: "Put in business cash", run: act("business") } : undefined,
+    undo: moved("business") ? undo("business") : undefined,
+    undoAlso: paid("michael") ? ["Mikey keeps"] : [],
   });
   for (const [founder, label, doneText] of [
-    zaneCollected ? (["zane", "Zane keeps his share", "Kept by Zane"] as const) : (["zane", "Give Zane", "Given to Zane"] as const),
+    [ "zane", zaneLabel, zaneCollected ? "Kept by Zane" : "Given to Zane"] as const,
     ["michael", "Mikey keeps", "Kept"] as const,
   ]) {
-    // Zane's share of what he collected never leaves him, so it is paid out
-    // from his pot and does not wait for the handover.
-    const payFrom: Holder = zaneCollected && founder === "zane" ? "zane" : from;
-    const blocked = waiting && payFrom !== "zane";
+    // Zane's share of what he collected never leaves him, so it does not wait.
+    const blocked = waiting && !(zaneCollected && founder === "zane");
     // Newest first. More than one when a split was changed after paying out
     // (017): the extra one is a correction, negative if he was overpaid.
     const rows = payouts(founder);
@@ -116,16 +108,10 @@ function steps(c: Collection, ledger: Ledger): Step[] {
                   : founder === "zane" && !zaneCollected
                     ? "Mark given"
                     : "Mark kept",
-              run: async () => {
-                for (const p of due) {
-                  const err = await runAction(() => markPayoutPaidOutAction(p.id, today(), payFrom), "Failed to mark paid out");
-                  if (err) return err;
-                }
-                return null;
-              },
+              run: act(founder),
             }
           : undefined,
-      undo: lastPaid ? () => runAction(() => undoPayoutPaidOutAction(lastPaid.id), "Failed to undo") : undefined,
+      undo: lastPaid ? undo(founder) : undefined,
     });
   }
   return out;
@@ -160,7 +146,13 @@ function StepRow({ step }: { step: Step }) {
                 type="button"
                 disabled={pending}
                 className={undoCls}
-                onClick={() => window.confirm(`Undo "${step.label}"?`) && go(step.undo!, "Undone")}
+                onClick={() =>
+                  window.confirm(
+                    step.undoAlso?.length
+                      ? `Undo "${step.label}"? This also undoes: ${step.undoAlso.join(", ")}.`
+                      : `Undo "${step.label}"?`,
+                  ) && go(step.undo!, "Undone")
+                }
               >
                 Undo
               </button>
