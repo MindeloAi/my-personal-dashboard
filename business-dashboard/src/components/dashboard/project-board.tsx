@@ -22,39 +22,8 @@ import {
 } from "@/app/actions";
 import { ModalShell } from "@/components/ui/modal-shell";
 import type { Client, Lead, Project } from "@/lib/airtable";
-import { ownerFields, ownerValue } from "@/lib/project-owner";
-
-/** "Belongs to": a client, a lead (before there is a client), or internal.
- *  Named "belongsTo" because both project forms already use "owner" for M/Partner/Both. */
-export function OwnerSelect({
-  clients,
-  leads,
-  defaultValue,
-  className,
-}: {
-  clients: Client[];
-  leads: Lead[];
-  defaultValue: string;
-  className: string;
-}) {
-  const openLeads = leads.filter((l) => l.Status !== "Lost" || defaultValue === `lead:${l.id}`);
-  return (
-    <select name="belongsTo" defaultValue={defaultValue} className={className}>
-      <option value="">— Not assigned</option>
-      <option value="internal">Internal (Mindelo&apos;s own)</option>
-      <optgroup label="Clients">
-        {clients.map((c) => (
-          <option key={c.id} value={`client:${c.id}`}>{c.Company || c.Name}</option>
-        ))}
-      </optgroup>
-      <optgroup label="Leads (not a client yet)">
-        {openLeads.map((l) => (
-          <option key={l.id} value={`lead:${l.id}`}>{l["Business Name"] || l.Name}</option>
-        ))}
-      </optgroup>
-    </select>
-  );
-}
+import { OwnerSelect } from "@/components/dashboard/owner-select";
+import { ownerPatch, ownerValue } from "@/lib/project-owner";
 
 function TrashIcon({ className }: { className?: string }) {
   return (
@@ -248,7 +217,7 @@ function ProjectDetailModal({
     const fd = new FormData(e.currentTarget);
     const totalValue = fd.get("totalValue") as string;
     const depositPct = fd.get("depositPct") as string;
-    const owner = ownerFields((fd.get("belongsTo") as string) || "");
+    const belongsTo = (fd.get("belongsTo") as string) || "";
     const status = (fd.get("status") as string) || "";
     const paymentStructureField = (fd.get("paymentStructure") as string) || "";
 
@@ -276,7 +245,8 @@ function ProjectDetailModal({
           Notes: (fd.get("notes") as string) || "",
           Owner: (fd.get("owner") as string) || "",
           "Service Type": (fd.get("serviceType") as string) || "",
-          ...owner,
+          // Unchanged keeps a converted lead's historic lead_id; see ownerPatch.
+          ...ownerPatch(project, belongsTo),
         });
         toast.success("Project saved");
         onClose();

@@ -28,6 +28,7 @@
 | `src/lib/db.ts` | modify | map new columns, drop `Invoice Number` from writes, `convertLeadToClient()` |
 | `src/app/actions.ts` | modify | `convertLeadAction` |
 | `src/components/dashboard/leads-table.tsx` | modify | conversion modal calls `convertLeadAction`, offers linking to an existing client |
+| `src/components/dashboard/owner-select.tsx` | create | shared "Belongs to" select (`name="belongsTo"`) |
 | `src/components/dashboard/project-board.tsx` | modify | "Belongs to" select in edit form |
 | `src/components/dashboard/quick-actions.tsx` | modify | "Belongs to" select in new-project form; invoice number field read-only |
 | `src/components/dashboard/edit-invoice-modal.tsx` | modify | invoice number read-only |
@@ -480,6 +481,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 - Create: `src/lib/project-owner.ts`
+- Create: `src/components/dashboard/owner-select.tsx`
 - Modify: `src/components/dashboard/project-board.tsx` (edit form ~L196–300)
 - Modify: `src/components/dashboard/quick-actions.tsx` (new-project form ~L370–440, props ~L21)
 - Modify: `src/app/admin/layout.tsx` (~L38), `src/app/admin/projects/page.tsx`
@@ -490,7 +492,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 In `scripts/cleanup.test.ts`, add to the imports:
 
 ```ts
-import { ownerFields, ownerValue } from "../src/lib/project-owner";
+import { ownerFields, ownerPatch, ownerValue } from "../src/lib/project-owner";
 ```
 
 Add before the final `await reset();` inside `try`:
@@ -512,6 +514,11 @@ Add before the final `await reset();` inside `try`:
       ownerValue({ Lead: ["def"] }) === "lead:def" &&
       ownerValue({ Internal: true }) === "internal" &&
       ownerValue({}) === "");
+    const converted = { Client: ["c"], Lead: ["l"] };
+    check("  an unchanged edit leaves a converted lead's lead_id alone",
+      JSON.stringify(ownerPatch(converted, "client:c")) === "{}" &&
+      JSON.stringify(ownerPatch(converted, "internal")) ===
+        JSON.stringify({ Client: [], Lead: [], Internal: true }));
   }
 ```
 
@@ -529,7 +536,9 @@ Expected: fails to load, `Cannot find module '../src/lib/project-owner'`.
 // Who a project belongs to, as one form value. Pure, shared by every project
 // form. A project belongs to a client, to a lead (before there is a client),
 // is internal (Mindelo's own), or is unassigned. Client wins when a converted
-// lead's project has both: lead_id is kept on it as history only.
+// lead's project has both: lead_id is kept on it as history only, so an edit
+// form uses ownerPatch (sends nothing when the value is unchanged) rather than
+// ownerFields (which would clear that lead_id).
 
 export type OwnerValue = "" | "internal" | `client:${string}` | `lead:${string}`;
 
@@ -547,6 +556,15 @@ export function ownerValue(p: { Client?: string[]; Lead?: string[]; Internal?: b
   if (p.Internal) return "internal";
   return "";
 }
+
+/** Edit-form patch: {} when the select is unchanged, so a converted lead's
+ *  historic lead_id survives; otherwise the full ownerFields. */
+export function ownerPatch(
+  p: { Client?: string[]; Lead?: string[]; Internal?: boolean },
+  v: string,
+): Partial<ReturnType<typeof ownerFields>> {
+  return v === ownerValue(p) ? {} : ownerFields(v);
+}
 ```
 
 - [ ] **Step 4: Run the test**
@@ -559,10 +577,15 @@ Expected: `All checks passed.`
 
 - [ ] **Step 5: Add a shared `OwnerSelect` and use it in both forms**
 
-The select is UI, so it lives in `src/components/dashboard/project-board.tsx` (exported, so `quick-actions.tsx` can import it). Add near the top of `project-board.tsx`, after the imports:
+The select is UI, so it lives in its own client component `src/components/dashboard/owner-select.tsx`, imported by both forms (so the admin layout's `QuickActions` does not pull in the project board and dnd-kit). It is named `belongsTo` because both project forms already use `owner` for M/Partner/Both. Create it:
 
 ```tsx
-/** "Belongs to": a client, a lead (before there is a client), or internal. */
+"use client";
+
+import type { Client, Lead } from "@/lib/airtable";
+
+/** "Belongs to": a client, a lead (before there is a client), or internal.
+ *  Named "belongsTo" because both project forms already use "owner" for M/Partner/Both. */
 export function OwnerSelect({
   clients,
   leads,
@@ -576,7 +599,7 @@ export function OwnerSelect({
 }) {
   const openLeads = leads.filter((l) => l.Status !== "Lost" || defaultValue === `lead:${l.id}`);
   return (
-    <select name="owner" defaultValue={defaultValue} className={className}>
+    <select name="belongsTo" defaultValue={defaultValue} className={className}>
       <option value="">— Not assigned</option>
       <option value="internal">Internal (Mindelo&apos;s own)</option>
       <optgroup label="Clients">
@@ -604,7 +627,8 @@ to:
 
 ```ts
 import type { Client, Lead, Project } from "@/lib/airtable";
-import { ownerFields, ownerValue } from "@/lib/project-owner";
+import { OwnerSelect } from "@/components/dashboard/owner-select";
+import { ownerPatch, ownerValue } from "@/lib/project-owner";
 ```
 
 Change the props type at L75 from:
@@ -639,7 +663,7 @@ In that form's submit handler, replace:
 with:
 
 ```ts
-    const owner = ownerFields((fd.get("owner") as string) || "");
+    const belongsTo = (fd.get("belongsTo") as string) || "";
 ```
 
 and replace the payload line:
@@ -648,13 +672,13 @@ and replace the payload line:
           Client: clientId ? [clientId] : clients.length ? [] : undefined,
 ```
 
-with:
+with (`ownerPatch` sends nothing when the select is unchanged, so editing a converted lead's project keeps its historic `lead_id`):
 
 ```ts
-          ...owner,
+          ...ownerPatch(project, belongsTo),
 ```
 
-In `src/components/dashboard/quick-actions.tsx`: add `leads?: Lead[];` next to `clients?: Client[];` at L21 and `leads: Lead[];` next to `clients: Client[];` at ~L372; thread `leads` down like `clients`; import `type Lead` alongside `Client` and `import { OwnerSelect } from "@/components/dashboard/project-board"; import { ownerFields } from "@/lib/project-owner";`. Replace the new-project form's Client field:
+In `src/components/dashboard/quick-actions.tsx`: add `leads?: Lead[];` next to `clients?: Client[];` at L21 and `leads: Lead[];` next to `clients: Client[];` at ~L372; thread `leads` down like `clients`; import `type Lead` alongside `Client` and `import { OwnerSelect } from "@/components/dashboard/owner-select"; import { ownerFields } from "@/lib/project-owner";`. Replace the new-project form's Client field:
 
 ```tsx
         <Field label="Client">
@@ -677,7 +701,7 @@ with:
         </Field>
 ```
 
-and in its submit handler replace `const clientId = (fd.get("clientId") as string) || "";` with `const owner = ownerFields((fd.get("owner") as string) || "");` and `Client: clientId ? [clientId] : undefined,` with `...owner,`.
+and in its submit handler replace `const clientId = (fd.get("clientId") as string) || "";` with `const owner = ownerFields((fd.get("belongsTo") as string) || "");` and `Client: clientId ? [clientId] : undefined,` with `...owner,` (a new project has nothing to preserve, so the create form uses `ownerFields`).
 
 - [ ] **Step 6: Fetch leads where the forms are rendered**
 
@@ -711,7 +735,7 @@ and pass `leads={leads}` to `<QuickActions`.
 
 ```bash
 npx tsc --noEmit -p . 2>&1 | grep -v "export.test.ts\|maxByteLength"
-npx eslint src/components/dashboard/project-board.tsx src/components/dashboard/quick-actions.tsx src/lib/project-owner.ts src/app/admin/layout.tsx src/app/admin/projects/page.tsx
+npx eslint src/components/dashboard/owner-select.tsx src/components/dashboard/project-board.tsx src/components/dashboard/quick-actions.tsx src/lib/project-owner.ts src/app/admin/layout.tsx src/app/admin/projects/page.tsx
 ```
 
 Expected: no output other than the `"Invoice Number"` errors Task 4 removes.
@@ -719,7 +743,7 @@ Expected: no output other than the `"Invoice Number"` errors Task 4 removes.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/lib/project-owner.ts src/components/dashboard/project-board.tsx src/components/dashboard/quick-actions.tsx src/app/admin/layout.tsx src/app/admin/projects/page.tsx scripts/cleanup.test.ts
+git add src/lib/project-owner.ts src/components/dashboard/owner-select.tsx src/components/dashboard/project-board.tsx src/components/dashboard/quick-actions.tsx src/app/admin/layout.tsx src/app/admin/projects/page.tsx scripts/cleanup.test.ts
 git commit -m "feat(projects): a project belongs to a client, a lead, or is internal
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"

@@ -7,7 +7,7 @@
 
 import postgres from "postgres";
 import { convertLeadToClient, closeDb } from "../src/lib/db";
-import { ownerFields, ownerValue } from "../src/lib/project-owner";
+import { ownerFields, ownerPatch, ownerValue } from "../src/lib/project-owner";
 
 const url = process.env.DATABASE_URL ?? "";
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) {
@@ -180,6 +180,11 @@ try {
       ownerValue({ Lead: ["def"] }) === "lead:def" &&
       ownerValue({ Internal: true }) === "internal" &&
       ownerValue({}) === "");
+    const converted = { Client: ["c"], Lead: ["l"] };
+    check("  an unchanged edit leaves a converted lead's lead_id alone",
+      JSON.stringify(ownerPatch(converted, "client:c")) === "{}" &&
+      JSON.stringify(ownerPatch(converted, "internal")) ===
+        JSON.stringify({ Client: [], Lead: [], Internal: true }));
   }
 
   await reset();

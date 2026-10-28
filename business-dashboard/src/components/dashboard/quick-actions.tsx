@@ -12,7 +12,7 @@ import { SplitPreview } from "@/components/dashboard/record-payment-modal";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { PAID_WITH, paidWithFields, shareError, type SplitRule } from "@/lib/ledger";
 import type { Client, Lead, Project } from "@/lib/airtable";
-import { OwnerSelect } from "@/components/dashboard/project-board";
+import { OwnerSelect } from "@/components/dashboard/owner-select";
 import { ownerFields } from "@/lib/project-owner";
 
 type ModalKind = "invoice" | "expense" | "project" | null;
