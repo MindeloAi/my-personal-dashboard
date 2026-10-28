@@ -53,9 +53,9 @@ export default async function AppLayout({
   });
 
   return (
-    <div className={`${dashboardFont.className} min-h-screen bg-[#F3F5F8] text-[#1B2533] tabular-nums`}>
+    <div className={`${dashboardFont.className} min-h-screen bg-[#F3F5F8] print:bg-white text-[#1B2533] tabular-nums`}>
       <Sidebar adminEmail={admin.email}>
-        <div className="flex flex-col gap-3 border-b border-[#DCE1E8] bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="print:hidden flex flex-col gap-3 border-b border-[#DCE1E8] bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <p className="text-lg font-semibold text-[#1B2533]">Mindelo Dashboard</p>
             <p className="text-xs text-[#5A6678] mt-0.5">{today}</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { serviceTypeOptions } from "@/lib/service-types";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -503,9 +504,9 @@ function ProjectModal({
           <Field label="Service Type">
             <select name="serviceType" className={selectCls} defaultValue="">
               <option value="">—</option>
-              <option value="Web Dev">Web Dev</option>
-              <option value="Automation">Automation</option>
-              <option value="Hybrid">Hybrid</option>
+              {serviceTypeOptions().map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
             </select>
           </Field>
         </div>

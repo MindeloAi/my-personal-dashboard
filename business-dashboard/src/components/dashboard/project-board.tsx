@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useOptimistic, useState, useSyncExternalStore, useTransition } from "react";
+import { serviceTypeOptions } from "@/lib/service-types";
 import { createPortal } from "react-dom";
 import {
   DndContext,
@@ -362,9 +363,9 @@ function ProjectDetailModal({
                   className={selectCls}
                 >
                   <option value="">—</option>
-                  <option value="Web Dev">Web Dev</option>
-                  <option value="Automation">Automation</option>
-                  <option value="Hybrid">Hybrid</option>
+                  {serviceTypeOptions(project["Service Type"]).map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
                 </select>
               </div>
             </div>

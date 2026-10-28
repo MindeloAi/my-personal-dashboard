@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import { dashboardFont } from "@/lib/dashboard-font";
 
 // true in the browser, false during SSR, with no setState-in-effect re-render.
 const noopSubscribe = () => () => {};
@@ -75,7 +76,7 @@ export function ModalShell({ title, onClose, children, maxWidthClass = "max-w-md
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className={`${dashboardFont.className} fixed inset-0 z-50 flex items-center justify-center p-4`}
       onPointerDown={(e) => {
         pressedBackdrop.current = e.target === e.currentTarget;
       }}

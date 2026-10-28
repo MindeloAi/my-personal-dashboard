@@ -136,12 +136,12 @@ export function BusinessCounters({ clients, projects, invoices, onJumpToOverdue 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-xs text-[#4A5568]">Pipeline</span>
-          <span className="text-sm font-semibold text-[#1B2533] tabular-nums">${stats.pipelineValue.toLocaleString()}</span>
+          <span className="text-sm font-semibold text-[#1B2533] tabular-nums">TT${stats.pipelineValue.toLocaleString()}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-xs text-[#4A5568]">Weighted pipeline</span>
           <span className="text-sm font-semibold text-[#334155] tabular-nums" title="Total Value × probability of close (Lead 20% · In Progress 60% · Review 85%)">
-            ${Math.round(stats.weightedPipeline).toLocaleString()}
+            TT${Math.round(stats.weightedPipeline).toLocaleString()}
           </span>
         </div>
         {stats.winRate !== null && (
@@ -167,7 +167,7 @@ export function BusinessCounters({ clients, projects, invoices, onJumpToOverdue 
             {stats.ownerSplit.map(([owner, amt]) => (
               <div key={owner} className="flex items-center justify-between">
                 <span className="text-xs text-[#4A5568]">{owner}</span>
-                <span className="text-xs font-semibold text-[#1B2533] tabular-nums">${amt.toLocaleString()}</span>
+                <span className="text-xs font-semibold text-[#1B2533] tabular-nums">TT${amt.toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -192,7 +192,7 @@ export function BusinessCounters({ clients, projects, invoices, onJumpToOverdue 
           style={{ color: stats.overdueCount > 0 ? "#B23A0A" : "#64748B" }}
         >
           {stats.overdueCount > 0
-            ? `${stats.overdueCount} · $${stats.overdueAmount.toLocaleString()} →`
+            ? `${stats.overdueCount} · TT$${stats.overdueAmount.toLocaleString()} →`
             : "—"}
         </span>
       </button>
