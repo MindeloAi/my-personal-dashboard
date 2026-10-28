@@ -7,7 +7,7 @@ import {
 import { ChartCard } from "./chart-card";
 import {
   SERIES, INK, GRID, short, pct, axis, tooltip, height, clickDot, clickBar, Legend,
-  RankedBars, Donut, type Recs,
+  RankedBars, Donut, PEOPLE_COLORS, type Recs,
 } from "./chart-kit";
 import { tt } from "@/lib/ledger";
 import type { MonthRow, Slice } from "@/lib/overview-data";
@@ -98,11 +98,11 @@ export function ProfitBarsChart({ data, records }: { data: MonthRow[] } & Recs) 
 
 export function OwedByClientChart({ data, records }: { data: Slice[] } & Recs) {
   return (
-    <RankedBars
+    <Donut
       title="Owed to us, by client"
-      description="Unpaid balance on every sent invoice, grouped by client. The longest bars are the clients to chase first."
+      description="Unpaid balance on every sent invoice, split by client. The biggest slices are the clients to chase first. Click a slice to see their unpaid invoices."
       data={data}
-      valueLabel="Still owed"
+      centre="Owed"
       records={records}
     />
   );
@@ -151,6 +151,7 @@ export function MoneyHeldChart({ data, records }: { data: Slice[] } & Recs) {
       description="All money the business holds, by who has it: the business cash in the safe, and money Zane or Mikey collected that is not sorted yet."
       data={data}
       centre="Held"
+      colors={PEOPLE_COLORS}
       records={records}
     />
   );

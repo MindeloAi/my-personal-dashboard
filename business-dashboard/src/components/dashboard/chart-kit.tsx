@@ -198,6 +198,15 @@ export function SeriesChart({
 
 export type Slice = { name: string; value: number };
 
+/** The people and places money sits with, coloured the same on every chart. */
+export const PEOPLE_COLORS: Record<string, string> = {
+  "Business cash (safe)": SERIES[0],
+  "Business share": SERIES[0],
+  Zane: SERIES[1],
+  Mikey: SERIES[2],
+  Michael: SERIES[2],
+};
+
 /** Horizontal bars for a ranked list of named amounts. */
 export function RankedBars({ title, description, data, valueLabel, records, format = "money" }: { title: string; description: string; data: Slice[]; valueLabel: string; format?: Format } & Recs) {
   const f = FMT[format];
@@ -228,8 +237,10 @@ export function RankedBars({ title, description, data, valueLabel, records, form
 }
 
 /** Donut with a clickable value legend beside it. */
-export function Donut({ title, description, data, centre, records, format = "money" }: { title: string; description: string; data: Slice[]; centre: string; format?: Format } & Recs) {
+export function Donut({ title, description, data, centre, records, format = "money", colors }: { title: string; description: string; data: Slice[]; centre: string; format?: Format; colors?: Record<string, string> } & Recs) {
   const f = FMT[format];
+  // A named entity keeps its colour on every chart; anything else takes the next palette slot.
+  const colorOf = (name: string, i: number) => colors?.[name] ?? SERIES[i % SERIES.length];
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <ChartCard
@@ -243,7 +254,7 @@ export function Donut({ title, description, data, centre, records, format = "mon
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={data} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="100%" stroke="#fff" strokeWidth={2} startAngle={90} endAngle={-270} isAnimationActive={false} onClick={(d: { name?: string }, _i: number, e: React.MouseEvent) => { e?.stopPropagation?.(); if (d?.name) select(d.name); }} style={{ cursor: "pointer" }}>
-                  {data.map((d, i) => <Cell key={d.name} fill={SERIES[i % SERIES.length]} />)}
+                  {data.map((d, i) => <Cell key={d.name} fill={colorOf(d.name, i)} />)}
                 </Pie>
                 <Tooltip {...tooltip} formatter={(v: unknown) => f.full(Number(v))} />
               </PieChart>
@@ -262,7 +273,7 @@ export function Donut({ title, description, data, centre, records, format = "mon
                   className="flex min-h-9 w-full items-center justify-between gap-3 text-left hover:bg-[#F7F8FA]"
                 >
                   <span className="flex items-center gap-2 text-[#334155]">
-                    <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-[2px]" style={{ background: SERIES[i % SERIES.length] }} />
+                    <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-[2px]" style={{ background: colorOf(d.name, i) }} />
                     {d.name}
                   </span>
                   <span className="text-right">

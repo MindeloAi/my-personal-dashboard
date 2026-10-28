@@ -147,8 +147,8 @@ export type Records = {
   month(key: string): RecordTable;
   /** Paid invoices in a month only. */
   paidIn(key: string): RecordTable;
-  /** Unpaid invoices for a client name. */
-  owedBy(name: string): RecordTable;
+  /** Unpaid invoices for a client name, or every client outside `shown` for OTHER. */
+  owedBy(name: string, shown?: string[]): RecordTable;
   /** Paid invoices for a client name, or every client outside `shown` for OTHER. */
   paidBy(name: string, shown: string[]): RecordTable;
   /** Paid invoices of a service type, or of every type outside `shown` for OTHER. */
@@ -199,10 +199,10 @@ export function buildRecords(
       };
     },
     paidIn: (key) => paid(inMonth(key)),
-    owedBy: (name) => ({
+    owedBy: (name, shown = []) => ({
       columns: [...INV.slice(0, 2), "Due", "Still owed", "Status", "Notes"],
       rows: invoices
-        .filter((i) => (i.Status === "Sent" || i.Status === "Overdue") && nameOf(i) === name)
+        .filter((i) => (i.Status === "Sent" || i.Status === "Overdue") && (name === OTHER ? !shown.includes(nameOf(i)) : nameOf(i) === name))
         .map((i) => {
           const r = row(i, i["Due Date"], (i.Amount ?? 0) - (i["Paid So Far"] ?? 0));
           r[4] = isOverdue(i) ? "Overdue" : "Sent";
