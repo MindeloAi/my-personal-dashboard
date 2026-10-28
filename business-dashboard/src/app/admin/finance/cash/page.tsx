@@ -10,7 +10,7 @@ export const revalidate = 0;
 
 export default async function CashPage() {
   await requireAdminPage();
-  const [ledger, history] = await Promise.all([getLedger(today()), getFinanceHistory()]);
+  const [ledger, history] = await Promise.all([getLedger(today()), getFinanceHistory(today())]);
   return (
     <>
       <PageHeader title="Cash & safe" purpose="Where the business's money physically is right now, the transfers between people and the safe, and the last cash counts." />

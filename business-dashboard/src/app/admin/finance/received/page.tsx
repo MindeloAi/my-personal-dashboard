@@ -11,7 +11,7 @@ export const revalidate = 0;
 export default async function MoneyReceivedPage() {
   await requireAdminPage();
   const [ledger, history, invoices, clients, projects] = await Promise.all([
-    getLedger(today()), getFinanceHistory(), getInvoices(), getClients(), getProjects(),
+    getLedger(today()), getFinanceHistory(today()), getInvoices(), getClients(), getProjects(),
   ]);
   return (
     <>

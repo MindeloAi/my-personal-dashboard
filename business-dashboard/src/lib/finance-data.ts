@@ -115,6 +115,14 @@ export function buildFinance(
     serviceByMonth: byMonth(months, (k) =>
       Object.fromEntries(topServices.map((s) => [s, sum(paid.filter((i) => inMonth(i["Paid Date"], k) && serviceBucket(i) === s), (i) => i.Amount ?? 0)]))),
     expensesByMonth: byMonth(months, (k) => Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c, spentIn(k, c)]))),
+    // Pie versions: totals over the same 12 months, and the payment split since the cutover.
+    serviceTotals: topServices.map((t) => ({ name: t, value: sum(paid.filter((i) => months.includes(i["Paid Date"]!.slice(0, 7)) && serviceBucket(i) === t), (i) => i.Amount ?? 0) })).filter((x) => x.value > 0),
+    expenseTotals: EXPENSE_CATEGORIES.map((c) => ({ name: c, value: sum(months, (k) => spentIn(k, c)) })).filter((x) => x.value > 0),
+    splitTotals: [
+      { name: "Business share", value: sum(history.split, (x) => x.business) },
+      { name: "Michael", value: sum(history.split, (x) => x.michael) },
+      { name: "Zane", value: sum(history.split, (x) => x.zane) },
+    ].filter((x) => x.value > 0),
     profit: byMonth(months, (k) => ({ profit: collectedIn(k) - spentIn(k) })),
     split: byMonth(ledgerMonths, (k) => {
       const r = history.split.find((s) => s.month === k);
@@ -202,18 +210,33 @@ export function buildFinance(
         age: (bucket: string): RecordTable => ({ columns: [...INV.slice(0, 2), "Due", "Still owed", "Status", "Notes"], rows: unpaid.filter((i) => ageOf(i) === bucket).map((i) => inv(i, i["Due Date"], remaining(i))) }),
         client: (name: string): RecordTable => {
           const shown = clientsTop.map((c) => c.name);
-          return { columns: INV, rows: paid.filter((i) => (name === OTHER ? !shown.includes(nameOf(i)) : nameOf(i) === name)).map((i) => inv(i, i["Paid Date"])) };
+          return { columns: INV, rows: invoices.filter((i) => i.Status === "Paid" && (name === OTHER ? !shown.includes(nameOf(i)) : nameOf(i) === name)).map((i) => inv(i, i["Paid Date"])) };
         },
         serviceMonth: (label: string): RecordTable => ({
           columns: ["Service type", ...INV],
           rows: paid.filter((i) => inMonth(i["Paid Date"], monthKeyOf(label))).map((i) => [serviceBucket(i), ...inv(i, i["Paid Date"])]),
         }),
         spent: (label: string) => spent(monthKeyOf(label)),
+        serviceType: (name: string): RecordTable => ({
+          columns: INV,
+          rows: paid.filter((i) => months.includes(i["Paid Date"]!.slice(0, 7)) && serviceBucket(i) === name).map((i) => inv(i, i["Paid Date"])),
+        }),
+        categoryInYear: (name: string): RecordTable => ({
+          columns: EXP,
+          rows: expenses.filter((e) => !!e.Date && months.includes(e.Date.slice(0, 7)) && (e.Category ?? "Other") === name).map(exp),
+        }),
+        splitPart: (name: string): RecordTable => {
+          const part = (c: Ledger["collections"][number]) => (name === "Michael" ? c.michaelPayout : name === "Zane" ? c.zanePayout : c.businessShare);
+          return {
+            columns: ["Date", "Invoice", "Client", "Payment", name],
+            rows: ledger.collections.map((c) => [c.paidAt.slice(0, 10), c.invoiceNumber ?? "", c.client ?? "", money(c.amount), money(part(c))]),
+          };
+        },
         profit: (label: string) => {
-          const k = monthKeyOf(label), c = collectedRows(k), e = spent(k);
+          const k = monthKeyOf(label), c = collectedRows(k);
           return { columns: ["Type", "Ref", "Client / category", "Date", "Amount"], rows: [
             ...c.rows.map((r) => ["Collected", r[1], r[2], r[0], r[3]]),
-            ...e.rows.map((r) => ["Expense", r[0], r[1], r[2], r[3]]),
+            ...expenses.filter((x) => inMonth(x.Date, k)).map((x) => ["Expense", x.Name, x.Category ?? "Other", x.Date ?? "", money(-(x.Amount ?? 0))]),
           ] };
         },
         split: (label: string): RecordTable => ({
@@ -222,7 +245,10 @@ export function buildFinance(
             c.paidAt.slice(0, 10), c.invoiceNumber ?? "", c.client ?? "", money(c.amount), money(c.businessShare), money(c.michaelPayout), money(c.zanePayout),
           ]),
         }),
-        collector: (label: string) => collectedRows(monthKeyOf(label)),
+        collector: (label: string) => {
+          const t = collectedRows(monthKeyOf(label));
+          return { ...t, rows: t.rows.filter((row) => row[4] !== "Before the ledger") };
+        },
         status: (label: string): RecordTable => {
           const st = label.split(" (")[0];
           return { columns: INV, rows: invoices.filter((i) => (st === "Overdue" ? i.Status !== "Paid" && isOverdue(i) : st === "Sent" ? i.Status === "Sent" && !isOverdue(i) : i.Status === st)).map((i) => inv(i, i["Issue Date"])) };
