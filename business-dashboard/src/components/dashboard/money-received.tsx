@@ -13,6 +13,7 @@ import { doCollectionStepAction, setCollectorAction, undoCollectionStepAction } 
 import { runAction } from "@/components/dashboard/cash-panel";
 import { FOUNDER_LABEL, HOLDERS, HOLDER_LABEL, tt, type Founder, type Holder } from "@/lib/ledger";
 import type { Collection, CollectionStep, Ledger } from "@/lib/db";
+import { Explain } from "./explain";
 
 const cardCls = "bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5";
 const titleCls = "text-[10px] text-[#5A6678] font-medium tracking-wider uppercase";
@@ -256,10 +257,10 @@ export function MoneyReceived({ ledger }: { ledger: Ledger }) {
     : ledger.collections;
 
   const tiles = [
-    { label: "Zane to hand over", value: toSort.handover },
-    { label: "Put in business cash", value: toSort.business },
-    { label: "Give Zane", value: toSort.giveZane },
-    { label: "Mikey keeps", value: toSort.mikeyKeeps },
+    { label: "Zane to hand over", value: toSort.handover, note: "Collected by Zane, still to give Mikey: each payment minus Zane's share." },
+    { label: "Put in business cash", value: toSort.business, note: "Business share of collected payments not in the safe yet." },
+    { label: "Give Zane", value: toSort.giveZane, note: "Zane's founder pay still due from money Mikey holds." },
+    { label: "Mikey keeps", value: toSort.mikeyKeeps, note: "Mikey's founder pay not yet marked as kept." },
   ];
 
   return (
@@ -277,6 +278,12 @@ export function MoneyReceived({ ledger }: { ledger: Ledger }) {
           Only still to sort
         </label>
       </div>
+      <Explain
+        className="mt-3"
+        shows="Every payment a client has made since the ledger started, and where each payment's money still has to go."
+        read="Each payment shows its invoice and notes, who collected it, then its steps: hand over to Mikey, put the business share in the safe, pay each founder. A ticked step is done; undoing a step also undoes the steps after it."
+        watch="Orange totals are money not sorted yet. Money left with Zane or Mikey for long should be handed over or put in the safe."
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-4">
         {tiles.map((t) => (
@@ -285,6 +292,7 @@ export function MoneyReceived({ ledger }: { ledger: Ledger }) {
             <p className={`text-lg font-semibold tabular-nums ${t.value > 0 ? "text-[#B45309]" : "text-[#5A6678]"}`}>
               {tt(t.value)}
             </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-[#5A6678]">{t.note}</p>
           </div>
         ))}
       </div>

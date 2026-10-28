@@ -13,6 +13,7 @@ import { ModalShell } from "@/components/ui/modal-shell";
 import type { Expense } from "@/lib/airtable";
 import { FOUNDER_LABEL, HOLDERS, HOLDER_LABEL, PAID_WITH, paidWithFields, paidWithValue, tt } from "@/lib/ledger";
 import { today } from "@/lib/subscriptions";
+import { Explain } from "./explain";
 
 type Props = {
   expenses: Expense[];
@@ -311,8 +312,14 @@ export function ExpensesList({ expenses, cutover, categoryFilter, onClearCategor
             </span>
           )}
         </div>
-        <span className="text-xs text-[#B23A0A] font-semibold">${total.toLocaleString()} total</span>
+        <span className="text-xs text-[#B23A0A] font-semibold">TT${total.toLocaleString()} total</span>
       </div>
+      <Explain
+        className="-mt-2 mb-5"
+        shows="Every business expense with its date, category and amount."
+        read="Click a category in the breakdown to filter this list. Amounts are TT$; costs paid in US$ are converted."
+        watch="Expenses a founder paid personally that still need reimbursing from business cash."
+      />
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -365,7 +372,7 @@ export function ExpensesList({ expenses, cutover, categoryFilter, onClearCategor
                       ) : <span className="text-[#6B7789] text-xs">—</span>}
                     </td>
                     <td className="py-3 text-right font-semibold text-[#1B2533] text-xs">
-                      ${(exp.Amount ?? 0).toLocaleString()}
+                      TT${(exp.Amount ?? 0).toLocaleString()}
                     </td>
                     <td className="py-3 pl-3 sm:pl-6 text-[#4A5568] text-xs whitespace-nowrap">
                       {exp.Date ? format(parseISO(exp.Date), "MMM d, yyyy") : "—"}

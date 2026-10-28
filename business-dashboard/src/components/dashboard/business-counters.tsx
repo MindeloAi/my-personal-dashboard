@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { parseISO, differenceInDays, startOfYear } from "date-fns";
 import type { Client, Project, Invoice } from "@/lib/airtable";
 import { isOverdue } from "@/lib/invoices";
+import { Explain } from "./explain";
 
 type Props = {
   clients: Client[];
@@ -111,6 +112,11 @@ export function BusinessCounters({ clients, projects, invoices, onJumpToOverdue 
   return (
     <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5 flex flex-col gap-4 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
       <p className="text-sm font-semibold text-[#1B2533]">At a glance</p>
+      <Explain
+        className="mt-1 mb-3"
+        shows="Headline counts for clients and projects, the value of the sales pipeline, the win rate, and how quickly invoices get paid on average."
+        read="Weighted pipeline discounts each open project by its chance of closing at its stage."
+      />
 
       {/* Counts */}
       <div className="flex flex-col gap-2">

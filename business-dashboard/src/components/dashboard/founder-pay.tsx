@@ -8,6 +8,7 @@ import { ModalShell } from "@/components/ui/modal-shell";
 import type { Ledger, Payout } from "@/lib/db";
 import { FOUNDERS, FOUNDER_LABEL, HOLDERS, HOLDER_LABEL, tt, type Founder, type Holder } from "@/lib/ledger";
 import { today } from "@/lib/subscriptions";
+import { Explain } from "./explain";
 
 const inputCls = "w-full bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-3 py-2 text-sm text-[#1B2533] placeholder:text-[#8B9AB0] focus:outline-none focus:border-[#94A3B8] transition-colors";
 const selectCls = inputCls + " cursor-pointer";
@@ -155,7 +156,8 @@ function ProjectedEarnings({ projection }: { projection: Ledger["projection"] })
   if (count === 0 && projection.michael.dueNow === 0 && projection.zane.dueNow === 0) return null;
   return (
     <div className="mb-6">
-      <p className="text-[10px] text-[#6B7789] uppercase tracking-wider mb-2">Projected earnings</p>
+      <p className="text-[10px] text-[#6B7789] uppercase tracking-wider mb-1">Projected earnings</p>
+      <p className="text-xs text-[#5A6678] mb-2">Pay already due, plus each founder&apos;s share of every unpaid invoice if it were paid in full today.</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {FOUNDERS.map((f) => {
           const p = projection[f];
@@ -254,6 +256,12 @@ export function FounderPay({ ledger }: { ledger: Ledger }) {
         <p className="text-xs text-[#5A6678] uppercase tracking-wider">Founder pay</p>
         {dueTotal > 0 && <span className="text-xs text-[#B45309] font-semibold">{tt(dueTotal)} due</span>}
       </div>
+      <Explain
+        className="-mt-2 mb-5"
+        shows="What each founder has earned from payments collected so far, invoice by invoice, and whether it has been paid out."
+        read="Every payment is split by the split rules: a base share for each founder, plus a bonus set by the invoice's bonus shares. A row stays Due until it is marked paid out. Projected earnings adds what the unpaid invoices would bring if they were paid today."
+        watch="Pay that stays Due for weeks, and pay marked as paid from the wrong place, since that changes that place's cash."
+      />
 
       <ProjectedEarnings projection={ledger.projection} />
 

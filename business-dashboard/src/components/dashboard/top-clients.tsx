@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { parseISO, startOfYear } from "date-fns";
 import type { Client, Invoice, Project } from "@/lib/airtable";
+import { Explain } from "./explain";
 
 type Range = "YTD" | "All-time";
 
@@ -97,6 +98,11 @@ export function TopClients({ clients, invoices, projects, selectedClientId, onSe
           ))}
         </div>
       </div>
+      <Explain
+        className="-mt-2 mb-4"
+        shows="The five clients who have paid the most in the chosen range."
+        watch="A client above 40% of revenue is flagged: the business depends heavily on them."
+          />
 
       {rows.length === 0 ? (
         <p className="text-xs text-[#6B7789] py-6 text-center">No paid invoices in this range</p>
@@ -117,7 +123,7 @@ export function TopClients({ clients, invoices, projects, selectedClientId, onSe
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-medium text-[#1B2533] truncate pr-2">{row.name}</span>
                   <span className="text-xs font-semibold text-[#1B2533] tabular-nums shrink-0">
-                    ${row.revenue.toLocaleString()}
+                    TT${row.revenue.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

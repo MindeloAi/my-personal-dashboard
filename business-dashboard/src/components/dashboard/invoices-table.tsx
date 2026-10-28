@@ -9,6 +9,7 @@ import { RecordPaymentModal } from "@/components/dashboard/record-payment-modal"
 import { effectiveStatus, isOverdue } from "@/lib/invoices";
 import { HOLDER_LABEL, tt, type Holder } from "@/lib/ledger";
 import type { Invoice, Ledger, Payment, Project, Subscription } from "@/lib/airtable";
+import { Explain } from "./explain";
 
 export type InvoiceStatusFilter = "All" | "Sent" | "Overdue" | "Paid" | "Draft";
 
@@ -193,6 +194,12 @@ export function InvoicesTable({
           ))}
         </div>
       </div>
+      <Explain
+        className="-mt-2 mb-5"
+        shows="Every invoice issued to a client: its number, type, amount, due date and status."
+        read="Filter by status at the top. Sent means issued and not yet paid, Overdue means past its due date, Paid means its recorded payments cover the full amount. Numbers are assigned automatically when an invoice is sent."
+        watch="Overdue invoices, and Sent invoices close to their due date. An invoice only becomes Paid by recording payments against it."
+      />
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -236,7 +243,7 @@ export function InvoicesTable({
                         {TYPE_LABELS[inv["Invoice Type"] ?? ""] ?? inv["Invoice Type"] ?? "—"}
                       </td>
                       <td className="py-3 text-right font-semibold text-[#1B2533]">
-                        ${(inv.Amount ?? 0).toLocaleString()}
+                        TT${(inv.Amount ?? 0).toLocaleString()}
                       </td>
                       <td className="py-3 pl-3 sm:pl-6 text-[#4A5568] whitespace-nowrap">
                         {inv["Due Date"] ? format(parseISO(inv["Due Date"]), "MMM d") : "—"}

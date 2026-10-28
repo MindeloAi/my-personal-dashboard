@@ -24,6 +24,7 @@ import {
 } from "@/app/actions";
 import { ModalShell } from "@/components/ui/modal-shell";
 import type { Client, Lead } from "@/lib/airtable";
+import { Explain } from "./explain";
 
 const STATUSES = ["New", "Contacted", "Proposal Sent", "Won", "Lost"] as const;
 type LeadStatus = (typeof STATUSES)[number];
@@ -535,6 +536,12 @@ export function LeadsTable({ leads, clients }: Props) {
           </button>
         </div>
       </div>
+      <Explain
+        className="-mt-2 mb-5"
+        shows="Everyone who has shown interest in working with Mindelo, grouped by pipeline stage."
+        read="Change a lead's stage with its dropdown, or switch to Kanban and drag it. Converting a won lead creates or links its client, so its projects and invoices follow."
+        watch="Leads left at New or Contacted for weeks need a follow-up."
+      />
 
       {optimisticLeads.length === 0 ? (
         <p className="py-8 text-center text-[#6B7789] text-sm">No leads yet</p>

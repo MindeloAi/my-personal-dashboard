@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { createClientAction, updateClientAction, deleteClientAction } from "@/app/actions";
 import type { Client, Invoice, Project } from "@/lib/db";
+import { Explain } from "./explain";
 
 const STATUSES = ["Active", "Inactive", "Lead"] as const;
 type ClientStatus = (typeof STATUSES)[number];
@@ -72,6 +73,12 @@ export function ClientsList({ clients, invoices, projects, timelineCounts }: Pro
           + New client
         </button>
       </div>
+      <Explain
+        className="-mt-2 mb-5"
+        shows="Every client Mindelo has worked for."
+        read="Open a client for their full timeline of invoices, payments, promises and notes. The buttons on each row jump straight to that client's invoices or projects."
+        watch="Clients with overdue invoices."
+      />
 
       {sorted.length === 0 ? (
         <p className="py-8 text-center text-[#6B7789] text-sm">
