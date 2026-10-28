@@ -3,5 +3,4 @@
 
 drop trigger invoices_number on invoices;
 drop function invoices_number();
-drop index projects_lead_id_idx;
 alter table projects drop column lead_id, drop column internal;

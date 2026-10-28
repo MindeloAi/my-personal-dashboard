@@ -70,14 +70,47 @@ try {
     check("  changing an issued number is refused", !!msg?.includes("already has its number"), String(msg));
     const cleared = await refused(() => sql`update invoices set invoice_number = null where id = ${s}`);
     check("  clearing it is refused too", !!cleared?.includes("already has its number"), String(cleared));
+    const renumbered = await refused(() => sql.begin(async (tx) => {
+      await tx`select set_config('invoices.renumber', 'on', true)`;
+      await tx`update invoices set invoice_number = 'INV-0042' where id = ${s}`;
+    }));
+    check("  with invoices.renumber on, an issued number can be changed",
+      renumbered === null && (await numberOf(s)) === "INV-0042", String(renumbered ?? await numberOf(s)));
   }
 
-  // 3 — two invoices sent at the same moment never share a number.
+  // 3 — the advisory lock makes a second numbering wait for the first to commit.
+  await reset();
+  {
+    const a = await sql.reserve();
+    const b = await sql.reserve();
+    try {
+      await a`begin`;
+      await a`insert into invoices (amount, status, issue_date) values (100, 'Sent', '2026-10-28')`;
+      await b`begin`;
+      const bInsert = b`insert into invoices (amount, status, issue_date) values (100, 'Sent', '2026-10-28') returning invoice_number`;
+      const raced = await Promise.race([
+        bInsert.then(() => "finished"),
+        new Promise((r) => setTimeout(() => r("blocked"), 300)),
+      ]);
+      check("3 a second Sent invoice waits while the first is uncommitted", raced === "blocked", String(raced));
+      await a`commit`;
+      const [row] = await bInsert;
+      await b`commit`;
+      check("  once the first commits, the second gets the next number", row.invoice_number === "INV-0002", String(row.invoice_number));
+    } finally {
+      await a`rollback`.catch(() => {});
+      await b`rollback`.catch(() => {});
+      a.release();
+      b.release();
+    }
+  }
+
+  // 3b — smoke test: eight invoices sent at once never share a number.
   await reset();
   {
     const ids = await Promise.all(Array.from({ length: 8 }, () => inv("Sent")));
     const nums = await Promise.all(ids.map(numberOf));
-    check("3 eight invoices created together get eight different numbers", new Set(nums).size === 8, nums.join(","));
+    check("3b eight invoices created together get eight different numbers", new Set(nums).size === 8, nums.join(","));
   }
 
   // 4 — the new link columns exist with the right defaults.

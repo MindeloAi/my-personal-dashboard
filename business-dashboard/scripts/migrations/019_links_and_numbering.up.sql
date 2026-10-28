@@ -20,6 +20,8 @@ create index projects_lead_id_idx on projects (lead_id);
 
 create function invoices_number() returns trigger
 language plpgsql as $$
+declare
+  n int;
 begin
   if tg_op = 'UPDATE'
      and old.invoice_number is not null
@@ -27,11 +29,14 @@ begin
      and coalesce(current_setting('invoices.renumber', true), '') <> 'on' then
     raise exception 'Invoice % already has its number. Numbers never change once issued.', old.invoice_number;
   end if;
+  -- A number typed by hand on a still-unnumbered invoice is deliberately allowed
+  -- (tests insert explicit TEST-/LED- numbers; the forms stop sending numbers).
   if new.invoice_number is null and new.status in ('Sent', 'Overdue', 'Paid') then
     perform pg_advisory_xact_lock(hashtext('invoices.invoice_number'));
-    select 'INV-' || lpad((coalesce(max(substring(invoice_number from '^INV-([0-9]+)$')::int), 0) + 1)::text, 4, '0')
-      into new.invoice_number
+    select coalesce(max(substring(upper(invoice_number) from '^INV-([0-9]+)$')::int), 0) + 1
+      into n
       from invoices;
+    new.invoice_number := 'INV-' || lpad(n::text, greatest(4, length(n::text)), '0');
   end if;
   return new;
 end $$;
