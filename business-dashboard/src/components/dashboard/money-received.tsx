@@ -59,11 +59,13 @@ function steps(c: Collection, ledger: Ledger): Step[] {
     return m ? () => runAction(() => deleteTransferAction(m.id), "Failed to undo") : undefined;
   };
 
+  const zaneCollected = c.receivedBy === "zane";
   const out: Step[] = [];
-  if (c.receivedBy === "zane") {
+  if (zaneCollected) {
+    // He keeps his own share and sends Mikey the rest (018).
     out.push({
       label: "Zane hands to Mikey",
-      amount: c.amount,
+      amount: c.amount - c.zanePayout,
       left: c.handoverDue,
       done: c.handoverDue === 0,
       doneText: "Handed over",
@@ -84,9 +86,13 @@ function steps(c: Collection, ledger: Ledger): Step[] {
     undo: c.receivedBy === "business" ? undefined : undoMove("business"),
   });
   for (const [founder, label, doneText] of [
-    ["zane", "Give Zane", "Given to Zane"],
-    ["michael", "Mikey keeps", "Kept"],
-  ] as const) {
+    zaneCollected ? (["zane", "Zane keeps his share", "Kept by Zane"] as const) : (["zane", "Give Zane", "Given to Zane"] as const),
+    ["michael", "Mikey keeps", "Kept"] as const,
+  ]) {
+    // Zane's share of what he collected never leaves him, so it is paid out
+    // from his pot and does not wait for the handover.
+    const payFrom: Holder = zaneCollected && founder === "zane" ? "zane" : from;
+    const blocked = waiting && payFrom !== "zane";
     // Newest first. More than one when a split was changed after paying out
     // (017): the extra one is a correction, negative if he was overpaid.
     const rows = payouts(founder);
@@ -101,12 +107,17 @@ function steps(c: Collection, ledger: Ledger): Step[] {
       done: due.length === 0,
       doneText: lastPaid?.paidFrom ? `${doneText}, from ${HOLDER_LABEL[lastPaid.paidFrom]}` : doneText,
       action:
-        due.length > 0 && !waiting
+        due.length > 0 && !blocked
           ? {
-              label: left < 0 ? `${FOUNDER_LABEL[founder]} paid back ${tt(-left)}` : founder === "zane" ? "Mark given" : "Mark kept",
+              label:
+                left < 0
+                  ? `${FOUNDER_LABEL[founder]} paid back ${tt(-left)}`
+                  : founder === "zane" && !zaneCollected
+                    ? "Mark given"
+                    : "Mark kept",
               run: async () => {
                 for (const p of due) {
-                  const err = await runAction(() => markPayoutPaidOutAction(p.id, today(), from), "Failed to mark paid out");
+                  const err = await runAction(() => markPayoutPaidOutAction(p.id, today(), payFrom), "Failed to mark paid out");
                   if (err) return err;
                 }
                 return null;
