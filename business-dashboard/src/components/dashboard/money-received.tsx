@@ -13,10 +13,11 @@ import {
   deleteTransferAction,
   markPayoutPaidOutAction,
   recordTransferAction,
+  setCollectorAction,
   undoPayoutPaidOutAction,
 } from "@/app/actions";
 import { runAction } from "@/components/dashboard/cash-panel";
-import { FOUNDER_LABEL, HOLDER_LABEL, tt, type Founder, type Holder } from "@/lib/ledger";
+import { FOUNDER_LABEL, HOLDERS, HOLDER_LABEL, tt, type Founder, type Holder } from "@/lib/ledger";
 import { today } from "@/lib/subscriptions";
 import type { Collection, Ledger } from "@/lib/db";
 
@@ -177,6 +178,31 @@ function StepRow({ step }: { step: Step }) {
   );
 }
 
+/** Who has this money. Fixable until any of it has been handed over or put in the safe. */
+function CollectorSelect({ c, locked }: { c: Collection; locked: boolean }) {
+  const [pending, start] = useTransition();
+  if (locked) return <span className="text-zinc-300">{HOLDER_LABEL[c.receivedBy]}</span>;
+  return (
+    <select
+      aria-label={`Who collected ${c.invoiceNumber ?? "this payment"}`}
+      value={c.receivedBy}
+      disabled={pending}
+      onChange={(e) => {
+        const holder = e.target.value as Holder;
+        start(async () => {
+          const err = await runAction(() => setCollectorAction(c.invoiceId, holder), "Failed to change who collected it");
+          if (!err) toast.success(`Collected by ${HOLDER_LABEL[holder]}`);
+        });
+      }}
+      className="min-h-11 sm:min-h-0 bg-[#0b0d10] border border-[#2a2e34] rounded-lg px-2 py-0.5 text-[11px] text-white cursor-pointer hover:border-zinc-500 focus:outline-none focus:border-zinc-500 disabled:opacity-40"
+    >
+      {HOLDERS.map((h) => (
+        <option key={h} value={h}>{HOLDER_LABEL[h]}</option>
+      ))}
+    </select>
+  );
+}
+
 function CollectionItem({ c, ledger }: { c: Collection; ledger: Ledger }) {
   const list = steps(c, ledger);
   const open = list.some((s) => !s.done);
@@ -191,7 +217,8 @@ function CollectionItem({ c, ledger }: { c: Collection; ledger: Ledger }) {
             {c.project && <span className="text-zinc-400 font-normal"> · {c.project}</span>}
           </p>
           <p className="text-[11px] text-zinc-500 mt-0.5">
-            {day(c.paidAt)} · {c.invoiceNumber ?? "No invoice no."} · collected by {HOLDER_LABEL[c.receivedBy]}
+            {day(c.paidAt)} · {c.invoiceNumber ?? "No invoice no."} · collected by{" "}
+            <CollectorSelect c={c} locked={ledger.movements.some((m) => m.paymentId === c.paymentId)} />
             {c.method && ` · ${c.method}`}
           </p>
         </div>
