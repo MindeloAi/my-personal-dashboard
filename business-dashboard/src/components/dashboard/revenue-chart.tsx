@@ -189,29 +189,29 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   const data = payload[0]?.payload;
   if (!data) return null;
   return (
-    <div className="bg-[#14181d] border border-[#2a2e34] rounded-2xl p-4 min-w-[200px] shadow-xl">
-      <p className="text-xs text-zinc-500 mb-3 font-medium">{label}</p>
+    <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-4 min-w-[200px] shadow-xl">
+      <p className="text-xs text-[#5A6678] mb-3 font-medium">{label}</p>
       <div className="space-y-2 mb-3">
         {payload.map((p) => (
           <div key={p.name} className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-              <span className="text-xs text-zinc-400">{p.name}</span>
+              <span className="text-xs text-[#4A5568]">{p.name}</span>
             </div>
-            <span className="text-xs font-semibold text-white">
+            <span className="text-xs font-semibold text-[#1B2533]">
               ${(p.value ?? 0).toLocaleString()}
             </span>
           </div>
         ))}
-        <div className="flex items-center justify-between gap-4 border-t border-[#2a2e34] pt-2">
-          <span className="text-xs text-zinc-400 pl-4">Profit to date</span>
-          <span className={`text-xs font-semibold ${data.profitToDate >= 0 ? "text-white" : "text-[#ff4d8b]"}`}>
+        <div className="flex items-center justify-between gap-4 border-t border-[#DCE1E8] pt-2">
+          <span className="text-xs text-[#4A5568] pl-4">Profit to date</span>
+          <span className={`text-xs font-semibold ${data.profitToDate >= 0 ? "text-[#1B2533]" : "text-[#B23A0A]"}`}>
             ${data.profitToDate.toLocaleString()}
           </span>
         </div>
       </div>
       {(data.paidInvoices.length > 0 || data.outstandingInvoices.length > 0) && (
-        <p className="text-[10px] text-[#bfff3a]">Click the point to see its invoices</p>
+        <p className="text-[10px] text-[#1D4ED8]">Click the point to see its invoices</p>
       )}
     </div>
   );
@@ -219,20 +219,20 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 
 function DrillDownPanel({ data, onClose }: { data: PeriodData; onClose: () => void }) {
   return (
-    <div className="mt-4 bg-[#0b0d10] border border-[#2a2e34] rounded-2xl p-4">
+    <div className="mt-4 bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] p-4">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-semibold text-white">{data.month} — Invoice breakdown</p>
-        <button onClick={onClose} className="text-zinc-500 hover:text-white text-xs transition-colors">Close ✕</button>
+        <p className="text-sm font-semibold text-[#1B2533]">{data.month} — Invoice breakdown</p>
+        <button onClick={onClose} className="text-[#5A6678] hover:text-[#0E1A2B] text-xs transition-colors">Close ✕</button>
       </div>
       {data.paidInvoices.length > 0 && (
         <div className="mb-3">
-          <p className="text-[10px] text-[#bfff3a] uppercase tracking-wider mb-2">Paid</p>
+          <p className="text-[10px] text-[#1D4ED8] uppercase tracking-wider mb-2">Paid</p>
           <div className="space-y-1.5">
             {data.paidInvoices.map((inv) => (
               <div key={inv.id} className="flex items-center justify-between text-xs">
-                <span className="text-zinc-400 font-mono">{inv["Invoice Number"] ?? "—"}</span>
-                <span className="text-zinc-500 capitalize">{inv["Invoice Type"]?.replace(/_/g, " ")}</span>
-                <span className="text-white font-semibold">${(inv.Amount ?? 0).toLocaleString()}</span>
+                <span className="text-[#4A5568] font-mono">{inv["Invoice Number"] ?? "—"}</span>
+                <span className="text-[#5A6678] capitalize">{inv["Invoice Type"]?.replace(/_/g, " ")}</span>
+                <span className="text-[#1B2533] font-semibold">${(inv.Amount ?? 0).toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -240,13 +240,13 @@ function DrillDownPanel({ data, onClose }: { data: PeriodData; onClose: () => vo
       )}
       {data.outstandingInvoices.length > 0 && (
         <div>
-          <p className="text-[10px] text-[#ff4d8b] uppercase tracking-wider mb-2">Outstanding</p>
+          <p className="text-[10px] text-[#B23A0A] uppercase tracking-wider mb-2">Outstanding</p>
           <div className="space-y-1.5">
             {data.outstandingInvoices.map((inv) => (
               <div key={inv.id} className="flex items-center justify-between text-xs">
-                <span className="text-zinc-400 font-mono">{inv["Invoice Number"] ?? "—"}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${inv.Status === "Overdue" ? "text-[#ff4d8b]" : "text-[#3affd1]"}`}>{inv.Status}</span>
-                <span className="text-white font-semibold">${(inv.Amount ?? 0).toLocaleString()}</span>
+                <span className="text-[#4A5568] font-mono">{inv["Invoice Number"] ?? "—"}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-[4px] ${inv.Status === "Overdue" ? "text-[#B23A0A]" : "text-[#0F766E]"}`}>{inv.Status}</span>
+                <span className="text-[#1B2533] font-semibold">${(inv.Amount ?? 0).toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -269,31 +269,31 @@ export function RevenueChart({ invoices, expenses }: Props) {
   const totalNet = data.reduce((s, d) => s + d.netProfit, 0);
 
   return (
-    <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
+    <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
       <div className="flex items-start justify-between mb-6">
         <div className="flex flex-wrap gap-4 md:gap-8">
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Revenue</p>
-            <p className="text-xl font-bold text-[#bfff3a]">${totalRevenue.toLocaleString()}</p>
+            <p className="text-[10px] text-[#5A6678] uppercase tracking-wider mb-1">Revenue</p>
+            <p className="text-xl font-bold text-[#1D4ED8]">${totalRevenue.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Outstanding</p>
-            <p className="text-xl font-bold text-[#fbbf24]">${totalOutstanding.toLocaleString()}</p>
+            <p className="text-[10px] text-[#5A6678] uppercase tracking-wider mb-1">Outstanding</p>
+            <p className="text-xl font-bold text-[#B45309]">${totalOutstanding.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Net Profit</p>
-            <p className={`text-xl font-bold ${totalNet >= 0 ? "text-[#3affd1]" : "text-[#ff4d8b]"}`}>
+            <p className="text-[10px] text-[#5A6678] uppercase tracking-wider mb-1">Net Profit</p>
+            <p className={`text-xl font-bold ${totalNet >= 0 ? "text-[#0F766E]" : "text-[#B23A0A]"}`}>
               ${totalNet.toLocaleString()}
             </p>
           </div>
         </div>
-        <div className="flex gap-1 bg-[#0b0d10] rounded-xl p-1">
+        <div className="flex gap-1 bg-[#F3F5F8] rounded-[4px] p-1">
           {(["1M", "6M", "YTD", "ALL"] as Range[]).map((r) => (
             <button
               key={r}
               onClick={() => { setRange(r); setDrillDown(null); }}
-              className={`min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                range === r ? "bg-[#bfff3a] text-black" : "text-zinc-400 hover:text-white"
+              className={`min-h-11 sm:min-h-0 px-3 py-1.5 rounded-[4px] text-xs font-medium transition-colors ${
+                range === r ? "bg-[#1D4ED8] text-white" : "text-[#4A5568] hover:text-[#0E1A2B]"
               }`}
             >
               {r}
@@ -313,28 +313,28 @@ export function RevenueChart({ invoices, expenses }: Props) {
             if (point && (point.paidInvoices.length > 0 || point.outstandingInvoices.length > 0)) setDrillDown(point);
           }}
         >
-          <CartesianGrid vertical={false} stroke="#2a2e34" strokeDasharray="3 3" />
-          <XAxis dataKey="month" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+          <CartesianGrid vertical={false} stroke="#DCE1E8" strokeDasharray="3 3" />
+          <XAxis dataKey="month" tick={{ fill: "#64748B", fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: "#64748B", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
           {/* Running total on its own scale: it dwarfs the monthly lines. */}
-          <YAxis yAxisId="toDate" orientation="right" width={40} tick={{ fill: "#a78bfa", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-          <ReferenceLine y={0} stroke="#2a2e34" />
+          <YAxis yAxisId="toDate" orientation="right" width={40} tick={{ fill: "#6D28D9", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+          <ReferenceLine y={0} stroke="#DCE1E8" />
           {/* Hover tooltip, and a click on the chart opens the invoices below it. A
               click-to-open tooltip covered the graph with no way to close it. */}
-          <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#2a2e34", strokeWidth: 1 }} />
-          <Line type="linear" dataKey="revenue" name="Revenue" stroke="#bfff3a" strokeWidth={2.5} dot={{ fill: "#bfff3a", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#bfff3a", cursor: "pointer" }} animationDuration={800} />
-          <Line type="linear" dataKey="outstanding" name="Outstanding" stroke="#ff4d8b" strokeWidth={2} strokeDasharray="5 3" dot={{ fill: "#ff4d8b", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#ff4d8b", cursor: "pointer" }} animationDuration={1000} />
-          <Line yAxisId="toDate" type="linear" dataKey="revenueToDate" name="Revenue to date" stroke="#a78bfa" strokeWidth={2} dot={{ fill: "#a78bfa", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#a78bfa", cursor: "pointer" }} animationDuration={1400} />
-          <Line type="linear" dataKey="netProfit" name="Net Profit" stroke="#3affd1" strokeWidth={2} dot={{ fill: "#3affd1", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#3affd1", cursor: "pointer" }} animationDuration={1200} />
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#DCE1E8", strokeWidth: 1 }} />
+          <Line type="linear" dataKey="revenue" name="Revenue" stroke="#1D4ED8" strokeWidth={2.5} dot={{ fill: "#1D4ED8", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#1D4ED8", cursor: "pointer" }} animationDuration={800} />
+          <Line type="linear" dataKey="outstanding" name="Outstanding" stroke="#B23A0A" strokeWidth={2} strokeDasharray="5 3" dot={{ fill: "#B23A0A", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#B23A0A", cursor: "pointer" }} animationDuration={1000} />
+          <Line yAxisId="toDate" type="linear" dataKey="revenueToDate" name="Revenue to date" stroke="#6D28D9" strokeWidth={2} dot={{ fill: "#6D28D9", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#6D28D9", cursor: "pointer" }} animationDuration={1400} />
+          <Line type="linear" dataKey="netProfit" name="Net Profit" stroke="#0F766E" strokeWidth={2} dot={{ fill: "#0F766E", r: 3, strokeWidth: 0 }} activeDot={{ r: 5, fill: "#0F766E", cursor: "pointer" }} animationDuration={1200} />
         </LineChart>
       </ResponsiveContainer>
       </div>
 
       <div className="flex flex-wrap gap-x-5 gap-y-1 mt-3">
-        {[{ color: "#bfff3a", label: "Revenue" }, { color: "#ff4d8b", label: "Outstanding" }, { color: "#3affd1", label: "Net Profit" }, { color: "#a78bfa", label: "Revenue to date (right scale)" }].map(({ color, label }) => (
+        {[{ color: "#1D4ED8", label: "Revenue" }, { color: "#B23A0A", label: "Outstanding" }, { color: "#0F766E", label: "Net Profit" }, { color: "#6D28D9", label: "Revenue to date (right scale)" }].map(({ color, label }) => (
           <div key={label} className="flex items-center gap-1.5">
             <div className="w-3 h-0.5 rounded-full" style={{ background: color }} />
-            <span className="text-[10px] text-zinc-500">{label}</span>
+            <span className="text-[10px] text-[#5A6678]">{label}</span>
           </div>
         ))}
       </div>

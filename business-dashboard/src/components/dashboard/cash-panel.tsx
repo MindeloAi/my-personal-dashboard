@@ -16,14 +16,14 @@ import { today } from "@/lib/subscriptions";
 import type { CashCheckRow, Ledger } from "@/lib/db";
 
 const inputCls =
-  "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
+  "w-full bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-3 py-2 text-sm text-[#1B2533] placeholder:text-[#8B9AB0] focus:outline-none focus:border-[#94A3B8] transition-colors";
 const selectCls = inputCls + " cursor-pointer";
-const cardCls = "bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-5";
-const titleCls = "text-[10px] text-zinc-500 font-medium tracking-wider uppercase";
+const cardCls = "bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5";
+const titleCls = "text-[10px] text-[#5A6678] font-medium tracking-wider uppercase";
 const buttonCls =
-  "min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 hover:bg-[#bfff3a]/20 disabled:opacity-40 transition-colors";
+  "min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-[4px] bg-[#1D4ED8]/10 text-[#1D4ED8] border border-[#1D4ED8]/20 hover:bg-[#1D4ED8]/20 disabled:opacity-40 transition-colors";
 const textButtonCls =
-  "min-h-11 sm:min-h-0 text-[11px] text-zinc-500 hover:text-white disabled:opacity-40 transition-colors";
+  "min-h-11 sm:min-h-0 text-[11px] text-[#5A6678] hover:text-[#0E1A2B] disabled:opacity-40 transition-colors";
 
 const day = (s: string) => format(parseISO(s.slice(0, 10)), "d MMM");
 
@@ -45,7 +45,7 @@ export async function runAction(fn: () => Promise<ActionResult>, fallback: strin
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-[11px] text-zinc-500 mb-1">{label}</span>
+      <span className="block text-[11px] text-[#5A6678] mb-1">{label}</span>
       {children}
     </label>
   );
@@ -57,15 +57,15 @@ function SubmitRow({ pending, onClose }: { pending: boolean; onClose: () => void
       <button
         type="button"
         onClick={onClose}
-        className="min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+        className="min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
       >
         Cancel
       </button>
       <button
         type="submit"
         disabled={pending}
-        className="min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl font-semibold disabled:opacity-40 transition-colors"
-        style={{ background: "#bfff3a", color: "#000" }}
+        className="min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-[4px] font-semibold disabled:opacity-40 transition-colors"
+        style={{ background: "#1D4ED8", color: "#000" }}
       >
         {pending ? "Saving…" : "Save"}
       </button>
@@ -134,7 +134,7 @@ function TransferModal({ onClose }: { onClose: () => void }) {
         <Field label="Note">
           <input name="note" placeholder="Optional" className={inputCls} />
         </Field>
-        {error && <p className="text-xs text-[#ff4d8b]">{error}</p>}
+        {error && <p className="text-xs text-[#B23A0A]">{error}</p>}
         <SubmitRow pending={pending} onClose={onClose} />
       </form>
     </ModalShell>
@@ -184,7 +184,7 @@ function CountModal({ onClose }: { onClose: () => void }) {
         <Field label="Note">
           <input name="note" placeholder="Optional" className={inputCls} />
         </Field>
-        {error && <p className="text-xs text-[#ff4d8b]">{error}</p>}
+        {error && <p className="text-xs text-[#B23A0A]">{error}</p>}
         <SubmitRow pending={pending} onClose={onClose} />
       </form>
     </ModalShell>
@@ -194,13 +194,13 @@ function CountModal({ onClose }: { onClose: () => void }) {
 function VariancePill({ variance }: { variance: number }) {
   if (variance === 0) {
     return (
-      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 font-medium">
+      <span className="text-[10px] px-2 py-0.5 rounded-[4px] bg-[#1D4ED8]/10 text-[#1D4ED8] border border-[#1D4ED8]/20 font-medium">
         Matches
       </span>
     );
   }
   return (
-    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/20 font-medium tabular-nums">
+    <span className="text-[10px] px-2 py-0.5 rounded-[4px] bg-[#B45309]/10 text-[#B45309] border border-[#B45309]/20 font-medium tabular-nums">
       {tt(Math.abs(variance))} {variance < 0 ? "short" : "over"}
     </span>
   );
@@ -219,13 +219,13 @@ function CashCheckItem({ row }: { row: CashCheckRow }) {
   }
 
   return (
-    <div className="py-2.5 border-t border-[#1f242a] first:border-t-0">
+    <div className="py-2.5 border-t border-[#EEF1F5] first:border-t-0">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-white">{HOLDER_LABEL[row.location]}</span>
+        <span className="text-sm text-[#1B2533]">{HOLDER_LABEL[row.location]}</span>
         {counted && row.variance !== null && <VariancePill variance={row.variance} />}
       </div>
       {counted ? (
-        <div className="mt-1 space-y-0.5 text-xs text-zinc-500">
+        <div className="mt-1 space-y-0.5 text-xs text-[#5A6678]">
           <p>
             Counted {tt(row.counted!)} on {day(row.countedAt!)}
             {row.expected !== null && <>, expected {tt(row.expected)}</>}
@@ -236,7 +236,7 @@ function CashCheckItem({ row }: { row: CashCheckRow }) {
           </button>
         </div>
       ) : (
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-xs text-[#5A6678]">
           Not counted yet, expected now {tt(row.expectedNow)}
         </p>
       )}
@@ -264,14 +264,14 @@ function TransferRow({ id, label, movedAt, amount, createdBy }: {
   return (
     <li className="flex items-center justify-between gap-3 text-xs">
       <div className="min-w-0">
-        <p className="text-zinc-300 truncate">
+        <p className="text-[#334155] truncate">
           {day(movedAt)}, {label}
         </p>
-        {createdBy && <p className="text-[10px] text-zinc-600 truncate">by {createdBy}</p>}
+        {createdBy && <p className="text-[10px] text-[#6B7789] truncate">by {createdBy}</p>}
       </div>
       <div className="flex items-center gap-3 shrink-0">
-        <span className="text-white tabular-nums">{tt(amount)}</span>
-        <button type="button" onClick={remove} disabled={pending} className={`${textButtonCls} hover:text-[#ff4d8b]`}>
+        <span className="text-[#1B2533] tabular-nums">{tt(amount)}</span>
+        <button type="button" onClick={remove} disabled={pending} className={`${textButtonCls} hover:text-[#B23A0A]`}>
           {pending ? "Deleting…" : "Delete"}
         </button>
       </div>
@@ -295,10 +295,10 @@ export function CashPanel({ ledger }: { ledger: Ledger }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className={titleCls}>Business cash (safe)</p>
-            <p className={`text-2xl font-bold mt-1 tabular-nums ${ledger.cash.business < 0 ? "text-[#ff4d8b]" : "text-white"}`}>
+            <p className={`text-2xl font-bold mt-1 tabular-nums ${ledger.cash.business < 0 ? "text-[#B23A0A]" : "text-[#1B2533]"}`}>
               {tt(ledger.cash.business)}
             </p>
-            <p className="text-xs text-zinc-500 mt-1">
+            <p className="text-xs text-[#5A6678] mt-1">
               All money {tt(ledger.cash.total)}: {holderLine(ledger.cash)}
             </p>
           </div>
@@ -310,15 +310,15 @@ export function CashPanel({ ledger }: { ledger: Ledger }) {
         <div className="mt-4 space-y-1.5">
           {HOLDERS.map((h) => (
             <div key={h} className="flex justify-between text-xs">
-              <span className="text-zinc-400">{HOLDER_LABEL[h]}</span>
-              <span className={`tabular-nums ${ledger.cash[h] < 0 ? "text-[#ff4d8b]" : "text-white"}`}>
+              <span className="text-[#4A5568]">{HOLDER_LABEL[h]}</span>
+              <span className={`tabular-nums ${ledger.cash[h] < 0 ? "text-[#B23A0A]" : "text-[#1B2533]"}`}>
                 {tt(ledger.cash[h])}
               </span>
             </div>
           ))}
         </div>
 
-        <p className="text-xs text-zinc-500 mt-3 pt-3 border-t border-[#1f242a]">
+        <p className="text-xs text-[#5A6678] mt-3 pt-3 border-t border-[#EEF1F5]">
           {owed
             ? `Owed to founders: ${owed}`
             : "Nothing owed to founders"}
@@ -327,7 +327,7 @@ export function CashPanel({ ledger }: { ledger: Ledger }) {
         <div className="mt-4">
           <p className={titleCls}>Recent transfers</p>
           {transfers.length === 0 ? (
-            <p className="text-xs text-zinc-600 mt-2">No transfers yet</p>
+            <p className="text-xs text-[#6B7789] mt-2">No transfers yet</p>
           ) : (
             <ul className="mt-2 space-y-2">
               {transfers.map((m) => (
@@ -349,7 +349,7 @@ export function CashPanel({ ledger }: { ledger: Ledger }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className={titleCls}>Cash check</p>
-            <p className="text-xs text-zinc-500 mt-1">Counted cash against what the books expect</p>
+            <p className="text-xs text-[#5A6678] mt-1">Counted cash against what the books expect</p>
           </div>
           <button type="button" onClick={() => setModal("count")} className={buttonCls}>
             Enter count
@@ -357,7 +357,7 @@ export function CashPanel({ ledger }: { ledger: Ledger }) {
         </div>
         <div className="mt-3">
           {checkRows.length === 0 ? (
-            <p className="text-xs text-zinc-600">No cash held or counted yet</p>
+            <p className="text-xs text-[#6B7789]">No cash held or counted yet</p>
           ) : (
             checkRows.map((row) => <CashCheckItem key={row.location} row={row} />)
           )}

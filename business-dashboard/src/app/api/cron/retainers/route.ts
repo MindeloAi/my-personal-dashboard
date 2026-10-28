@@ -25,7 +25,7 @@ export const dynamic = "force-dynamic";
 
 const NOTIFY_TO = process.env.CONTACT_NOTIFY_TO || "admin@mindelo.site";
 const NOTIFY_FROM = process.env.CONTACT_NOTIFY_FROM || "Mindelo <onboarding@resend.dev>";
-const DASHBOARD_URL = "https://mindelo.site/admin/finance";
+const DASHBOARD_URL = "https://mindelo.site/admin/finance/recurring";
 
 function esc(s: string) {
   return s

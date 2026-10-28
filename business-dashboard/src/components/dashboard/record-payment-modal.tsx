@@ -19,7 +19,7 @@ import { today } from "@/lib/subscriptions";
 import type { Invoice, Ledger } from "@/lib/airtable";
 
 const inputCls =
-  "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
+  "w-full bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-3 py-2 text-sm text-[#1B2533] placeholder:text-[#8B9AB0] focus:outline-none focus:border-[#94A3B8] transition-colors";
 const selectCls = inputCls + " cursor-pointer";
 
 
@@ -45,22 +45,22 @@ export function SplitPreview({
     ["Kept by business", s.kept],
   ];
   return (
-    <div className="bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2">
+    <div className="bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-3 py-2">
       <table className="w-full text-xs">
         <tbody>
           {rows.map(([label, value]) => (
             <tr key={label}>
-              <td className="py-1 text-zinc-500">{label}</td>
-              <td className="py-1 text-right font-mono text-zinc-300">{tt(value)}</td>
+              <td className="py-1 text-[#5A6678]">{label}</td>
+              <td className="py-1 text-right font-mono text-[#334155]">{tt(value)}</td>
             </tr>
           ))}
-          <tr className="border-t border-[#2a2e34]">
-            <td className="pt-2 pb-1 text-zinc-300 font-semibold">Michael total</td>
-            <td className="pt-2 pb-1 text-right font-mono text-white font-semibold">{tt(s.michaelTotal)}</td>
+          <tr className="border-t border-[#DCE1E8]">
+            <td className="pt-2 pb-1 text-[#334155] font-semibold">Michael total</td>
+            <td className="pt-2 pb-1 text-right font-mono text-[#1B2533] font-semibold">{tt(s.michaelTotal)}</td>
           </tr>
           <tr>
-            <td className="py-1 text-zinc-300 font-semibold">Zane total</td>
-            <td className="py-1 text-right font-mono text-white font-semibold">{tt(s.zaneTotal)}</td>
+            <td className="py-1 text-[#334155] font-semibold">Zane total</td>
+            <td className="py-1 text-right font-mono text-[#1B2533] font-semibold">{tt(s.zaneTotal)}</td>
           </tr>
         </tbody>
       </table>
@@ -130,15 +130,15 @@ export function RecordPaymentModal({
   return (
     <ModalShell title="Record payment" onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-[#5A6678]">
           {invoice["Invoice Number"] ?? "Invoice"}, {tt(remaining)} still owed
         </p>
         {!hasShares && (
-          <p className="text-xs text-[#ff4d8b]">Set the bonus shares on this invoice first.</p>
+          <p className="text-xs text-[#B23A0A]">Set the bonus shares on this invoice first.</p>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Amount (TTD)</label>
+            <label className="text-xs text-[#4A5568]">Amount (TTD)</label>
             <input
               type="number"
               min="0.01"
@@ -151,7 +151,7 @@ export function RecordPaymentModal({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Paid on</label>
+            <label className="text-xs text-[#4A5568]">Paid on</label>
             <input
               type="date"
               value={paidAt}
@@ -163,7 +163,7 @@ export function RecordPaymentModal({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Received by</label>
+            <label className="text-xs text-[#4A5568]">Received by</label>
             <select
               value={receivedBy}
               onChange={(e) => setReceivedBy(e.target.value as Holder)}
@@ -177,7 +177,7 @@ export function RecordPaymentModal({
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Method</label>
+            <label className="text-xs text-[#4A5568]">Method</label>
             <select value={method} onChange={(e) => setMethod(e.target.value)} className={selectCls}>
               <option value="">Not set</option>
               {PAYMENT_METHODS.map((m) => (
@@ -189,7 +189,7 @@ export function RecordPaymentModal({
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-zinc-400">Note</label>
+          <label className="text-xs text-[#4A5568]">Note</label>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -200,18 +200,18 @@ export function RecordPaymentModal({
         {hasShares && (
           <>
             <SplitPreview amount={amountNum} rule={ledger.rule} michaelShare={michaelShare} />
-            <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none">
+            <label className="flex items-center gap-2 text-xs text-[#4A5568] cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={payOutNow}
                 onChange={(e) => setPayOutNow(e.target.checked)}
-                className="w-3.5 h-3.5 accent-[#bfff3a]"
+                className="w-3.5 h-3.5 accent-[#1D4ED8]"
               />
               Pay out founders now
             </label>
             {payOutNow && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400">Paid from</label>
+                <label className="text-xs text-[#4A5568]">Paid from</label>
                 <select
                   value={paidFrom}
                   onChange={(e) => setPaidFromChoice(e.target.value as Holder)}
@@ -225,22 +225,22 @@ export function RecordPaymentModal({
                 </select>
               </div>
             )}
-            <p className="text-xs text-zinc-500">Business cash goes up by {tt(cashUp)}</p>
+            <p className="text-xs text-[#5A6678]">Business cash goes up by {tt(cashUp)}</p>
           </>
         )}
-        {error && <p className="text-xs text-[#ff4d8b]">{error}</p>}
+        {error && <p className="text-xs text-[#B23A0A]">{error}</p>}
         <div className="flex gap-2 justify-end mt-2">
           <button
             type="button"
             onClick={onClose}
-            className="min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+            className="min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={pending || !hasShares || !amountValid}
-            className="min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80"
+            className="min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-[4px] font-semibold bg-[#1D4ED8] text-white disabled:opacity-40 transition-colors hover:bg-[#1D4ED8]/80"
           >
             {pending ? "Saving…" : "Confirm payment"}
           </button>

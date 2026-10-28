@@ -7,10 +7,10 @@ import type { Project, Invoice } from "@/lib/airtable";
 type Props = { projects: Project[]; invoices: Invoice[] };
 
 const TYPE_COLORS: Record<string, string> = {
-  "Web Dev": "#bfff3a",
-  Automation: "#c44dff",
-  Hybrid: "#3affd1",
-  Unspecified: "#3a3f47",
+  "Web Dev": "#1D4ED8",
+  Automation: "#7E22CE",
+  Hybrid: "#0F766E",
+  Unspecified: "#CBD5E1",
 };
 
 const ACTIVE_STATUSES = new Set(["Lead", "In Progress", "Review"]);
@@ -33,7 +33,7 @@ function Donut({ data, label }: { data: { name: string; value: number }[]; label
         value: d.value,
         length,
         offset: acc.cursor,
-        color: TYPE_COLORS[d.name] ?? "#3a3f47",
+        color: TYPE_COLORS[d.name] ?? "#CBD5E1",
         pct,
       });
       acc.cursor += length;
@@ -44,10 +44,10 @@ function Donut({ data, label }: { data: { name: string; value: number }[]; label
 
   return (
     <div className="flex flex-col items-center gap-2 flex-1">
-      <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{label}</p>
+      <p className="text-[10px] text-[#5A6678] uppercase tracking-wider">{label}</p>
       <div className="relative" style={{ width: 110, height: 110 }}>
         <svg viewBox="0 0 100 100" style={{ width: "100%", height: "100%", transform: "rotate(-90deg)" }}>
-          <circle cx="50" cy="50" r={radius} fill="none" stroke="#1f242a" strokeWidth={stroke} />
+          <circle cx="50" cy="50" r={radius} fill="none" stroke="#EEF1F5" strokeWidth={stroke} />
           {segments.map((s) => (
             <circle
               key={s.name}
@@ -64,7 +64,7 @@ function Donut({ data, label }: { data: { name: string; value: number }[]; label
           ))}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-base font-bold text-white tabular-nums">
+          <span className="text-base font-bold text-[#1B2533] tabular-nums">
             ${total >= 1000 ? `${(total / 1000).toFixed(1)}k` : total.toLocaleString()}
           </span>
         </div>
@@ -119,16 +119,16 @@ export function ServiceTypeSplit({ projects, invoices }: Props) {
   );
 
   return (
-    <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
+    <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-medium text-white">Service mix</p>
-        <span className="text-[10px] text-zinc-600 uppercase tracking-wider">YTD</span>
+        <p className="text-sm font-medium text-[#1B2533]">Service mix</p>
+        <span className="text-[10px] text-[#6B7789] uppercase tracking-wider">YTD</span>
       </div>
 
       {!hasData ? (
         <div className="py-8 text-center">
-          <p className="text-xs text-zinc-600">No service-type data yet</p>
-          <p className="text-[10px] text-zinc-700 mt-1">Tag projects with Service Type in Airtable</p>
+          <p className="text-xs text-[#6B7789]">No service-type data yet</p>
+          <p className="text-[10px] text-[#8B9AB0] mt-1">Tag projects with Service Type in Airtable</p>
         </div>
       ) : (
         <>
@@ -137,14 +137,14 @@ export function ServiceTypeSplit({ projects, invoices }: Props) {
             <Donut data={paidData} label="Paid revenue" />
           </div>
 
-          <div className="mt-4 pt-3 border-t border-[#2a2e34] flex flex-wrap gap-x-4 gap-y-1.5">
+          <div className="mt-4 pt-3 border-t border-[#DCE1E8] flex flex-wrap gap-x-4 gap-y-1.5">
             {allLabels.map((name) => (
               <div key={name} className="flex items-center gap-1.5">
                 <div
                   className="w-2 h-2 rounded-full shrink-0"
-                  style={{ background: TYPE_COLORS[name] ?? "#3a3f47" }}
+                  style={{ background: TYPE_COLORS[name] ?? "#CBD5E1" }}
                 />
-                <span className="text-[10px] text-zinc-400">{name}</span>
+                <span className="text-[10px] text-[#4A5568]">{name}</span>
               </div>
             ))}
           </div>

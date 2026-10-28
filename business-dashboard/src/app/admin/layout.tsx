@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { dashboardFont } from "@/lib/dashboard-font";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { getClients, getProjects, getLeads, getLedgerBasics } from "@/lib/db";
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0d10",
+  themeColor: "#0E1A2B",
   // Lets the layout use env(safe-area-inset-*) under the notch and home bar.
   viewportFit: "cover",
 };
@@ -52,18 +53,16 @@ export default async function AppLayout({
   });
 
   return (
-    <div className="min-h-screen bg-[#0b0d10] text-white">
+    <div className={`${dashboardFont.className} min-h-screen bg-[#F3F5F8] text-[#1B2533] tabular-nums`}>
       <Sidebar adminEmail={admin.email}>
-        <div className="p-3 sm:p-5 max-w-[1400px] mx-auto space-y-3 dashboard-fade-in">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-1">
-            <div>
-              <p className="text-xl font-bold text-[#f5f5f5]">Mindelo Dashboard</p>
-              <p className="text-xs text-zinc-500 mt-0.5">{today}</p>
-            </div>
-            <QuickActions clients={clients} leads={leads} projects={projects} ledger={ledger} />
+        <div className="flex flex-col gap-3 border-b border-[#DCE1E8] bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div>
+            <p className="text-lg font-semibold text-[#1B2533]">Mindelo Dashboard</p>
+            <p className="text-xs text-[#5A6678] mt-0.5">{today}</p>
           </div>
-          {children}
+          <QuickActions clients={clients} leads={leads} projects={projects} ledger={ledger} />
         </div>
+        <div className="p-3 sm:p-6 max-w-[1400px] mx-auto space-y-4 dashboard-fade-in">{children}</div>
       </Sidebar>
     </div>
   );

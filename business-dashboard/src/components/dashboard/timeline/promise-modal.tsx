@@ -43,9 +43,9 @@ export function PromiseModal({ clientId, mode, side, promise, onClose }: Props) 
     <ModalShell title={TITLE[mode]} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         {(mode === "replace" || mode === "drop") && promise && (
-          <div className="rounded-xl border border-[#2a2e34] bg-[#0b0d10]/60 px-3 py-2 text-sm text-zinc-300 break-words">
+          <div className="rounded-[4px] border border-[#DCE1E8] bg-[#F3F5F8]/60 px-3 py-2 text-sm text-[#334155] break-words">
             <p>{promise.what}</p>
-            <p className="text-xs text-zinc-500">Due {promise.dueOn ? formatDay(promise.dueOn) : "no date"}</p>
+            <p className="text-xs text-[#5A6678]">Due {promise.dueOn ? formatDay(promise.dueOn) : "no date"}</p>
           </div>
         )}
         {(mode === "add" || mode === "edit") && (
@@ -66,7 +66,7 @@ export function PromiseModal({ clientId, mode, side, promise, onClose }: Props) 
             </Field>
           </>
         )}
-        {mode === "edit" && <p className="text-xs text-zinc-500">To record a date that really moved, use Replace instead.</p>}
+        {mode === "edit" && <p className="text-xs text-[#5A6678]">To record a date that really moved, use Replace instead.</p>}
         {mode === "drop" && (
           <Field id={id("note")} label="Note (optional)">
             <textarea id={id("note")} rows={3} value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} className={inputCls} />

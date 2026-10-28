@@ -36,8 +36,8 @@ type Props = {
 
 type Tip = { at: number; title: string; lines: string[] };
 
-const DOT_COLOR = { received: "#34d399", sent: "#60a5fa", both: "#fbbf24" } as const;
-const SIDE_COLOR: Record<OwedBy, string> = { client: "#fbbf24", us: "#60a5fa" };
+const DOT_COLOR = { received: "#1E6B3A", sent: "#2563EB", both: "#B45309" } as const;
+const SIDE_COLOR: Record<OwedBy, string> = { client: "#B45309", us: "#2563EB" };
 const SIDE_LABEL: Record<OwedBy, string> = { client: "Client owes", us: "We owe" };
 // Vertical centre of each row inside the strip, in px. Client and us diamonds get their own row so both stay clickable.
 const ROW = { dot: 24, axis: 50, client: 68, us: 96 } as const;
@@ -116,11 +116,11 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
 
   return (
     <section className={`${PANEL} p-4`} aria-label="Date line">
-      <div className="mb-2 flex flex-wrap justify-between gap-x-3 text-sm font-semibold text-white">
+      <div className="mb-2 flex flex-wrap justify-between gap-x-3 text-sm font-semibold text-[#1B2533]">
         <span>
           {formatDay(w.start).slice(4)} to {formatDay(w.end).slice(4)}
         </span>
-        <span className="text-[11px] font-medium text-zinc-500">
+        <span className="text-[11px] font-medium text-[#5A6678]">
           top row = contact · bottom rows = due dates (amber client, blue us)
         </span>
       </div>
@@ -131,11 +131,11 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
           if (!(e.target as Element).closest("button")) setTip(null);
         }}
       >
-        <div className="absolute inset-x-0 h-0.5 bg-[#2e333b]" style={{ top: ROW.axis - 1 }} />
+        <div className="absolute inset-x-0 h-0.5 bg-[#CBD5E1]" style={{ top: ROW.axis - 1 }} />
         {monthStarts(w.start, w.end).map(({ day, label }) => (
           <span
             key={day}
-            className="absolute -translate-x-1/2 text-[10px] text-zinc-500"
+            className="absolute -translate-x-1/2 text-[10px] text-[#5A6678]"
             style={{ left: `${pct(day, w)}%`, top: ROW.axis - 20 }}
           >
             {label}
@@ -175,7 +175,7 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
                   style={{ background: DOT_COLOR[d.direction], boxShadow: on ? RING : undefined }}
                 />
                 {n > 1 && (
-                  <span className="pointer-events-none absolute right-0 top-0 text-[10px] font-bold leading-none text-zinc-300">
+                  <span className="pointer-events-none absolute right-0 top-0 text-[10px] font-bold leading-none text-[#334155]">
                     {n}
                   </span>
                 )}
@@ -207,7 +207,7 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
                   className={`${mark} rotate-45 border-2 ${on ? "scale-[1.45]" : ""}`}
                   style={{
                     borderColor: SIDE_COLOR[d.side],
-                    background: d.late ? LATE : "#0b0d10",
+                    background: d.late ? LATE : "#F3F5F8",
                     boxShadow: on ? RING : undefined,
                   }}
                 />
@@ -227,10 +227,10 @@ export function DateLine({ entries, promises, invoices, today, lit, onLight }: P
         {tip && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute z-30 w-[230px] max-w-full -translate-x-1/2 rounded-[7px] border border-[#343b48] bg-[#1f2430] px-2.5 py-2 text-[11.5px] text-zinc-300 shadow-[0_6px_20px_rgba(0,0,0,.4)]"
+            className="pointer-events-none absolute z-30 w-[230px] max-w-full -translate-x-1/2 rounded-[4px] border border-[#DCE1E8] bg-[#FFFFFF] px-2.5 py-2 text-[11.5px] text-[#334155] shadow-md"
             style={{ top: 118, left: `clamp(115px, ${tip.at}%, calc(100% - 115px))` }}
           >
-            <b className="text-zinc-100">{tip.title}</b>
+            <b className="text-[#1B2533]">{tip.title}</b>
             {tip.lines.map((l, i) => (
               <div key={i}>{l}</div>
             ))}

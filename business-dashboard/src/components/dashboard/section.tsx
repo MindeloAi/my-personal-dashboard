@@ -31,12 +31,12 @@ export function Section({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-0.5">
             {title && (
-              <h2 className="text-lg font-semibold tracking-tight text-[#f5f5f5]">
+              <h2 className="text-lg font-semibold tracking-tight text-[#1B2533]">
                 {title}
               </h2>
             )}
             {description && (
-              <p className="text-xs text-zinc-500">{description}</p>
+              <p className="text-xs text-[#5A6678]">{description}</p>
             )}
           </div>
           {action && <div className="shrink-0">{action}</div>}

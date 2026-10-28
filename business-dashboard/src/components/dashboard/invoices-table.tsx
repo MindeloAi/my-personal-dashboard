@@ -25,11 +25,11 @@ type Props = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  Paid: "bg-[#bfff3a]/10 text-[#bfff3a] border-[#bfff3a]/20",
-  Sent: "bg-[#3affd1]/10 text-[#3affd1] border-[#3affd1]/20",
-  Overdue: "bg-[#ff4d8b]/10 text-[#ff4d8b] border-[#ff4d8b]/20",
-  Draft: "bg-zinc-800 text-zinc-400 border-zinc-700",
-  Void: "bg-[#c44dff]/10 text-[#c44dff] border-[#c44dff]/20",
+  Paid: "bg-[#1E6B3A]/10 text-[#1E6B3A] border-[#1E6B3A]/20",
+  Sent: "bg-[#1D4ED8]/10 text-[#1D4ED8] border-[#1D4ED8]/20",
+  Overdue: "bg-[#B23A0A]/10 text-[#B23A0A] border-[#B23A0A]/20",
+  Draft: "bg-[#E2E8F0] text-[#4A5568] border-[#CBD5E1]",
+  Void: "bg-[#7E22CE]/10 text-[#7E22CE] border-[#7E22CE]/20",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -51,7 +51,7 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span
       className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-        STATUS_STYLES[status] ?? "bg-zinc-800 text-zinc-400 border-zinc-700"
+        STATUS_STYLES[status] ?? "bg-[#E2E8F0] text-[#4A5568] border-[#CBD5E1]"
       }`}
     >
       {status}
@@ -79,7 +79,7 @@ function DeletePaymentButton({ paymentId }: { paymentId: string }) {
           }
         });
       }}
-      className="min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-lg border border-[#2a2e34] text-zinc-400 hover:text-[#ff4d8b] hover:border-[#ff4d8b]/40 disabled:opacity-40 transition-colors"
+      className="min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#B23A0A] hover:border-[#B23A0A]/40 disabled:opacity-40 transition-colors"
     >
       {pending ? "Deleting…" : "Delete"}
     </button>
@@ -89,25 +89,25 @@ function DeletePaymentButton({ paymentId }: { paymentId: string }) {
 function PaymentsList({ payments }: { payments: Payment[] }) {
   return (
     <div className="mt-3">
-      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1.5">Payments</p>
-      <ul className="divide-y divide-[#2a2e34] border border-[#2a2e34] rounded-xl">
+      <p className="text-[10px] text-[#6B7789] uppercase tracking-wider mb-1.5">Payments</p>
+      <ul className="divide-y divide-[#DCE1E8] border border-[#DCE1E8] rounded-[4px]">
         {payments.map((p) => (
-          <li key={p.id} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-3 py-2 text-xs text-zinc-400">
+          <li key={p.id} className="flex flex-wrap items-center gap-x-6 gap-y-1 px-3 py-2 text-xs text-[#4A5568]">
             <span>{format(parseISO(p.paidAt), "MMM d, yyyy")}</span>
-            <span className="font-mono font-semibold text-white">{tt(p.amount)}</span>
+            <span className="font-mono font-semibold text-[#1B2533]">{tt(p.amount)}</span>
             <span>
-              <span className="text-zinc-600 mr-1">Received by</span>
+              <span className="text-[#6B7789] mr-1">Received by</span>
               {HOLDER_LABEL[p.receivedBy]}
             </span>
             {p.method && (
               <span>
-                <span className="text-zinc-600 mr-1">Via</span>
+                <span className="text-[#6B7789] mr-1">Via</span>
                 {p.method}
               </span>
             )}
             {p.createdBy && (
               <span>
-                <span className="text-zinc-600 mr-1">Entered by</span>
+                <span className="text-[#6B7789] mr-1">Entered by</span>
                 {p.createdBy}
               </span>
             )}
@@ -162,16 +162,16 @@ export function InvoicesTable({
   const filters: InvoiceStatusFilter[] = ["All", "Sent", "Overdue", "Paid", "Draft"];
 
   return (
-    <div id="invoices" className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
+    <div id="invoices" className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <p className="text-xs text-zinc-500 uppercase tracking-wider">Invoices</p>
+          <p className="text-xs text-[#5A6678] uppercase tracking-wider">Invoices</p>
           {clientFilter && clientName && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 font-medium flex items-center gap-1.5">
+            <span className="text-[10px] px-2 py-0.5 rounded-[4px] bg-[#1D4ED8]/10 text-[#1D4ED8] border border-[#1D4ED8]/20 font-medium flex items-center gap-1.5">
               {clientName}
               <button
                 onClick={onClearClientFilter}
-                className="hover:text-white transition-colors"
+                className="hover:text-[#0E1A2B] transition-colors"
                 aria-label="Clear client filter"
               >
                 ✕
@@ -179,13 +179,13 @@ export function InvoicesTable({
             </span>
           )}
         </div>
-        <div className="flex flex-wrap gap-1 bg-[#0b0d10] rounded-xl p-1">
+        <div className="flex flex-wrap gap-1 bg-[#F3F5F8] rounded-[4px] p-1">
           {filters.map((f) => (
             <button
               key={f}
               onClick={() => onStatusFilterChange(f)}
-              className={`min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                statusFilter === f ? "bg-[#bfff3a] text-black" : "text-zinc-400 hover:text-white"
+              className={`min-h-11 sm:min-h-0 px-3 py-1.5 rounded-[4px] text-xs font-medium transition-colors ${
+                statusFilter === f ? "bg-[#1D4ED8] text-white" : "text-[#4A5568] hover:text-[#0E1A2B]"
               }`}
             >
               {f}
@@ -197,7 +197,7 @@ export function InvoicesTable({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-zinc-500 text-xs uppercase tracking-wider border-b border-[#2a2e34]">
+            <tr className="text-[#5A6678] text-xs uppercase tracking-wider border-b border-[#DCE1E8]">
               <th className="text-left pb-3 font-medium">Invoice</th>
               <th className="hidden sm:table-cell text-left pb-3 font-medium">Type</th>
               <th className="text-right pb-3 font-medium">Amount</th>
@@ -206,10 +206,10 @@ export function InvoicesTable({
               <th className="pb-3" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#2a2e34]">
+          <tbody className="divide-y divide-[#DCE1E8]">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-zinc-600 text-sm">
+                <td colSpan={6} className="py-8 text-center text-[#6B7789] text-sm">
                   No invoices
                 </td>
               </tr>
@@ -225,20 +225,20 @@ export function InvoicesTable({
                       onClick={() => setExpandedId(isExpanded ? null : inv.id)}
                       className="hover:bg-white/[0.02] transition-colors cursor-pointer"
                     >
-                      <td className="py-3 font-mono text-zinc-300 text-xs font-semibold whitespace-nowrap">
+                      <td className="py-3 font-mono text-[#334155] text-xs font-semibold whitespace-nowrap">
                         {inv["Invoice Number"] ?? "—"}
                         {/* Phones drop the Type column; keep the type under the number. */}
-                        <span className="sm:hidden block mt-0.5 font-sans font-normal text-zinc-500">
+                        <span className="sm:hidden block mt-0.5 font-sans font-normal text-[#5A6678]">
                           {TYPE_LABELS[inv["Invoice Type"] ?? ""] ?? inv["Invoice Type"] ?? "—"}
                         </span>
                       </td>
-                      <td className="hidden sm:table-cell py-3 text-zinc-400">
+                      <td className="hidden sm:table-cell py-3 text-[#4A5568]">
                         {TYPE_LABELS[inv["Invoice Type"] ?? ""] ?? inv["Invoice Type"] ?? "—"}
                       </td>
-                      <td className="py-3 text-right font-semibold text-white">
+                      <td className="py-3 text-right font-semibold text-[#1B2533]">
                         ${(inv.Amount ?? 0).toLocaleString()}
                       </td>
-                      <td className="py-3 pl-3 sm:pl-6 text-zinc-400 whitespace-nowrap">
+                      <td className="py-3 pl-3 sm:pl-6 text-[#4A5568] whitespace-nowrap">
                         {inv["Due Date"] ? format(parseISO(inv["Due Date"]), "MMM d") : "—"}
                         {/* Phones drop the Status column; the badge sits under the date. */}
                         <span className="sm:hidden block mt-1">
@@ -255,7 +255,7 @@ export function InvoicesTable({
                               e.stopPropagation();
                               setPayingInvoice(inv);
                             }}
-                            className="min-h-11 sm:min-h-0 whitespace-nowrap text-xs px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 hover:bg-[#bfff3a]/20 transition-colors"
+                            className="min-h-11 sm:min-h-0 whitespace-nowrap text-xs px-2.5 py-1 rounded-[4px] bg-[#1D4ED8]/10 text-[#1D4ED8] border border-[#1D4ED8]/20 hover:bg-[#1D4ED8]/20 transition-colors"
                           >
                             Mark paid
                           </button>
@@ -263,41 +263,41 @@ export function InvoicesTable({
                       </td>
                     </tr>
                     {isExpanded && (
-                      <tr className="bg-[#0b0d10]/60">
+                      <tr className="bg-[#F3F5F8]/60">
                         <td colSpan={6} className="px-2 pb-3 pt-1">
-                          <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-xs text-zinc-400">
+                          <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-xs text-[#4A5568]">
                             {inv["Issue Date"] && (
                               <span>
-                                <span className="text-zinc-600 mr-1">Issued</span>
+                                <span className="text-[#6B7789] mr-1">Issued</span>
                                 {format(parseISO(inv["Issue Date"]), "MMM d, yyyy")}
                               </span>
                             )}
                             {inv["Payment Method"] && (
                               <span>
-                                <span className="text-zinc-600 mr-1">Via</span>
+                                <span className="text-[#6B7789] mr-1">Via</span>
                                 {inv["Payment Method"]}
                               </span>
                             )}
                             {inv["Paid Date"] && (
                               <span>
-                                <span className="text-zinc-600 mr-1">Paid</span>
+                                <span className="text-[#6B7789] mr-1">Paid</span>
                                 {format(parseISO(inv["Paid Date"]), "MMM d, yyyy")}
                               </span>
                             )}
                             {inv.Notes ? (
-                              <span className="text-zinc-300">
-                                <span className="text-zinc-600 mr-1">Notes</span>
+                              <span className="text-[#334155]">
+                                <span className="text-[#6B7789] mr-1">Notes</span>
                                 {inv.Notes}
                               </span>
                             ) : (
-                              <span className="text-zinc-600 italic">No notes</span>
+                              <span className="text-[#6B7789] italic">No notes</span>
                             )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setEditingInvoice(inv);
                               }}
-                              className="ml-auto min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-lg border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+                              className="ml-auto min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
                             >
                               Edit
                             </button>

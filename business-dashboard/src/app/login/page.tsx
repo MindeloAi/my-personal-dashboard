@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient, getAdmin } from "@/lib/auth";
+import { dashboardFont } from "@/lib/dashboard-font";
 
 export const dynamic = "force-dynamic";
 
@@ -45,36 +46,36 @@ export default async function LoginPage({
   if (admin) redirect("/admin/overview");
 
   return (
-    <div className="min-h-screen bg-[#0b0d10] text-white flex items-center justify-center p-6">
+    <div className={`${dashboardFont.className} min-h-screen bg-[#F3F5F8] text-[#1B2533] flex items-center justify-center p-6`}>
       <form
         action={signIn}
-        className="w-full max-w-sm space-y-4 bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6"
+        className="w-full max-w-sm space-y-4 bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-6"
       >
         <div className="space-y-1">
-          <p className="text-lg font-semibold text-[#f5f5f5]">Mindelo Dashboard</p>
-          <p className="text-xs text-zinc-500">Sign in to continue.</p>
+          <p className="text-lg font-semibold text-[#1B2533]">Mindelo Dashboard</p>
+          <p className="text-xs text-[#5A6678]">Sign in to continue.</p>
         </div>
 
         {error === "invalid" && (
-          <p className="text-xs text-[#ff4d8b]">
+          <p className="text-xs text-[#B23A0A]">
             That email and password combination was not recognised.
           </p>
         )}
         {error === "unauthorised" && (
-          <p className="text-xs text-[#ff4d8b]">This account does not have dashboard access.</p>
+          <p className="text-xs text-[#B23A0A]">This account does not have dashboard access.</p>
         )}
         {error === "missing" && (
-          <p className="text-xs text-[#ff4d8b]">Enter both an email and a password.</p>
+          <p className="text-xs text-[#B23A0A]">Enter both an email and a password.</p>
         )}
         {error === "config" && (
-          <p className="text-xs text-[#fbbf24]">
+          <p className="text-xs text-[#B45309]">
             Supabase auth is not configured on this deployment. Set
             NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then redeploy.
           </p>
         )}
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-zinc-400" htmlFor="email">
+          <label className="text-xs text-[#4A5568]" htmlFor="email">
             Email
           </label>
           <input
@@ -84,12 +85,12 @@ export default async function LoginPage({
             autoComplete="username"
             autoFocus
             required
-            className="w-full rounded-lg bg-[#0b0d10] border border-[#2a2e34] px-3 py-2 text-sm outline-none focus:border-[#bfff3a]/40"
+            className="w-full rounded-[4px] bg-[#F3F5F8] border border-[#DCE1E8] px-3 py-2 text-sm outline-none focus:border-[#1D4ED8]/40"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-zinc-400" htmlFor="password">
+          <label className="text-xs text-[#4A5568]" htmlFor="password">
             Password
           </label>
           <input
@@ -98,13 +99,13 @@ export default async function LoginPage({
             type="password"
             autoComplete="current-password"
             required
-            className="w-full rounded-lg bg-[#0b0d10] border border-[#2a2e34] px-3 py-2 text-sm outline-none focus:border-[#bfff3a]/40"
+            className="w-full rounded-[4px] bg-[#F3F5F8] border border-[#DCE1E8] px-3 py-2 text-sm outline-none focus:border-[#1D4ED8]/40"
           />
         </div>
 
         <button
           type="submit"
-          className="w-full rounded-lg bg-[#bfff3a] text-black text-sm font-semibold px-3 py-2 hover:bg-[#bfff3a]/90 transition-colors"
+          className="w-full rounded-[4px] bg-[#1D4ED8] text-white text-sm font-semibold px-3 py-2 hover:bg-[#1D4ED8]/90 transition-colors"
         >
           Sign in
         </button>

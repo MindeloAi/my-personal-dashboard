@@ -17,16 +17,16 @@ export function RevenueSplit({ invoices }: Props) {
   }, [invoices]);
 
   const data = [
-    { name: "Recurring", value: recurring, color: "#bfff3a" },
-    { name: "One-off", value: oneOff, color: "#3affd1" },
+    { name: "Recurring", value: recurring, color: "#1D4ED8" },
+    { name: "One-off", value: oneOff, color: "#0F766E" },
   ];
 
   const recPct = total === 0 ? 0 : Math.round((recurring / total) * 100);
   const onePct = total === 0 ? 0 : 100 - recPct;
 
   return (
-    <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-5">
-      <p className="text-sm font-medium text-white mb-3">Recurring vs one-off</p>
+    <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5">
+      <p className="text-sm font-medium text-[#1B2533] mb-3">Recurring vs one-off</p>
       <div className="flex justify-center">
         <ResponsiveContainer width={120} height={120}>
           <PieChart>
@@ -47,7 +47,7 @@ export function RevenueSplit({ invoices }: Props) {
             </Pie>
             <Tooltip
               formatter={(v) => [`$${Number(v).toLocaleString()}`, ""]}
-              contentStyle={{ background: "#14181d", border: "1px solid #2a2e34", borderRadius: 12, fontSize: 11 }}
+              contentStyle={{ background: "#FFFFFF", border: "1px solid #DCE1E8", borderRadius: 12, fontSize: 11 }}
               itemStyle={{ color: "#fff" }}
               labelStyle={{ display: "none" }}
             />
@@ -56,12 +56,12 @@ export function RevenueSplit({ invoices }: Props) {
       </div>
       <div className="flex flex-col gap-2 mt-1">
         <div className="flex justify-between text-xs">
-          <span className="text-[#bfff3a]">● Recurring</span>
-          <span className="text-white">${recurring.toLocaleString()} · {recPct}%</span>
+          <span className="text-[#1D4ED8]">● Recurring</span>
+          <span className="text-[#1B2533]">${recurring.toLocaleString()} · {recPct}%</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-[#3affd1]">● One-off</span>
-          <span className="text-white">${oneOff.toLocaleString()} · {onePct}%</span>
+          <span className="text-[#0F766E]">● One-off</span>
+          <span className="text-[#1B2533]">${oneOff.toLocaleString()} · {onePct}%</span>
         </div>
       </div>
     </div>

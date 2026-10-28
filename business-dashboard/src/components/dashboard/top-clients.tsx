@@ -73,23 +73,23 @@ export function TopClients({ clients, invoices, projects, selectedClientId, onSe
   }, [clients, invoices, projects, range]);
 
   return (
-    <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
+    <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-white">Top clients</p>
+          <p className="text-sm font-medium text-[#1B2533]">Top clients</p>
           {concentrationWarn && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#fbbf24]/12 text-[#fbbf24] font-medium">
+            <span className="text-[10px] px-2 py-0.5 rounded-[4px] bg-[#B45309]/12 text-[#B45309] font-medium">
               ⚠ concentration
             </span>
           )}
         </div>
-        <div className="flex gap-1 bg-[#0b0d10] rounded-xl p-1">
+        <div className="flex gap-1 bg-[#F3F5F8] rounded-[4px] p-1">
           {(["YTD", "All-time"] as Range[]).map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`min-h-11 sm:min-h-0 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
-                range === r ? "bg-[#bfff3a] text-black" : "text-zinc-400 hover:text-white"
+              className={`min-h-11 sm:min-h-0 px-2.5 py-1 rounded-[4px] text-[10px] font-medium transition-colors ${
+                range === r ? "bg-[#1D4ED8] text-white" : "text-[#4A5568] hover:text-[#0E1A2B]"
               }`}
             >
               {r}
@@ -99,7 +99,7 @@ export function TopClients({ clients, invoices, projects, selectedClientId, onSe
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-xs text-zinc-600 py-6 text-center">No paid invoices in this range</p>
+        <p className="text-xs text-[#6B7789] py-6 text-center">No paid invoices in this range</p>
       ) : (
         <div className="space-y-2">
           {rows.map((row) => {
@@ -108,28 +108,28 @@ export function TopClients({ clients, invoices, projects, selectedClientId, onSe
               <button
                 key={row.clientId}
                 onClick={() => onSelectClient(isSelected ? null : row.clientId)}
-                className={`w-full text-left rounded-xl px-3 py-2 transition-colors ${
+                className={`w-full text-left rounded-[4px] px-3 py-2 transition-colors ${
                   isSelected
-                    ? "bg-[#bfff3a]/10 border border-[#bfff3a]/30"
+                    ? "bg-[#1D4ED8]/10 border border-[#1D4ED8]/30"
                     : "border border-transparent hover:bg-white/[0.03]"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-white truncate pr-2">{row.name}</span>
-                  <span className="text-xs font-semibold text-white tabular-nums shrink-0">
+                  <span className="text-xs font-medium text-[#1B2533] truncate pr-2">{row.name}</span>
+                  <span className="text-xs font-semibold text-[#1B2533] tabular-nums shrink-0">
                     ${row.revenue.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1 bg-[#1f242a] rounded-full overflow-hidden">
+                  <div className="flex-1 h-1 bg-[#EEF1F5] rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        row.pct > 40 ? "bg-[#fbbf24]" : "bg-[#bfff3a]"
+                        row.pct > 40 ? "bg-[#B45309]" : "bg-[#1D4ED8]"
                       }`}
                       style={{ width: `${row.pct}%` }}
                     />
                   </div>
-                  <span className="text-[10px] text-zinc-500 tabular-nums shrink-0">
+                  <span className="text-[10px] text-[#5A6678] tabular-nums shrink-0">
                     {row.pct}% · {row.invoiceCount} {row.invoiceCount === 1 ? "inv" : "invs"}
                   </span>
                 </div>
@@ -142,7 +142,7 @@ export function TopClients({ clients, invoices, projects, selectedClientId, onSe
       {selectedClientId && (
         <button
           onClick={() => onSelectClient(null)}
-          className="mt-3 text-[10px] text-zinc-500 hover:text-white transition-colors"
+          className="mt-3 text-[10px] text-[#5A6678] hover:text-[#0E1A2B] transition-colors"
         >
           Clear filter ✕
         </button>

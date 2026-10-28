@@ -37,13 +37,13 @@ export function OverviewView({
           clients={clients}
           projects={projects}
           invoices={invoices}
-          onJumpToOverdue={() => router.push("/admin/finance?status=Overdue")}
+          onJumpToOverdue={() => router.push("/admin/finance/invoices?status=Overdue")}
         />
         <div className="grid grid-cols-1 gap-3">
           <MrrCard
             subscriptions={subscriptions}
             invoices={invoices}
-            onJumpToRecurring={() => router.push("/admin/finance#subscriptions")}
+            onJumpToRecurring={() => router.push("/admin/finance/recurring")}
           />
           <ServiceTypeSplit projects={projects} invoices={invoices} />
         </div>

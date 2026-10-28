@@ -10,8 +10,8 @@ import { tt } from "@/lib/ledger";
 
 type Props = { invoices: Invoice[]; projects?: Project[]; subscriptions?: Subscription[] };
 
-const DOT_COLORS = ["#3affd1", "#bfff3a", "#c44dff", "#4d9fff"];
-const OVERDUE_COLOR = "#ff4d8b";
+const DOT_COLORS = ["#0F766E", "#1D4ED8", "#7E22CE", "#2563EB"];
+const OVERDUE_COLOR = "#B23A0A";
 
 export function Cashflow({ invoices, projects = [], subscriptions = [] }: Props) {
   const [editing, setEditing] = useState<Invoice | null>(null);
@@ -45,13 +45,13 @@ export function Cashflow({ invoices, projects = [], subscriptions = [] }: Props)
   });
 
   return (
-    <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
-      <p className="text-sm font-medium text-white mb-1">Next 30 days</p>
-      <p className="text-xs text-zinc-500 mb-3">Expected cash in</p>
-      <p className="text-2xl font-medium text-[#bfff3a]">{tt(total)}</p>
+    <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
+      <p className="text-sm font-medium text-[#1B2533] mb-1">Next 30 days</p>
+      <p className="text-xs text-[#5A6678] mb-3">Expected cash in</p>
+      <p className="text-2xl font-medium text-[#1D4ED8]">{tt(total)}</p>
 
       <div className="relative mt-4 mb-2" style={{ height: 60 }}>
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-[#2a2e34]" />
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-[#DCE1E8]" />
         {timelineDots.map(({ inv, remaining, pct, color }) => (
           <button
             key={inv.id}
@@ -65,7 +65,7 @@ export function Cashflow({ invoices, projects = [], subscriptions = [] }: Props)
               style={{ background: color, boxShadow: `0 0 0 0 ${color}` }}
             />
             <div className="h-6 w-px mx-auto" style={{ background: color, opacity: 0.4 }} />
-            <p className="text-[8px] text-zinc-500 group-hover:text-white text-center whitespace-nowrap mt-1 transition-colors">
+            <p className="text-[8px] text-[#5A6678] group-hover:text-[#0E1A2B] text-center whitespace-nowrap mt-1 transition-colors">
               {format(parseISO(inv["Due Date"]!), "MMM d")}
             </p>
           </button>
@@ -73,25 +73,25 @@ export function Cashflow({ invoices, projects = [], subscriptions = [] }: Props)
       </div>
 
       {upcoming.length === 0 ? (
-        <p className="text-xs text-zinc-600 mt-4">No upcoming payments in 30 days</p>
+        <p className="text-xs text-[#6B7789] mt-4">No upcoming payments in 30 days</p>
       ) : (
-        <div className="mt-4 pt-3 border-t border-[#1f242a] space-y-2">
+        <div className="mt-4 pt-3 border-t border-[#EEF1F5] space-y-2">
           {upcoming.slice(0, 4).map(({ inv, remaining, overdue }, idx) => (
             <button
               key={inv.id}
               onClick={() => setEditing(inv)}
               className="w-full flex justify-between text-xs hover:bg-white/[0.02] -mx-1 px-1 py-0.5 rounded transition-colors"
             >
-              <span className="text-zinc-400">
+              <span className="text-[#4A5568]">
                 {format(parseISO(inv["Due Date"]!), "MMM d")} · {inv["Invoice Number"] ?? "No number"}
-                {overdue && <span className="ml-1.5 text-[10px] text-[#ff4d8b]">overdue</span>}
+                {overdue && <span className="ml-1.5 text-[10px] text-[#B23A0A]">overdue</span>}
               </span>
               <span style={{ color: colorFor(overdue, idx) }} className="font-medium tabular-nums">
                 {tt(remaining)}
               </span>
             </button>
           ))}
-          {upcoming.length > 4 && <p className="text-[10px] text-zinc-600">+{upcoming.length - 4} more</p>}
+          {upcoming.length > 4 && <p className="text-[10px] text-[#6B7789]">+{upcoming.length - 4} more</p>}
         </div>
       )}
 

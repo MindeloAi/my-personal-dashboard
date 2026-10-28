@@ -59,15 +59,15 @@ export function MrrCard({ subscriptions, invoices, onJumpToRecurring }: Props) {
   const animatedMrr = useCountUp(stats.mrr);
 
   return (
-    <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
+    <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
       <div className="flex items-start justify-between mb-1">
-        <p className="text-[10px] text-[#3affd1] font-medium tracking-wider uppercase">Recurring Revenue</p>
+        <p className="text-[10px] text-[#0F766E] font-medium tracking-wider uppercase">Recurring Revenue</p>
         {stats.momPct !== null && (
           <span
             className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
               stats.momPct >= 0
-                ? "bg-[#3affd1]/12 text-[#3affd1]"
-                : "bg-[#ff4d8b]/12 text-[#ff4d8b]"
+                ? "bg-[#0F766E]/12 text-[#0F766E]"
+                : "bg-[#B23A0A]/12 text-[#B23A0A]"
             }`}
           >
             {stats.momPct >= 0 ? "▲" : "▼"} {Math.abs(stats.momPct)}%
@@ -77,19 +77,19 @@ export function MrrCard({ subscriptions, invoices, onJumpToRecurring }: Props) {
 
       <div className="grid grid-cols-2 gap-3 mt-1">
         <div>
-          <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">MRR</p>
-          <p className="text-2xl font-bold text-white tabular-nums">
+          <p className="text-[10px] font-medium text-[#5A6678] uppercase tracking-wider">MRR</p>
+          <p className="text-2xl font-bold text-[#1B2533] tabular-nums">
             TT${Math.round(animatedMrr).toLocaleString()}
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">ARR</p>
-          <p className="text-2xl font-bold text-white tabular-nums">
+          <p className="text-[10px] font-medium text-[#5A6678] uppercase tracking-wider">ARR</p>
+          <p className="text-2xl font-bold text-[#1B2533] tabular-nums">
             TT${Math.round(stats.arr).toLocaleString()}
           </p>
         </div>
       </div>
-      <p className="text-xs text-zinc-500 mt-1">
+      <p className="text-xs text-[#5A6678] mt-1">
         {stats.live} live · {stats.upcoming} starting later
       </p>
 
@@ -97,7 +97,7 @@ export function MrrCard({ subscriptions, invoices, onJumpToRecurring }: Props) {
         <button
           type="button"
           onClick={onJumpToRecurring}
-          className="mt-2 w-full text-left text-xs px-2.5 py-1.5 rounded-lg border border-[#fbbf24]/30 bg-[#fbbf24]/10 text-[#fbbf24] hover:bg-[#fbbf24]/20 transition-colors"
+          className="mt-2 w-full text-left text-xs px-2.5 py-1.5 rounded-[4px] border border-[#B45309]/30 bg-[#B45309]/10 text-[#B45309] hover:bg-[#B45309]/20 transition-colors"
         >
           {stats.due.length} due to invoice →
         </button>
@@ -115,13 +115,13 @@ export function MrrCard({ subscriptions, invoices, onJumpToRecurring }: Props) {
                   className="w-full rounded-t-sm transition-all"
                   style={{
                     height: `${heightPct}%`,
-                    background: isCurrent ? "#3affd1" : "#3affd1aa",
+                    background: isCurrent ? "#0F766E" : "#0F766E66",
                     opacity: isCurrent ? 1 : 0.5,
                     minHeight: total > 0 ? "2px" : "0",
                   }}
                 />
               </div>
-              <span className="text-[8px] text-zinc-600">{month}</span>
+              <span className="text-[8px] text-[#6B7789]">{month}</span>
             </div>
           );
         })}
