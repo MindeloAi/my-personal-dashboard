@@ -12,14 +12,32 @@ type Props = {
   description: string;
   /** The numbers behind the chart, shown under the enlarged view. */
   table: ChartTable;
-  /** Renders the chart; `large` is true inside the enlarged view. */
-  chart: (large: boolean) => React.ReactNode;
+  /** The records behind one mark (a month, a client, a stage), listed when it is clicked. */
+  records?: (key: string) => ChartTable;
+  /** Renders the chart. `large` is true inside the enlarged view; call `select(key)` when a mark is clicked. */
+  chart: (large: boolean, select: (key: string) => void) => React.ReactNode;
   className?: string;
 };
 
-/** One chart panel. Clicking the chart opens it full size with its data table. */
-export function ChartCard({ title, description, table, chart, className }: Props) {
+/**
+ * One chart panel. Clicking the chart opens it full size with its data table;
+ * clicking a point, bar or slice also lists the records behind that mark.
+ */
+export function ChartCard({ title, description, table, records, chart, className }: Props) {
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  // A mark's click runs before the panel's own click bubbles up, so the
+  // enlarged view opens on that mark's records.
+  const select = (key: string) => {
+    setSelected(key);
+    setOpen(true);
+  };
+  const close = () => {
+    setOpen(false);
+    setSelected(null);
+  };
+  const detail = selected && records ? records(selected) : null;
+
   return (
     <section className={`flex flex-col border border-[#DCE1E8] bg-white p-4 sm:p-5 break-inside-avoid ${className ?? ""}`}>
       <div className="flex items-start justify-between gap-3">
@@ -35,20 +53,35 @@ export function ChartCard({ title, description, table, chart, className }: Props
           Enlarge
         </button>
       </div>
-      <button
-        type="button"
+      <div
         onClick={() => setOpen(true)}
-        aria-label={`Enlarge chart: ${title}`}
-        className="mt-4 block w-full cursor-zoom-in text-left"
+        className="mt-4 block w-full cursor-zoom-in"
+        title={records ? "Click a point, bar or slice to see its records" : "Click to enlarge"}
       >
-        {chart(false)}
-      </button>
+        {chart(false, select)}
+      </div>
       {open && (
-        <ModalShell title={title} onClose={() => setOpen(false)} maxWidthClass="max-w-5xl">
+        <ModalShell title={title} onClose={close} maxWidthClass="max-w-5xl">
           <div className="space-y-5">
-            <p className="text-sm text-[#4A5568]">{description}</p>
-            {chart(true)}
-            <DataTable table={table} />
+            <p className="text-sm text-[#4A5568]">
+              {description}
+              {records && " Click a point, bar or slice to list the records behind it."}
+            </p>
+            {chart(true, setSelected)}
+            {detail && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="text-sm font-semibold text-[#1B2533]">
+                    {selected}: {detail.rows.length} {detail.rows.length === 1 ? "record" : "records"}
+                  </h4>
+                  <button type="button" onClick={() => setSelected(null)} className="min-h-9 text-xs text-[#1D4ED8] hover:underline">
+                    Back to all numbers
+                  </button>
+                </div>
+                {detail.rows.length ? <DataTable table={detail} /> : <p className="text-sm text-[#5A6678]">No records.</p>}
+              </div>
+            )}
+            {!detail && <DataTable table={table} />}
           </div>
         </ModalShell>
       )}
@@ -56,14 +89,17 @@ export function ChartCard({ title, description, table, chart, className }: Props
   );
 }
 
+const MONEY = /^-?TT\$/;
+
 function DataTable({ table }: { table: ChartTable }) {
+  const moneyCol = table.columns.map((_, i) => table.rows.some((r) => MONEY.test(String(r[i]))));
   return (
     <div className="overflow-x-auto border border-[#DCE1E8]">
       <table className="w-full min-w-[420px] border-collapse text-sm">
         <thead>
           <tr className="bg-[#F7F8FA] text-left text-xs text-[#4A5568]">
             {table.columns.map((c, i) => (
-              <th key={c} className={`border-b border-[#DCE1E8] px-3 py-2 font-semibold ${i > 0 ? "text-right" : ""}`}>
+              <th key={c} className={`border-b border-[#DCE1E8] px-3 py-2 font-semibold ${moneyCol[i] ? "text-right" : ""}`}>
                 {c}
               </th>
             ))}
@@ -71,9 +107,9 @@ function DataTable({ table }: { table: ChartTable }) {
         </thead>
         <tbody>
           {table.rows.map((row, r) => (
-            <tr key={r}>
+            <tr key={r} className="align-top">
               {row.map((cell, i) => (
-                <td key={i} className={`border-b border-[#EEF1F5] px-3 py-2 ${i > 0 ? "text-right" : "text-[#1B2533]"}`}>
+                <td key={i} className={`border-b border-[#EEF1F5] px-3 py-2 ${i === 0 ? "text-[#1B2533]" : "text-[#334155]"} ${moneyCol[i] ? "whitespace-nowrap text-right" : ""}`}>
                   {cell}
                 </td>
               ))}

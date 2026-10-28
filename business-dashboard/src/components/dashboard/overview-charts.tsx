@@ -4,7 +4,7 @@ import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell, PieChart, Pie,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
 } from "recharts";
-import { ChartCard } from "./chart-card";
+import { ChartCard, type ChartTable } from "./chart-card";
 import { tt } from "@/lib/ledger";
 import type { MonthRow, Slice } from "@/lib/overview-data";
 
@@ -30,6 +30,29 @@ const tooltip = {
 } as const;
 const height = (large: boolean) => (large ? 420 : 220);
 
+type Recs = { records?: (key: string) => ChartTable };
+// Clicks go on each dot and bar, not the chart: the chart only knows which
+// month is under the pointer after a hover, which a tap on a phone never gives.
+type DotProps = { cx?: number; cy?: number; index?: number; payload?: { month?: string } };
+/** A visible 8px dot inside a larger invisible hit circle that selects its month. */
+const clickDot = (color: string, select: (key: string) => void) =>
+  function ClickDot({ cx, cy, index, payload }: DotProps) {
+    if (cx == null || cy == null) return <g key={index} />;
+    return (
+      <g key={index} onClick={(e) => { e.stopPropagation(); if (payload?.month) select(payload.month); }} style={{ cursor: "pointer" }}>
+        <circle cx={cx} cy={cy} r={12} fill="transparent" />
+        <circle cx={cx} cy={cy} r={4} fill={color} stroke="#fff" strokeWidth={2} />
+      </g>
+    );
+  };
+/** Bar click: recharts passes the bar's data row. */
+const clickBar = (select: (key: string) => void, field: "month" | "name") =>
+  (bar: { payload?: Record<string, unknown> }, _i: number, e: React.MouseEvent) => {
+    e?.stopPropagation?.();
+    const key = bar?.payload?.[field];
+    if (key != null) select(String(key));
+  };
+
 function Legend({ items }: { items: { name: string; color: string; value?: string }[] }) {
   return (
     <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-[#334155]">
@@ -44,7 +67,7 @@ function Legend({ items }: { items: { name: string; color: string; value?: strin
   );
 }
 
-export function MonthlyMoneyChart({ data }: { data: MonthRow[] }) {
+export function MonthlyMoneyChart({ data, records }: { data: MonthRow[] } & Recs) {
   const lines = [
     { key: "revenue", name: "Revenue", color: SERIES[0] },
     { key: "expenses", name: "Expenses", color: SERIES[1] },
@@ -55,7 +78,8 @@ export function MonthlyMoneyChart({ data }: { data: MonthRow[] }) {
       title="Revenue, expenses and profit by month"
       description="Last 12 months. Revenue is paid invoices in the month they were paid; profit is revenue minus expenses. Watch for months where the orange line rises above the blue one."
       table={{ columns: ["Month", "Revenue", "Expenses", "Profit"], rows: data.map((d) => [d.month, tt(d.revenue), tt(d.expenses), tt(d.profit)]) }}
-      chart={(large) => (
+      records={records}
+      chart={(large, select) => (
         <>
           <ResponsiveContainer width="100%" height={height(large)}>
             <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -65,7 +89,7 @@ export function MonthlyMoneyChart({ data }: { data: MonthRow[] }) {
               <ReferenceLine y={0} stroke="#CBD5E1" />
               <Tooltip {...tooltip} />
               {lines.map((l) => (
-                <Line key={l.key} dataKey={l.key} name={l.name} stroke={l.color} strokeWidth={2} dot={{ r: 4, strokeWidth: 2, stroke: "#fff", fill: l.color }} activeDot={{ r: 5 }} isAnimationActive={false} />
+                <Line key={l.key} dataKey={l.key} name={l.name} stroke={l.color} strokeWidth={2} dot={clickDot(l.color, select)} activeDot={false} isAnimationActive={false} />
               ))}
             </LineChart>
           </ResponsiveContainer>
@@ -76,21 +100,22 @@ export function MonthlyMoneyChart({ data }: { data: MonthRow[] }) {
   );
 }
 
-export function RevenueToDateChart({ data }: { data: MonthRow[] }) {
+export function RevenueToDateChart({ data, records }: { data: MonthRow[] } & Recs) {
   const last = data.at(-1)?.revenueToDate ?? 0;
   return (
     <ChartCard
       title="Total revenue earned to date"
       description={`Running total of every paid invoice since the business started, at the end of each month: ${tt(last)} now. A flat stretch means no invoices were paid that month.`}
       table={{ columns: ["Month", "Revenue to date", "Paid that month"], rows: data.map((d) => [d.month, tt(d.revenueToDate), tt(d.revenue)]) }}
-      chart={(large) => (
+      records={records}
+      chart={(large, select) => (
         <ResponsiveContainer width="100%" height={height(large)}>
           <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke={GRID} vertical={false} />
             <XAxis dataKey="month" {...axis} />
             <YAxis {...axis} axisLine={false} tickFormatter={short} width={64} />
             <Tooltip {...tooltip} />
-            <Line dataKey="revenueToDate" name="Revenue to date" stroke={SERIES[0]} strokeWidth={2} dot={{ r: 4, strokeWidth: 2, stroke: "#fff", fill: SERIES[0] }} isAnimationActive={false} />
+            <Line dataKey="revenueToDate" name="Revenue to date" stroke={SERIES[0]} strokeWidth={2} dot={clickDot(SERIES[0], select)} activeDot={false} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       )}
@@ -98,13 +123,14 @@ export function RevenueToDateChart({ data }: { data: MonthRow[] }) {
   );
 }
 
-export function ProfitBarsChart({ data }: { data: MonthRow[] }) {
+export function ProfitBarsChart({ data, records }: { data: MonthRow[] } & Recs) {
   return (
     <ChartCard
       title="Profit or loss each month"
       description="Revenue minus expenses for each of the last 12 months. Blue bars above the line are profit; orange bars below it are a loss."
       table={{ columns: ["Month", "Profit or loss"], rows: data.map((d) => [d.month, tt(d.profit)]) }}
-      chart={(large) => (
+      records={records}
+      chart={(large, select) => (
         <>
           <ResponsiveContainer width="100%" height={height(large)}>
             <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -113,7 +139,7 @@ export function ProfitBarsChart({ data }: { data: MonthRow[] }) {
               <YAxis {...axis} axisLine={false} tickFormatter={short} width={64} />
               <ReferenceLine y={0} stroke="#94A3B8" />
               <Tooltip {...tooltip} />
-              <Bar dataKey="profit" name="Profit or loss" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive={false}>
+              <Bar dataKey="profit" name="Profit or loss" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive={false} onClick={clickBar(select, "month")} style={{ cursor: "pointer" }}>
                 {data.map((d) => <Cell key={d.month} fill={d.profit < 0 ? SERIES[1] : SERIES[0]} />)}
               </Bar>
             </BarChart>
@@ -126,14 +152,15 @@ export function ProfitBarsChart({ data }: { data: MonthRow[] }) {
 }
 
 /** Horizontal bars for a ranked list of named amounts. */
-function RankedBars({ title, description, data, valueLabel }: { title: string; description: string; data: Slice[]; valueLabel: string }) {
+function RankedBars({ title, description, data, valueLabel, records }: { title: string; description: string; data: Slice[]; valueLabel: string } & Recs) {
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <ChartCard
       title={title}
       description={description}
       table={{ columns: ["Name", valueLabel, "Share"], rows: [...data.map((d) => [d.name, tt(d.value), pct(d.value, total)]), ["Total", tt(total), "100%"]] }}
-      chart={(large) =>
+      records={records}
+      chart={(large, select) =>
         data.length === 0 ? (
           <p className="py-10 text-center text-sm text-[#5A6678]">Nothing to show yet.</p>
         ) : (
@@ -142,7 +169,7 @@ function RankedBars({ title, description, data, valueLabel }: { title: string; d
               <XAxis type="number" hide />
               <YAxis type="category" dataKey="name" {...axis} axisLine={false} width={large ? 180 : 120} />
               <Tooltip {...tooltip} />
-              <Bar dataKey="value" name={valueLabel} fill={SERIES[0]} radius={[0, 4, 4, 0]} maxBarSize={22} isAnimationActive={false}
+              <Bar dataKey="value" name={valueLabel} fill={SERIES[0]} radius={[0, 4, 4, 0]} maxBarSize={22} isAnimationActive={false} onClick={clickBar(select, "name")} style={{ cursor: "pointer" }}
                 label={{ position: "right", fill: INK, fontSize: 12, formatter: (v: unknown) => short(Number(v)) }} />
             </BarChart>
           </ResponsiveContainer>
@@ -152,43 +179,46 @@ function RankedBars({ title, description, data, valueLabel }: { title: string; d
   );
 }
 
-export function OwedByClientChart({ data }: { data: Slice[] }) {
+export function OwedByClientChart({ data, records }: { data: Slice[] } & Recs) {
   return (
     <RankedBars
       title="Owed to us, by client"
       description="Unpaid balance on every sent invoice, grouped by client. The longest bars are the clients to chase first."
       data={data}
       valueLabel="Still owed"
+      records={records}
     />
   );
 }
 
-export function TopClientsChart({ data }: { data: Slice[] }) {
+export function TopClientsChart({ data, records }: { data: Slice[] } & Recs) {
   return (
     <RankedBars
       title="Top clients by revenue (all time)"
-      description="Paid invoices per client since the business started; smaller clients are grouped as Other. One client far ahead of the rest is a dependency risk."
+      description="Paid invoices per client since the business started; smaller clients are grouped as Everything else. One client far ahead of the rest is a dependency risk."
       data={data}
       valueLabel="Paid revenue"
+      records={records}
     />
   );
 }
 
-export function LeadsByStageChart({ data }: { data: Slice[] }) {
+export function LeadsByStageChart({ data, records }: { data: Slice[] } & Recs) {
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <ChartCard
       title="Sales leads at each stage"
       description={`How many of the ${total} leads sit at each step of the pipeline, from first contact to won or lost. A pile-up at one stage shows where deals stall.`}
       table={{ columns: ["Stage", "Leads", "Share"], rows: data.map((d) => [d.name, d.value, pct(d.value, total)]) }}
-      chart={(large) => (
+      records={records}
+      chart={(large, select) => (
         <ResponsiveContainer width="100%" height={height(large)}>
           <BarChart data={data} margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke={GRID} vertical={false} />
             <XAxis dataKey="name" {...axis} interval={0} tickFormatter={(s: string) => (s === "Proposal Sent" ? "Proposal" : s)} />
             <YAxis {...axis} axisLine={false} allowDecimals={false} width={32} />
             <Tooltip {...tooltip} formatter={(v: unknown) => `${v} leads`} />
-            <Bar dataKey="value" name="Leads" fill={SERIES[0]} radius={[4, 4, 0, 0]} maxBarSize={48} isAnimationActive={false}
+            <Bar dataKey="value" name="Leads" fill={SERIES[0]} radius={[4, 4, 0, 0]} maxBarSize={48} isAnimationActive={false} onClick={clickBar(select, "name")} style={{ cursor: "pointer" }}
               label={{ position: "top", fill: INK, fontSize: 12 }} />
           </BarChart>
         </ResponsiveContainer>
@@ -198,19 +228,20 @@ export function LeadsByStageChart({ data }: { data: Slice[] }) {
 }
 
 /** Donut with a value legend beside it. */
-function Donut({ title, description, data, centre }: { title: string; description: string; data: Slice[]; centre: string }) {
+function Donut({ title, description, data, centre, records }: { title: string; description: string; data: Slice[]; centre: string } & Recs) {
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <ChartCard
       title={title}
       description={description}
       table={{ columns: ["Name", "Amount", "Share"], rows: [...data.map((d) => [d.name, tt(d.value), pct(d.value, total)]), ["Total", tt(total), "100%"]] }}
-      chart={(large) => (
+      records={records}
+      chart={(large, select) => (
         <div className={`flex flex-col items-center gap-4 ${large ? "sm:flex-row" : ""}`}>
           <div className="relative shrink-0" style={{ width: large ? 320 : 170, height: large ? 320 : 170 }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={data} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="100%" stroke="#fff" strokeWidth={2} startAngle={90} endAngle={-270} isAnimationActive={false}>
+                <Pie data={data} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="100%" stroke="#fff" strokeWidth={2} startAngle={90} endAngle={-270} isAnimationActive={false} onClick={(d: { name?: string }, _i: number, e: React.MouseEvent) => { e?.stopPropagation?.(); if (d?.name) select(d.name); }} style={{ cursor: "pointer" }}>
                   {data.map((d, i) => <Cell key={d.name} fill={SERIES[i % SERIES.length]} />)}
                 </Pie>
                 <Tooltip {...tooltip} />
@@ -223,15 +254,21 @@ function Donut({ title, description, data, centre }: { title: string; descriptio
           </div>
           <ul className="w-full space-y-2 text-sm">
             {data.map((d, i) => (
-              <li key={d.name} className="flex items-center justify-between gap-3 border-b border-[#EEF1F5] pb-1.5">
-                <span className="flex items-center gap-2 text-[#334155]">
-                  <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-[2px]" style={{ background: SERIES[i % SERIES.length] }} />
-                  {d.name}
-                </span>
-                <span className="text-right">
-                  <span className="font-semibold text-[#1B2533]">{tt(d.value)}</span>
-                  <span className="ml-2 text-xs text-[#5A6678]">{pct(d.value, total)}</span>
-                </span>
+              <li key={d.name} className="border-b border-[#EEF1F5]">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); select(d.name); }}
+                  className="flex min-h-9 w-full items-center justify-between gap-3 text-left hover:bg-[#F7F8FA]"
+                >
+                  <span className="flex items-center gap-2 text-[#334155]">
+                    <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-[2px]" style={{ background: SERIES[i % SERIES.length] }} />
+                    {d.name}
+                  </span>
+                  <span className="text-right">
+                    <span className="font-semibold text-[#1B2533]">{tt(d.value)}</span>
+                    <span className="ml-2 text-xs text-[#5A6678]">{pct(d.value, total)}</span>
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
@@ -241,24 +278,26 @@ function Donut({ title, description, data, centre }: { title: string; descriptio
   );
 }
 
-export function MoneyHeldChart({ data }: { data: Slice[] }) {
+export function MoneyHeldChart({ data, records }: { data: Slice[] } & Recs) {
   return (
     <Donut
       title="Where the money is now"
       description="All money the business holds, by who has it: the business cash in the safe, and money Zane or Mikey collected that is not sorted yet."
       data={data}
       centre="Held"
+      records={records}
     />
   );
 }
 
-export function ServiceMixChart({ data }: { data: Slice[] }) {
+export function ServiceMixChart({ data, records }: { data: Slice[] } & Recs) {
   return (
     <Donut
       title="Revenue by service type (all time)"
       description="Paid invoices grouped by the service type of their project. Unspecified means the invoice's project has no service type set."
       data={data}
       centre="Revenue"
+      records={records}
     />
   );
 }

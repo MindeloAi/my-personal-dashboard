@@ -10,7 +10,7 @@ import {
 } from "@/components/dashboard/overview-charts";
 import {
   monthlyMoney, owedByClient, revenueByClient, revenueByService, leadsByStage,
-  moneyHeld, owedSplit, topWithOther,
+  moneyHeld, owedSplit, topWithOther, buildRecords,
 } from "@/lib/overview-data";
 import { mrr, today } from "@/lib/subscriptions";
 import { tt } from "@/lib/ledger";
@@ -70,16 +70,21 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
       year: months.reduce((s, m) => s + m.revenue, 0),
       split: owedSplit(invoices),
       clientsTop: topWithOther(revenueByClient(invoices, projects, clients), 5),
-      services: revenueByService(invoices, projects),
+      services: topWithOther(revenueByService(invoices, projects), 5),
       held: moneyHeld(ledger.cash),
       monthly: mrr(subscriptions),
+      recs: buildRecords({ invoices, expenses, projects, clients, leads, ledger }, tt),
     };
-  }, [invoices, expenses, projects, clients, leads, subscriptions, ledger.cash, todayIso]);
+  }, [invoices, expenses, projects, clients, leads, subscriptions, ledger, todayIso]);
 
   const { cash, owedToUs, month } = ledger;
   const since = todayIso.startsWith(ledger.cutover.slice(0, 7))
     ? `since ${format(parseISO(ledger.cutover.slice(0, 10)), "d MMM")}`
     : format(parseISO(todayIso), "MMMM");
+  // Month charts report their label ("Oct 26"); the records want the month key.
+  const monthKeyOf = (label: string) => d.months.find((m) => m.month === label)?.key ?? "";
+  const clientNames = d.clientsTop.map((c) => c.name);
+  const serviceNames = d.services.map((x) => x.name);
   const stage = (s: string) => d.stages.find((x) => x.name === s)?.value ?? 0;
 
   return (
@@ -93,7 +98,7 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-[#1B2533]">Overview</h1>
-          <p className="mt-1 text-sm text-[#4A5568]">The whole business on one page: money held, money owed, this month, sales and the trends behind them. Click any chart to enlarge it and see its numbers.</p>
+          <p className="mt-1 text-sm text-[#4A5568]">The whole business on one page: money held, money owed, this month, sales and the trends behind them. Click a chart to enlarge it; click a point, bar or slice to see the invoices, leads, payments or expenses behind it.</p>
         </div>
         <button
           type="button"
@@ -129,14 +134,14 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
       </section>
 
       <div className="overview-charts grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <MonthlyMoneyChart data={d.months} />
-        <ProfitBarsChart data={d.months} />
-        <MoneyHeldChart data={d.held} />
-        <OwedByClientChart data={d.owed} />
-        <RevenueToDateChart data={d.months} />
-        <ServiceMixChart data={d.services} />
-        <TopClientsChart data={d.clientsTop} />
-        <LeadsByStageChart data={d.stages} />
+        <MonthlyMoneyChart data={d.months} records={(m) => d.recs.month(monthKeyOf(m))} />
+        <ProfitBarsChart data={d.months} records={(m) => d.recs.month(monthKeyOf(m))} />
+        <MoneyHeldChart data={d.held} records={d.recs.held} />
+        <OwedByClientChart data={d.owed} records={d.recs.owedBy} />
+        <RevenueToDateChart data={d.months} records={(m) => d.recs.paidIn(monthKeyOf(m))} />
+        <ServiceMixChart data={d.services} records={(t) => d.recs.service(t, serviceNames)} />
+        <TopClientsChart data={d.clientsTop} records={(c) => d.recs.paidBy(c, clientNames)} />
+        <LeadsByStageChart data={d.stages} records={d.recs.leads} />
         <div className="break-inside-avoid">
           <BusinessCounters
             clients={clients}

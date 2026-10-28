@@ -1,8 +1,8 @@
 // Checks the Overview chart calculations. No database.
 //   bun scripts/overview-data.test.ts
 import assert from "node:assert/strict";
-import { monthlyMoney, owedByClient, revenueByClient, revenueByService, leadsByStage, topWithOther, owedSplit } from "../src/lib/overview-data";
-import type { Client, Project, Invoice, Expense, Lead } from "../src/lib/db";
+import { monthlyMoney, owedByClient, revenueByClient, revenueByService, leadsByStage, topWithOther, owedSplit, buildRecords, OTHER } from "../src/lib/overview-data";
+import type { Client, Project, Invoice, Expense, Lead, Ledger } from "../src/lib/db";
 
 const clients = [{ id: "c1", Company: "Acme" }, { id: "c2", Name: "Bea" }] as Client[];
 const projects = [
@@ -41,7 +41,35 @@ const leads = [{ Status: "New" }, { Status: "New" }, { Status: "Won" }] as Lead[
 assert.deepEqual(leadsByStage(leads).map((s) => s.value), [2, 0, 0, 1, 0]);
 
 const many = [5, 4, 3, 2, 1].map((v, i) => ({ name: "s" + i, value: v }));
-assert.deepEqual(topWithOther(many, 3).at(-1), { name: "Other", value: 3 });
+assert.deepEqual(topWithOther(many, 3).at(-1), { name: OTHER, value: 3 });
 assert.equal(topWithOther(many.slice(0, 4), 3).length, 4, "folding one item into Other is pointless");
+
+// Records behind each mark add up to that mark.
+const ledger = {
+  cutover: "2026-10-01",
+  payments: [{ id: "pay1", invoiceId: "i1", amount: 1000, paidAt: "2026-10-03", receivedBy: "zane" }],
+  movements: [
+    { id: "m1", movedAt: "2026-10-04", kind: "transfer", fromLoc: "zane", toLoc: "mikey", amount: 700 },
+    { id: "m2", movedAt: "2026-10-05", kind: "transfer", fromLoc: "mikey", toLoc: "business", amount: 600 },
+  ],
+  payouts: [{ id: "po1", number: "PAY-0001", founder: "zane", status: "paid_out", paidFrom: "mikey", paidOutAt: "2026-10-06", total: 50 }],
+} as unknown as Ledger;
+const exp2 = [...expenses, { id: "e2", Name: "Hosting", Amount: 20, Date: "2026-10-07", "Paid From": "business" }] as Expense[];
+const recs = buildRecords({ invoices, expenses: exp2, projects, clients, leads, ledger }, (n) => n.toFixed(2));
+const sum = (rows: string[][], col: number) => rows.reduce((t, r) => t + Number(r[col]), 0);
+
+const oct = recs.month("2026-10");
+assert.equal(oct.rows.length, 3, "one paid invoice and two expenses in October");
+assert.equal(sum(oct.rows, 4), 1000 - 150 - 20);
+assert.equal(sum(recs.owedBy("Bea").rows, 3), 500);
+assert.equal(recs.owedBy("Bea").rows[0][4], "Overdue");
+assert.equal(sum(recs.paidBy("Acme", ["Acme"]).rows, 3), 1200);
+assert.equal(sum(recs.paidBy(OTHER, ["Acme"]).rows, 3), 500, "Everything else = the clients not shown");
+assert.equal(sum(recs.service("Web Dev", ["Web Dev"]).rows, 3), 1200);
+assert.equal(recs.leads("New").rows.length, 2);
+// Holder balances: zane 1000-700 = 300, mikey 700-600-50 = 50, business 600-20 = 580.
+assert.equal(sum(recs.held("Zane").rows, 4), 300);
+assert.equal(sum(recs.held("Mikey").rows, 4), 50);
+assert.equal(sum(recs.held("Business cash (safe)").rows, 4), 580);
 
 console.log("overview-data: all checks pass");
