@@ -102,7 +102,6 @@ function InvoiceModal({
     start(async () => {
       try {
         const res = await createInvoiceAction({
-          "Invoice Number": (fd.get("invoiceNumber") as string) || undefined,
           Amount: amount ? parseFloat(amount) : undefined,
           "Invoice Type": invoiceType ? (invoiceType as InvoiceTypeValue) : undefined,
           Status: status as InvoiceStatusValue,
@@ -142,7 +141,7 @@ function InvoiceModal({
         </Field>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Invoice Number">
-            <input name="invoiceNumber" placeholder="INV-0009" className={inputCls} />
+            <p className={inputCls + " text-zinc-500"}>Assigned automatically when sent</p>
           </Field>
           <Field label="Amount ($)">
             <input
