@@ -25,6 +25,7 @@ import { ModalShell } from "@/components/ui/modal-shell";
 import type { Client, Lead, Project } from "@/lib/airtable";
 import { OwnerSelect } from "@/components/dashboard/owner-select";
 import { ownerPatch, ownerValue } from "@/lib/project-owner";
+import { Explain } from "./explain";
 
 function TrashIcon({ className }: { className?: string }) {
   return (
@@ -179,7 +180,7 @@ function ProjectCard({
         )}
         {(project["Total Value"] ?? 0) > 0 && (
           <span className="text-[10px] text-[#5A6678]">
-            ${(project["Total Value"] ?? 0).toLocaleString()}
+            TT${(project["Total Value"] ?? 0).toLocaleString()}
           </span>
         )}
       </div>
@@ -450,7 +451,7 @@ function ProjectDetailModal({
                 <div className="flex justify-between">
                   <span className="text-[#5A6678]">Total value</span>
                   <span className="text-[#1B2533] font-semibold">
-                    ${(project["Total Value"] ?? 0).toLocaleString()}
+                    TT${(project["Total Value"] ?? 0).toLocaleString()}
                   </span>
                 </div>
               )}
@@ -470,7 +471,7 @@ function ProjectDetailModal({
                 <div className="flex justify-between">
                   <span className="text-[#5A6678]">Paid to date</span>
                   <span className="text-[#1D4ED8] font-semibold">
-                    ${(project["Paid To Date"] ?? 0).toLocaleString()}
+                    TT${(project["Paid To Date"] ?? 0).toLocaleString()}
                   </span>
                 </div>
               )}
@@ -690,6 +691,12 @@ export function ProjectBoard({ projects, clients = [], leads = [], initialClient
           </button>
         )}
       </div>
+      <Explain
+        className="-mt-2 mb-5"
+        shows="Every project by stage: Lead, In Progress, Review and Done."
+        read="Drag a card to move it to another stage, or click it to edit. Each card shows the service type, payment structure and value. Filter by owner at the top."
+        watch="Projects sitting in Review for a long time, and Done projects that still have unpaid invoices."
+      />
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         {/* Phones stack the columns: a sideways board showed only Lead, with no
             hint the other four were off-screen. */}

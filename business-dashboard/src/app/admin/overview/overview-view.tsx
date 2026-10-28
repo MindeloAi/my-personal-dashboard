@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { BusinessCounters } from "@/components/dashboard/business-counters";
+import { PageHeader } from "@/components/dashboard/explain";
 import {
   MonthlyMoneyChart, RevenueToDateChart, ProfitBarsChart, MoneyHeldChart,
   OwedByClientChart, LeadsByStageChart, TopClientsChart, ServiceMixChart,
@@ -95,19 +96,19 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
         <p className="text-sm text-[#4A5568]">{format(parseISO(todayIso), "EEEE d MMMM yyyy")} · all figures in TT$</p>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-[#1B2533]">Overview</h1>
-          <p className="mt-1 text-sm text-[#4A5568]">The whole business on one page: money held, money owed, this month, sales and the trends behind them. Click a chart to enlarge it; click a point, bar or slice to see the invoices, leads, payments or expenses behind it.</p>
-        </div>
-        <button
-          type="button"
-          onClick={exportPdf}
-          className="min-h-10 shrink-0 rounded-[4px] bg-[#1D4ED8] px-4 text-sm font-medium text-white hover:bg-[#1E40AF] print:hidden"
-        >
-          Export PDF
-        </button>
-      </div>
+      <PageHeader
+        title="Overview"
+        purpose="The whole business on one page: money held, money owed, this month, sales and the trends behind them. Click a chart to enlarge it; click a point, bar or slice to see the invoices, leads, payments or expenses behind it."
+        action={
+          <button
+            type="button"
+            onClick={exportPdf}
+            className="min-h-10 rounded-[4px] bg-[#1D4ED8] px-4 text-sm font-medium text-white hover:bg-[#1E40AF]"
+          >
+            Export PDF
+          </button>
+        }
+      />
 
       <div className="overview-tiles grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         <Tile label="Business cash (safe)" value={tt(cash.business)} note="Counted money in the safe, held by Mikey." />
@@ -120,6 +121,7 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
 
       <section className="border border-[#DCE1E8] bg-white p-4 sm:p-5 break-inside-avoid">
         <h2 className="text-[15px] font-semibold text-[#1B2533]">Summary</h2>
+        <p className="mt-0.5 text-xs text-[#4A5568]">The same figures as the tiles and charts, in sentences.</p>
         <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-[#334155]">
           <li><strong className="text-[#1B2533]">Money held:</strong> {tt(cash.total)} in total: {tt(cash.business)} in the safe, {tt(cash.zane)} with Zane and {tt(cash.mikey)} with Mikey.</li>
           <li>

@@ -3,6 +3,7 @@ import { getClients, getProjects, getInvoices, getSubscriptions, getLedger } fro
 import { today } from "@/lib/subscriptions";
 import type { InvoiceStatusFilter } from "@/components/dashboard/invoices-table";
 import { InvoicesView } from "./invoices-view";
+import { PageHeader } from "@/components/dashboard/explain";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -32,7 +33,9 @@ export default async function InvoicesPage({
     : "All";
 
   return (
-    <InvoicesView
+    <>
+      <PageHeader title="Invoices" purpose="Every invoice issued to clients, what is still owed, and the cash expected in over the next 30 days." />
+      <InvoicesView
       clients={clients}
       projects={projects}
       invoices={invoices}
@@ -41,5 +44,6 @@ export default async function InvoicesPage({
       initialStatus={initialStatus}
       initialClientId={client ?? null}
     />
+    </>
   );
 }

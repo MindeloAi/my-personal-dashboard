@@ -14,6 +14,7 @@ import {
 import { HOLDERS, HOLDER_LABEL, holderLine, owedLine, tt, type Holder } from "@/lib/ledger";
 import { today } from "@/lib/subscriptions";
 import type { CashCheckRow, Ledger } from "@/lib/db";
+import { Explain } from "./explain";
 
 const inputCls =
   "w-full bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-3 py-2 text-sm text-[#1B2533] placeholder:text-[#8B9AB0] focus:outline-none focus:border-[#94A3B8] transition-colors";
@@ -306,6 +307,12 @@ export function CashPanel({ ledger }: { ledger: Ledger }) {
             Record transfer
           </button>
         </div>
+        <Explain
+          className="mt-3"
+          shows="Where all the business's money physically is: the safe (business cash) and money Mikey or Zane is holding that has not been sorted yet."
+          read="Each balance is every payment collected, plus transfers in, minus transfers out, expenses and founder pay paid from that place. Record a transfer whenever money changes hands."
+          watch="A balance should never go below zero. Money sitting with a founder for long should be handed over or put in the safe."
+        />
 
         <div className="mt-4 space-y-1.5">
           {HOLDERS.map((h) => (
@@ -350,6 +357,12 @@ export function CashPanel({ ledger }: { ledger: Ledger }) {
           <div>
             <p className={titleCls}>Cash check</p>
             <p className="text-xs text-[#5A6678] mt-1">Counted cash against what the books expect</p>
+            <Explain
+              className="mt-2"
+              shows="The last time each person counted the money they hold, against what the dashboard says they should have."
+              read="Expected is what the books said on the day of the count; Expected now is what they say today. Matches means the count agreed with the books."
+              watch="A count that does not match means a payment, transfer or expense was not recorded. Find it before recording anything else."
+            />
           </div>
           <button type="button" onClick={() => setModal("count")} className={buttonCls}>
             Enter count

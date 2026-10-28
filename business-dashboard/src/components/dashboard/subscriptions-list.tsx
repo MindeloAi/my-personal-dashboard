@@ -19,6 +19,7 @@ import {
   type Frequency,
 } from "@/lib/subscriptions";
 import type { Client, Invoice, Project, Subscription } from "@/lib/db";
+import { Explain } from "./explain";
 
 const FREQUENCIES = ["monthly", "quarterly", "yearly"] as const;
 const STATUSES = ["Active", "Paused", "Cancelled"] as const;
@@ -132,6 +133,12 @@ export function SubscriptionsList({ subscriptions, invoices, clients, projects }
           + New subscription
         </button>
       </div>
+      <Explain
+        className="-mt-2 mb-5"
+        shows="Retainers and subscriptions that bill clients on a schedule, and what they are worth per month (MRR) and per year (ARR)."
+        read="Each line shows the client, amount, how often it bills and when its next invoice is due. MRR counts live subscriptions only; ones starting later are not counted yet."
+        watch="Subscriptions whose next invoice is due: raise the invoice so it is not missed."
+      />
 
       {due.length > 0 && (
         <div className="mb-5 rounded-[4px] border border-[#B45309]/30 bg-[#B45309]/10 p-3">

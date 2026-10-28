@@ -7,6 +7,7 @@ import type { Invoice, Project, Subscription } from "@/lib/airtable";
 import { isOverdue } from "@/lib/invoices";
 import { today } from "@/lib/subscriptions";
 import { tt } from "@/lib/ledger";
+import { Explain } from "./explain";
 
 type Props = { invoices: Invoice[]; projects?: Project[]; subscriptions?: Subscription[] };
 
@@ -48,6 +49,11 @@ export function Cashflow({ invoices, projects = [], subscriptions = [] }: Props)
     <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
       <p className="text-sm font-medium text-[#1B2533] mb-1">Next 30 days</p>
       <p className="text-xs text-[#5A6678] mb-3">Expected cash in</p>
+      <Explain
+        className="-mt-2 mb-3"
+        shows="The unpaid balance on every sent invoice due within the next 30 days, plus overdue ones, overdue first."
+        watch="Overdue lines are already late and are the first to chase."
+      />
       <p className="text-2xl font-medium text-[#1D4ED8]">{tt(total)}</p>
 
       <div className="relative mt-4 mb-2" style={{ height: 60 }}>

@@ -52,6 +52,9 @@ export function TimelineView({ client, projects, entries, promises, invoices, to
           {client.Company && client.Name !== client.Company && (
             <p className="text-sm text-[#4A5568]">{client.Name}</p>
           )}
+          <p className="mt-1 max-w-3xl text-xs text-[#4A5568]">
+            Everything that has happened with this client: what they owe, payments, promises to pay and notes, newest first.
+          </p>
           {projects.length > 0 && (
             <ul className="mt-2 flex flex-wrap gap-2">
               {projects.map((p) => (

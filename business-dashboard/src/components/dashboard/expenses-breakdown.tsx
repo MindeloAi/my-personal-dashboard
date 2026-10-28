@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { Expense } from "@/lib/airtable";
+import { Explain } from "./explain";
 
 type Props = {
   expenses: Expense[];
@@ -36,8 +37,13 @@ export function ExpensesBreakdown({ expenses, selectedCategory, onSelectCategory
     <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
       <div className="flex justify-between items-center mb-3">
         <p className="text-sm font-medium text-[#1B2533]">Expenses</p>
-        <span className="text-xs text-[#B23A0A]">${total.toLocaleString()}</span>
+        <span className="text-xs text-[#B23A0A]">TT${total.toLocaleString()}</span>
       </div>
+      <Explain
+        className="-mt-2 mb-4"
+        shows="Total spending by category, biggest first."
+        read="Click a category to filter the expense list beside it; click it again to clear."
+        />
       <div className="space-y-3">
         {byCategory.length === 0 && (
           <p className="text-xs text-[#6B7789]">No expenses recorded</p>
@@ -61,7 +67,7 @@ export function ExpensesBreakdown({ expenses, selectedCategory, onSelectCategory
                   <span className={`w-1.5 h-1.5 rounded-full transition-opacity ${isSelected ? "opacity-100" : "opacity-0"}`} style={{ background: color }} />
                   {name}
                 </span>
-                <span>${amount.toLocaleString()}</span>
+                <span>TT${amount.toLocaleString()}</span>
               </div>
               <div className="h-1.5 bg-[#EEF1F5] rounded-full overflow-hidden">
                 <div
