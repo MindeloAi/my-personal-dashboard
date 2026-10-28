@@ -30,34 +30,34 @@ type LeadStatus = (typeof STATUSES)[number];
 
 const STATUS_STYLES: Record<LeadStatus, { header: string; dot: string; badge: string }> = {
   New: {
-    header: "text-[#3affd1]",
-    dot: "bg-[#3affd1]",
-    badge: "bg-[#3affd1]/10 text-[#3affd1] border-[#3affd1]/20",
+    header: "text-[#0F766E]",
+    dot: "bg-[#0F766E]",
+    badge: "bg-[#0F766E]/10 text-[#0F766E] border-[#0F766E]/20",
   },
   Contacted: {
-    header: "text-[#fbbf24]",
-    dot: "bg-[#fbbf24]",
-    badge: "bg-[#fbbf24]/10 text-[#fbbf24] border-[#fbbf24]/20",
+    header: "text-[#B45309]",
+    dot: "bg-[#B45309]",
+    badge: "bg-[#B45309]/10 text-[#B45309] border-[#B45309]/20",
   },
   "Proposal Sent": {
-    header: "text-[#c44dff]",
-    dot: "bg-[#c44dff]",
-    badge: "bg-[#c44dff]/10 text-[#c44dff] border-[#c44dff]/20",
+    header: "text-[#7E22CE]",
+    dot: "bg-[#7E22CE]",
+    badge: "bg-[#7E22CE]/10 text-[#7E22CE] border-[#7E22CE]/20",
   },
   Won: {
-    header: "text-[#bfff3a]",
-    dot: "bg-[#bfff3a]",
-    badge: "bg-[#bfff3a]/10 text-[#bfff3a] border-[#bfff3a]/20",
+    header: "text-[#1D4ED8]",
+    dot: "bg-[#1D4ED8]",
+    badge: "bg-[#1D4ED8]/10 text-[#1D4ED8] border-[#1D4ED8]/20",
   },
   Lost: {
-    header: "text-[#ff4d8b]",
-    dot: "bg-[#ff4d8b]",
-    badge: "bg-[#ff4d8b]/10 text-[#ff4d8b] border-[#ff4d8b]/20",
+    header: "text-[#B23A0A]",
+    dot: "bg-[#B23A0A]",
+    badge: "bg-[#B23A0A]/10 text-[#B23A0A] border-[#B23A0A]/20",
   },
 };
 
 const inputCls =
-  "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
+  "w-full bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-3 py-2 text-sm text-[#1B2533] placeholder:text-[#8B9AB0] focus:outline-none focus:border-[#94A3B8] transition-colors";
 const selectCls = inputCls + " cursor-pointer";
 
 // Matches the project types on the public contact form, which writes leads too.
@@ -138,7 +138,7 @@ function StatusHeading({ status, count }: { status: LeadStatus; count: number })
       <span className={`text-xs font-semibold uppercase tracking-wider ${style.header}`}>
         {status}
       </span>
-      <span className="text-xs text-zinc-600 ml-1">{count}</span>
+      <span className="text-xs text-[#6B7789] ml-1">{count}</span>
     </div>
   );
 }
@@ -165,10 +165,10 @@ function StatusSelect({
         const next = e.target.value as LeadStatus;
         if (next !== current) onSelect(next);
       }}
-      className={`min-h-11 sm:min-h-0 text-xs px-3 py-1 rounded-full border font-medium cursor-pointer disabled:opacity-40 focus:outline-none ${style.badge}`}
+      className={`min-h-11 sm:min-h-0 text-xs px-3 py-1 rounded-[4px] border font-medium cursor-pointer disabled:opacity-40 focus:outline-none ${style.badge}`}
     >
       {STATUSES.map((s) => (
-        <option key={s} value={s} className="bg-[#14181d] text-white">
+        <option key={s} value={s} className="bg-[#FFFFFF] text-[#1B2533]">
           {s}
         </option>
       ))}
@@ -231,41 +231,41 @@ function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Name</label>
+              <label className="text-xs text-[#4A5568]">Name</label>
               <input name="name" defaultValue={lead?.Name ?? ""} className={inputCls} required />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Business</label>
+              <label className="text-xs text-[#4A5568]">Business</label>
               <input name="businessName" defaultValue={lead?.["Business Name"] ?? ""} className={inputCls} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Email</label>
+              <label className="text-xs text-[#4A5568]">Email</label>
               <input name="email" type="email" defaultValue={lead?.Email ?? ""} className={inputCls} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Phone/WhatsApp</label>
+              <label className="text-xs text-[#4A5568]">Phone/WhatsApp</label>
               <input name="phone" defaultValue={lead?.["Phone/WhatsApp"] ?? ""} className={inputCls} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Service Interest</label>
+              <label className="text-xs text-[#4A5568]">Service Interest</label>
               <OptionSelect name="serviceInterest" value={lead?.["Service Interest"]} options={SERVICE_OPTIONS} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Budget Range</label>
+              <label className="text-xs text-[#4A5568]">Budget Range</label>
               <input name="budgetRange" defaultValue={lead?.["Budget Range"] ?? ""} placeholder="e.g. $1k–$3k" className={inputCls} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Source</label>
+              <label className="text-xs text-[#4A5568]">Source</label>
               <OptionSelect name="source" value={lead?.Source} options={SOURCE_OPTIONS} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Status</label>
+              <label className="text-xs text-[#4A5568]">Status</label>
               <select name="status" defaultValue={lead?.Status ?? "New"} className={selectCls}>
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
@@ -277,39 +277,39 @@ function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Current Website</label>
+              <label className="text-xs text-[#4A5568]">Current Website</label>
               <input name="currentWebsite" defaultValue={lead?.["Current Website"] ?? ""} className={inputCls} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Follow-up Date</label>
+              <label className="text-xs text-[#4A5568]">Follow-up Date</label>
               <input name="followUpDate" type="date" defaultValue={lead?.["Follow-up Date"] ?? ""} className={inputCls} />
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Message</label>
+            <label className="text-xs text-[#4A5568]">Message</label>
             <textarea name="message" rows={3} defaultValue={lead?.Message ?? ""} placeholder="Optional" className={inputCls} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Notes</label>
+            <label className="text-xs text-[#4A5568]">Notes</label>
             <textarea name="notes" rows={2} defaultValue={lead?.Notes ?? ""} className={inputCls} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Proposal Draft</label>
+            <label className="text-xs text-[#4A5568]">Proposal Draft</label>
             <textarea name="proposalDraft" rows={4} defaultValue={lead?.["Proposal Draft"] ?? ""} className={inputCls} />
           </div>
-          {error && <p className="text-xs text-[#ff4d8b]">Failed to save. Try again.</p>}
+          {error && <p className="text-xs text-[#B23A0A]">Failed to save. Try again.</p>}
           <div className="flex gap-2 justify-end mt-2">
             <button
               type="button"
               onClick={onClose}
-              className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+              className="text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={pending}
-              className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80"
+              className="text-xs px-4 py-2 rounded-[4px] font-semibold bg-[#1D4ED8] text-white disabled:opacity-40 transition-colors hover:bg-[#1D4ED8]/80"
             >
               {pending ? "Saving…" : lead ? "Save changes" : "Create lead"}
             </button>
@@ -325,28 +325,28 @@ function LeadModal({ lead, onClose }: { lead?: Lead; onClose: () => void }) {
 function LeadCard({ lead, isDragging = false }: { lead: Lead; isDragging?: boolean }) {
   return (
     <div
-      className={`bg-[#0b0d10] border border-[#2a2e34] rounded-2xl p-4 ${
-        isDragging ? "opacity-50" : "hover:border-zinc-600 transition-colors"
+      className={`bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] p-4 ${
+        isDragging ? "opacity-50" : "hover:border-[#CBD5E1] transition-colors"
       }`}
     >
-      <p className="text-sm font-medium text-white leading-tight">{lead.Name}</p>
+      <p className="text-sm font-medium text-[#1B2533] leading-tight">{lead.Name}</p>
       {lead["Business Name"] && (
-        <p className="text-xs text-zinc-500 mt-0.5">{lead["Business Name"]}</p>
+        <p className="text-xs text-[#5A6678] mt-0.5">{lead["Business Name"]}</p>
       )}
       {(lead["Service Interest"] || lead["Budget Range"]) && (
         <div className="flex items-center gap-2 flex-wrap mt-2">
           {lead["Service Interest"] && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-white/[0.04] text-zinc-300">
+            <span className="text-[10px] px-2 py-0.5 rounded-[4px] font-medium bg-white/[0.04] text-[#334155]">
               {lead["Service Interest"]}
             </span>
           )}
           {lead["Budget Range"] && (
-            <span className="text-[10px] text-zinc-500">{lead["Budget Range"]}</span>
+            <span className="text-[10px] text-[#5A6678]">{lead["Budget Range"]}</span>
           )}
         </div>
       )}
       {lead["Follow-up Date"] && (
-        <p className="text-[10px] text-zinc-600 mt-2">
+        <p className="text-[10px] text-[#6B7789] mt-2">
           Follow-up {format(parseISO(lead["Follow-up Date"]), "MMM d, yyyy")}
         </p>
       )}
@@ -391,7 +391,7 @@ function LeadColumn({
       <StatusHeading status={status} count={leads.length} />
       <div
         ref={setNodeRef}
-        className={`min-h-14 md:min-h-[120px] rounded-2xl p-2 space-y-2 transition-colors ${
+        className={`min-h-14 md:min-h-[120px] rounded-[4px] p-2 space-y-2 transition-colors ${
           isOver ? "bg-white/[0.03]" : ""
         }`}
       >
@@ -507,20 +507,20 @@ export function LeadsTable({ leads, clients }: Props) {
   return (
     <div
       id="leads"
-      className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-4 sm:p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform"
+      className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-4 sm:p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform"
     >
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <p className="text-xs text-zinc-500 uppercase tracking-wider">Leads</p>
+        <p className="text-xs text-[#5A6678] uppercase tracking-wider">Leads</p>
         <div className="flex items-center gap-2">
-          <div role="group" aria-label="Leads view" className="flex gap-1 bg-[#0b0d10] rounded-xl p-1">
+          <div role="group" aria-label="Leads view" className="flex gap-1 bg-[#F3F5F8] rounded-[4px] p-1">
             {(["list", "kanban"] as const).map((v) => (
               <button
                 key={v}
                 type="button"
                 aria-pressed={view === v}
                 onClick={() => setView(v)}
-                className={`min-h-11 sm:min-h-0 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
-                  view === v ? "bg-[#bfff3a] text-black" : "text-zinc-400 hover:text-white"
+                className={`min-h-11 sm:min-h-0 px-2.5 py-1 rounded-[4px] text-[10px] font-medium transition-colors ${
+                  view === v ? "bg-[#1D4ED8] text-white" : "text-[#4A5568] hover:text-[#0E1A2B]"
                 }`}
               >
                 {v === "list" ? "List" : "Kanban"}
@@ -529,7 +529,7 @@ export function LeadsTable({ leads, clients }: Props) {
           </div>
           <button
             onClick={() => setNewOpen(true)}
-            className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-lg font-semibold bg-[#bfff3a] text-black hover:bg-[#bfff3a]/80 transition-colors"
+            className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-[4px] font-semibold bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/80 transition-colors"
           >
             + New lead
           </button>
@@ -537,7 +537,7 @@ export function LeadsTable({ leads, clients }: Props) {
       </div>
 
       {optimisticLeads.length === 0 ? (
-        <p className="py-8 text-center text-zinc-600 text-sm">No leads yet</p>
+        <p className="py-8 text-center text-[#6B7789] text-sm">No leads yet</p>
       ) : view === "kanban" ? (
         <LeadBoard leads={optimisticLeads} onMove={handleStatusChange} onOpen={setEditing} />
       ) : (
@@ -550,7 +550,7 @@ export function LeadsTable({ leads, clients }: Props) {
                 <StatusHeading status={status} count={group.length} />
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <tbody className="divide-y divide-[#2a2e34]">
+                    <tbody className="divide-y divide-[#DCE1E8]">
                       {group.map((lead) => {
                         const isExpanded = expandedId === lead.id;
                         return (
@@ -560,15 +560,15 @@ export function LeadsTable({ leads, clients }: Props) {
                               className="hover:bg-white/[0.02] transition-colors cursor-pointer"
                             >
                               <td className="py-3 pr-3">
-                                <p className="font-medium text-white leading-tight">{lead.Name}</p>
+                                <p className="font-medium text-[#1B2533] leading-tight">{lead.Name}</p>
                                 {lead["Business Name"] && (
-                                  <p className="text-xs text-zinc-500">{lead["Business Name"]}</p>
+                                  <p className="text-xs text-[#5A6678]">{lead["Business Name"]}</p>
                                 )}
                               </td>
-                              <td className="py-3 px-3 text-zinc-400 hidden sm:table-cell">
+                              <td className="py-3 px-3 text-[#4A5568] hidden sm:table-cell">
                                 {lead["Service Interest"] ?? "—"}
                               </td>
-                              <td className="py-3 px-3 text-zinc-400 hidden md:table-cell">
+                              <td className="py-3 px-3 text-[#4A5568] hidden md:table-cell">
                                 {lead["Budget Range"] ?? "—"}
                               </td>
                               <td className="py-3 pl-3 text-right">
@@ -580,64 +580,64 @@ export function LeadsTable({ leads, clients }: Props) {
                               </td>
                             </tr>
                             {isExpanded && (
-                              <tr className="bg-[#0b0d10]/60">
+                              <tr className="bg-[#F3F5F8]/60">
                                 <td colSpan={4} className="px-2 pb-3 pt-1">
-                                  <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-xs text-zinc-400">
+                                  <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-xs text-[#4A5568]">
                                     {lead.Email && (
                                       <span>
-                                        <span className="text-zinc-600 mr-1">Email</span>
+                                        <span className="text-[#6B7789] mr-1">Email</span>
                                         {lead.Email}
                                       </span>
                                     )}
                                     {lead["Phone/WhatsApp"] && (
                                       <span>
-                                        <span className="text-zinc-600 mr-1">Phone</span>
+                                        <span className="text-[#6B7789] mr-1">Phone</span>
                                         {lead["Phone/WhatsApp"]}
                                       </span>
                                     )}
                                     {lead["Current Website"] && (
                                       <span>
-                                        <span className="text-zinc-600 mr-1">Site</span>
+                                        <span className="text-[#6B7789] mr-1">Site</span>
                                         {lead["Current Website"]}
                                       </span>
                                     )}
                                     {lead.Source && (
                                       <span>
-                                        <span className="text-zinc-600 mr-1">Source</span>
+                                        <span className="text-[#6B7789] mr-1">Source</span>
                                         {lead.Source}
                                       </span>
                                     )}
                                     {lead["Follow-up Date"] && (
                                       <span>
-                                        <span className="text-zinc-600 mr-1">Follow-up</span>
+                                        <span className="text-[#6B7789] mr-1">Follow-up</span>
                                         {format(parseISO(lead["Follow-up Date"]), "MMM d, yyyy")}
                                       </span>
                                     )}
                                   </div>
                                   {lead.Message && (
-                                    <p className="mt-2 text-xs text-zinc-300 leading-relaxed">
-                                      <span className="text-zinc-600 mr-1">Message</span>
+                                    <p className="mt-2 text-xs text-[#334155] leading-relaxed">
+                                      <span className="text-[#6B7789] mr-1">Message</span>
                                       {lead.Message}
                                     </p>
                                   )}
                                   {lead["Proposal Draft"] && (
-                                    <div className="mt-3 pt-3 border-t border-[#2a2e34]">
-                                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">
+                                    <div className="mt-3 pt-3 border-t border-[#DCE1E8]">
+                                      <p className="text-[10px] text-[#5A6678] uppercase tracking-wider mb-1.5">
                                         Proposal Draft
                                       </p>
-                                      <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                                      <p className="text-xs text-[#334155] leading-relaxed whitespace-pre-wrap">
                                         {lead["Proposal Draft"]}
                                       </p>
                                     </div>
                                   )}
-                                  <div className="mt-3 flex gap-2 pt-3 border-t border-[#2a2e34]">
+                                  <div className="mt-3 flex gap-2 pt-3 border-t border-[#DCE1E8]">
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setEditing(lead);
                                       }}
-                                      className="text-xs px-3 py-2 rounded-lg border border-[#2a2e34] text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
+                                      className="text-xs px-3 py-2 rounded-[4px] border border-[#DCE1E8] text-[#334155] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
                                     >
                                       Edit
                                     </button>
@@ -647,7 +647,7 @@ export function LeadsTable({ leads, clients }: Props) {
                                         e.stopPropagation();
                                         setConfirmDelete(lead);
                                       }}
-                                      className="text-xs px-3 py-2 rounded-lg border border-[#ff4d8b]/30 text-[#ff4d8b] hover:bg-[#ff4d8b]/10 transition-colors"
+                                      className="text-xs px-3 py-2 rounded-[4px] border border-[#B23A0A]/30 text-[#B23A0A] hover:bg-[#B23A0A]/10 transition-colors"
                                     >
                                       Delete
                                     </button>
@@ -671,14 +671,14 @@ export function LeadsTable({ leads, clients }: Props) {
       {editing && <LeadModal lead={editing} onClose={() => setEditing(null)} />}
       {confirmDelete && (
         <ModalShell title="Delete lead" onClose={() => setConfirmDelete(null)}>
-          <p className="text-sm text-zinc-300">
-            Delete <span className="font-medium text-white">{confirmDelete.Name}</span>? This cannot be undone.
+          <p className="text-sm text-[#334155]">
+            Delete <span className="font-medium text-[#1B2533]">{confirmDelete.Name}</span>? This cannot be undone.
           </p>
           <div className="flex gap-2 justify-end mt-5">
             <button
               type="button"
               onClick={() => setConfirmDelete(null)}
-              className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+              className="text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
             >
               Cancel
             </button>
@@ -696,7 +696,7 @@ export function LeadsTable({ leads, clients }: Props) {
                   }
                 });
               }}
-              className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#ff4d8b] text-black transition-colors hover:bg-[#ff4d8b]/80"
+              className="text-xs px-4 py-2 rounded-[4px] font-semibold bg-[#B23A0A] text-white transition-colors hover:bg-[#B23A0A]/80"
             >
               Delete
             </button>
@@ -729,15 +729,15 @@ function ConvertLeadModal({
   if (existing) {
     return (
       <ModalShell title="Link to existing client?" onClose={onClose}>
-        <p className="text-sm text-zinc-300 leading-relaxed">
-          <span className="font-medium text-white">{existing.Company || existing.Name}</span> already
+        <p className="text-sm text-[#334155] leading-relaxed">
+          <span className="font-medium text-[#1B2533]">{existing.Company || existing.Name}</span> already
           matches this lead. Link the lead to that client and move the lead&apos;s projects onto it?
         </p>
         <div className="flex gap-2 justify-end mt-5">
           <button
             type="button"
             onClick={onClose}
-            className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+            className="text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
           >
             Not now
           </button>
@@ -755,7 +755,7 @@ function ConvertLeadModal({
                 }
               })
             }
-            className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80"
+            className="text-xs px-4 py-2 rounded-[4px] font-semibold bg-[#1D4ED8] text-white disabled:opacity-40 transition-colors hover:bg-[#1D4ED8]/80"
           >
             {pending ? "Linking…" : "Link to client"}
           </button>
@@ -766,16 +766,16 @@ function ConvertLeadModal({
 
   return (
     <ModalShell title="Create client from this lead?" onClose={onClose}>
-      <p className="text-sm text-zinc-300 leading-relaxed">
+      <p className="text-sm text-[#334155] leading-relaxed">
         Create a client record for{" "}
-        <span className="font-medium text-white">{lead["Business Name"] || lead.Name}</span>? Name,
+        <span className="font-medium text-[#1B2533]">{lead["Business Name"] || lead.Name}</span>? Name,
         business, email and phone are copied across, the lead is linked to the new client, and its projects move onto it.
       </p>
       <div className="flex gap-2 justify-end mt-5">
         <button
           type="button"
           onClick={onClose}
-          className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+          className="text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
         >
           Not now
         </button>
@@ -793,7 +793,7 @@ function ConvertLeadModal({
               }
             })
           }
-          className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80"
+          className="text-xs px-4 py-2 rounded-[4px] font-semibold bg-[#1D4ED8] text-white disabled:opacity-40 transition-colors hover:bg-[#1D4ED8]/80"
         >
           {pending ? "Creating…" : "Create client"}
         </button>

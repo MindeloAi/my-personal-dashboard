@@ -38,33 +38,33 @@ export function HeroCards({ ledger, invoices }: Props) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <div className="bg-gradient-to-b from-[#14181d] to-[#0f1215] border border-[#2a2e34] rounded-[20px] p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
-        <p className="text-[10px] text-[#bfff3a] font-medium tracking-wider uppercase">Business cash</p>
+      <div className="bg-gradient-to-b from-[#FFFFFF] to-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
+        <p className="text-[10px] text-[#1D4ED8] font-medium tracking-wider uppercase">Business cash</p>
         <p
-          className={`text-4xl font-bold tracking-tight mt-1.5 tabular-nums ${ledger.cash.total < 0 ? "text-[#ff4d8b]" : "text-white"}`}
+          className={`text-4xl font-bold tracking-tight mt-1.5 tabular-nums ${ledger.cash.total < 0 ? "text-[#B23A0A]" : "text-[#1B2533]"}`}
         >
           {tt(animatedCash)}
         </p>
-        <p className="text-xs text-zinc-500 mt-1">{holderLine(ledger.cash)}</p>
-        {owedToFounders && <p className="text-xs text-zinc-500 mt-1">Owed to founders: {owedToFounders}</p>}
+        <p className="text-xs text-[#5A6678] mt-1">{holderLine(ledger.cash)}</p>
+        {owedToFounders && <p className="text-xs text-[#5A6678] mt-1">Owed to founders: {owedToFounders}</p>}
       </div>
 
-      <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
-        <p className="text-[10px] text-zinc-500 font-medium tracking-wider uppercase">Owed to us</p>
-        <p className="text-2xl font-bold mt-1 tabular-nums" style={{ color: "#fbbf24" }}>
+      <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
+        <p className="text-[10px] text-[#5A6678] font-medium tracking-wider uppercase">Owed to us</p>
+        <p className="text-2xl font-bold mt-1 tabular-nums" style={{ color: "#B45309" }}>
           {tt(animatedOwed)}
         </p>
-        <p className="text-xs text-zinc-500 mt-3">
+        <p className="text-xs text-[#5A6678] mt-3">
           {owedParts.length > 0 ? owedParts.join(", ") : "No outstanding invoices"}
         </p>
       </div>
 
-      <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
-        <p className="text-[10px] text-zinc-500 font-medium tracking-wider uppercase">This month net · {sinceLabel}</p>
-        <p className={`text-2xl font-bold mt-1 tabular-nums ${net < 0 ? "text-[#ff4d8b]" : "text-white"}`}>
+      <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
+        <p className="text-[10px] text-[#5A6678] font-medium tracking-wider uppercase">This month net · {sinceLabel}</p>
+        <p className={`text-2xl font-bold mt-1 tabular-nums ${net < 0 ? "text-[#B23A0A]" : "text-[#1B2533]"}`}>
           {tt(animatedNet)}
         </p>
-        <p className="text-xs text-zinc-500 mt-3">
+        <p className="text-xs text-[#5A6678] mt-3">
           {tt(payments)} in, {tt(expenses)} expenses, {tt(payoutsPaidOut)} founder pay
         </p>
       </div>

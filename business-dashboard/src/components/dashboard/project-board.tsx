@@ -49,9 +49,9 @@ function TrashIcon({ className }: { className?: string }) {
 }
 
 const OWNER_COLORS: Record<string, string> = {
-  M: "#bfff3a",
-  P: "#3affd1",
-  MP: "#c44dff",
+  M: "#1D4ED8",
+  P: "#0F766E",
+  MP: "#7E22CE",
 };
 
 function ownerInitials(owner: string | undefined): string | null {
@@ -66,12 +66,12 @@ function ownerInitials(owner: string | undefined): string | null {
 }
 
 function ownerColor(initials: string | null): string {
-  if (!initials) return "#3a3f47";
-  return OWNER_COLORS[initials] ?? "#fbbf24";
+  if (!initials) return "#CBD5E1";
+  return OWNER_COLORS[initials] ?? "#B45309";
 }
 
 const inputCls =
-  "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
+  "w-full bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-3 py-2 text-sm text-[#1B2533] placeholder:text-[#8B9AB0] focus:outline-none focus:border-[#94A3B8] transition-colors";
 const selectCls = inputCls + " cursor-pointer";
 
 type Props = { projects: Project[]; clients?: Client[]; leads?: Lead[]; initialClientId?: string | null };
@@ -95,18 +95,18 @@ const PAYMENT_LABELS: Record<string, string> = {
 const COLUMNS: Status[] = ["Lead", "In Progress", "Review", "Done"];
 
 const COLUMN_STYLES: Record<Status, { header: string; dot: string }> = {
-  Lead: { header: "text-zinc-400", dot: "bg-zinc-500" },
-  "In Progress": { header: "text-[#3affd1]", dot: "bg-[#3affd1]" },
-  Review: { header: "text-[#c44dff]", dot: "bg-[#c44dff]" },
-  Done: { header: "text-[#bfff3a]", dot: "bg-[#bfff3a]" },
+  Lead: { header: "text-[#4A5568]", dot: "bg-[#94A3B8]" },
+  "In Progress": { header: "text-[#0F766E]", dot: "bg-[#0F766E]" },
+  Review: { header: "text-[#7E22CE]", dot: "bg-[#7E22CE]" },
+  Done: { header: "text-[#1D4ED8]", dot: "bg-[#1D4ED8]" },
 };
 
 const PAYMENT_COLORS: Record<string, string> = {
-  one_time: "bg-zinc-700 text-zinc-300",
-  deposit_final: "bg-[#3affd1]/10 text-[#3affd1]",
-  milestones: "bg-[#c44dff]/10 text-[#c44dff]",
-  recurring_monthly: "bg-[#bfff3a]/10 text-[#bfff3a]",
-  recurring_custom: "bg-[#bfff3a]/10 text-[#bfff3a]",
+  one_time: "bg-[#E2E8F0] text-[#334155]",
+  deposit_final: "bg-[#0F766E]/10 text-[#0F766E]",
+  milestones: "bg-[#7E22CE]/10 text-[#7E22CE]",
+  recurring_monthly: "bg-[#1D4ED8]/10 text-[#1D4ED8]",
+  recurring_custom: "bg-[#1D4ED8]/10 text-[#1D4ED8]",
 };
 
 function ProjectCard({
@@ -127,12 +127,12 @@ function ProjectCard({
   return (
     <div
       onClick={onClick}
-      className={`group bg-[#0b0d10] border border-[#2a2e34] rounded-2xl p-4 select-none ${
-        isDragging ? "opacity-50" : "hover:border-zinc-600 transition-colors"
+      className={`group bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] p-4 select-none ${
+        isDragging ? "opacity-50" : "hover:border-[#CBD5E1] transition-colors"
       } ${onClick ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <p className="text-sm font-medium text-white leading-tight flex-1">{project.Name}</p>
+        <p className="text-sm font-medium text-[#1B2533] leading-tight flex-1">{project.Name}</p>
         <div className="flex items-center gap-1 shrink-0">
           {onDelete && (
             <button
@@ -142,7 +142,7 @@ function ProjectCard({
                 e.stopPropagation();
                 onDelete();
               }}
-              className="min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1 rounded-md text-zinc-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 hover:text-[#ff4d8b] hover:bg-[#ff4d8b]/10 transition-all"
+              className="min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 flex items-center justify-center p-1 rounded-[4px] text-[#5A6678] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 hover:text-[#B23A0A] hover:bg-[#B23A0A]/10 transition-all"
               aria-label="Delete project"
               title="Delete project"
             >
@@ -151,7 +151,7 @@ function ProjectCard({
           )}
           {initials && (
             <span
-              className="text-[10px] px-1.5 py-0.5 rounded-full font-bold tabular-nums"
+              className="text-[10px] px-1.5 py-0.5 rounded-[4px] font-bold tabular-nums"
               style={{ background: `${ownerCol}1f`, color: ownerCol }}
               title={`Owner: ${project.Owner}`}
             >
@@ -162,14 +162,14 @@ function ProjectCard({
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         {serviceType && (
-          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-white/[0.04] text-zinc-300">
+          <span className="text-[10px] px-2 py-0.5 rounded-[4px] font-medium bg-white/[0.04] text-[#334155]">
             {serviceType}
           </span>
         )}
         {project["Payment Structure"] && (
           <span
             className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-              PAYMENT_COLORS[project["Payment Structure"]] ?? "bg-zinc-700 text-zinc-300"
+              PAYMENT_COLORS[project["Payment Structure"]] ?? "bg-[#E2E8F0] text-[#334155]"
             }`}
           >
             {PAYMENT_LABELS[project["Payment Structure"]] ??
@@ -177,13 +177,13 @@ function ProjectCard({
           </span>
         )}
         {(project["Total Value"] ?? 0) > 0 && (
-          <span className="text-[10px] text-zinc-500">
+          <span className="text-[10px] text-[#5A6678]">
             ${(project["Total Value"] ?? 0).toLocaleString()}
           </span>
         )}
       </div>
       {project["Start Date"] && (
-        <p className="text-[10px] text-zinc-600 mt-2">{project["Start Date"]}</p>
+        <p className="text-[10px] text-[#6B7789] mt-2">{project["Start Date"]}</p>
       )}
     </div>
   );
@@ -269,7 +269,7 @@ function ProjectDetailModal({
             setPaymentStructure(project["Payment Structure"] ?? "");
             setEditMode(!editMode);
           }}
-          className="text-xs text-zinc-500 hover:text-white transition-colors"
+          className="text-xs text-[#5A6678] hover:text-[#0E1A2B] transition-colors"
         >
           {editMode ? "View" : "Edit"}
         </button>
@@ -279,16 +279,16 @@ function ProjectDetailModal({
         {editMode ? (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Name</label>
+              <label className="text-xs text-[#4A5568]">Name</label>
               <input name="name" defaultValue={project.Name} className={inputCls} required />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Belongs to</label>
+              <label className="text-xs text-[#4A5568]">Belongs to</label>
               <OwnerSelect clients={clients} leads={leads} defaultValue={ownerValue(project)} className={selectCls} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400">Status</label>
+                <label className="text-xs text-[#4A5568]">Status</label>
                 <select name="status" defaultValue={project.Status ?? "Lead"} className={selectCls}>
                   <option value="Lead">Lead</option>
                   <option value="In Progress">In Progress</option>
@@ -298,7 +298,7 @@ function ProjectDetailModal({
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400">Total Value ($)</label>
+                <label className="text-xs text-[#4A5568]">Total Value ($)</label>
                 <input
                   name="totalValue"
                   type="number"
@@ -310,7 +310,7 @@ function ProjectDetailModal({
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Payment Structure</label>
+              <label className="text-xs text-[#4A5568]">Payment Structure</label>
               <select
                 name="paymentStructure"
                 defaultValue={project["Payment Structure"] ?? ""}
@@ -326,13 +326,13 @@ function ProjectDetailModal({
               </select>
             </div>
             {isRecurring && (
-              <p className="text-xs text-[#3affd1] bg-[#3affd1]/10 border border-[#3affd1]/20 rounded-xl px-3 py-2 leading-relaxed">
+              <p className="text-xs text-[#0F766E] bg-[#0F766E]/10 border border-[#0F766E]/20 rounded-[4px] px-3 py-2 leading-relaxed">
                 Recurring revenue is tracked separately, in Finance → Recurring. Add a subscription there so it counts toward MRR and gets an invoice reminder.
               </p>
             )}
             {isDepositFinal && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400">Deposit Percentage (e.g. 50)</label>
+                <label className="text-xs text-[#4A5568]">Deposit Percentage (e.g. 50)</label>
                 <input
                   name="depositPct"
                   type="number"
@@ -346,7 +346,7 @@ function ProjectDetailModal({
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400">Owner</label>
+                <label className="text-xs text-[#4A5568]">Owner</label>
                 <select name="owner" defaultValue={project.Owner ?? ""} className={selectCls}>
                   <option value="">—</option>
                   <option value="M">M</option>
@@ -355,7 +355,7 @@ function ProjectDetailModal({
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400">Service Type</label>
+                <label className="text-xs text-[#4A5568]">Service Type</label>
                 <select
                   name="serviceType"
                   defaultValue={project["Service Type"] ?? ""}
@@ -370,7 +370,7 @@ function ProjectDetailModal({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400">Start Date</label>
+                <label className="text-xs text-[#4A5568]">Start Date</label>
                 <input
                   name="startDate"
                   type="date"
@@ -379,7 +379,7 @@ function ProjectDetailModal({
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400">End Date</label>
+                <label className="text-xs text-[#4A5568]">End Date</label>
                 <input
                   name="endDate"
                   type="date"
@@ -389,7 +389,7 @@ function ProjectDetailModal({
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Notes</label>
+              <label className="text-xs text-[#4A5568]">Notes</label>
               <input
                 name="notes"
                 defaultValue={project.Notes ?? ""}
@@ -397,7 +397,7 @@ function ProjectDetailModal({
                 className={inputCls}
               />
             </div>
-            {error && <p className="text-xs text-[#ff4d8b]">Failed to save. Try again.</p>}
+            {error && <p className="text-xs text-[#B23A0A]">Failed to save. Try again.</p>}
             <div className="flex gap-2 justify-end mt-1">
               <button
                 type="button"
@@ -405,14 +405,14 @@ function ProjectDetailModal({
                   setPaymentStructure(project["Payment Structure"] ?? "");
                   setEditMode(false);
                 }}
-                className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+                className="text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={pending}
-                className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#c44dff] text-white disabled:opacity-40 transition-colors hover:bg-[#c44dff]/80"
+                className="text-xs px-4 py-2 rounded-[4px] font-semibold bg-[#7E22CE] text-white disabled:opacity-40 transition-colors hover:bg-[#7E22CE]/80"
               >
                 {pending ? "Saving…" : "Save"}
               </button>
@@ -427,61 +427,61 @@ function ProjectDetailModal({
             <div className="space-y-2 text-xs">
               {project.Owner && (
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Owner</span>
-                  <span className="text-zinc-300">{project.Owner}</span>
+                  <span className="text-[#5A6678]">Owner</span>
+                  <span className="text-[#334155]">{project.Owner}</span>
                 </div>
               )}
               {project["Service Type"] && (
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Service type</span>
-                  <span className="text-zinc-300">{project["Service Type"]}</span>
+                  <span className="text-[#5A6678]">Service type</span>
+                  <span className="text-[#334155]">{project["Service Type"]}</span>
                 </div>
               )}
               {project["Payment Structure"] && (
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Payment</span>
-                  <span className="text-zinc-300">
+                  <span className="text-[#5A6678]">Payment</span>
+                  <span className="text-[#334155]">
                     {PAYMENT_LABELS[project["Payment Structure"]] ?? project["Payment Structure"]}
                   </span>
                 </div>
               )}
               {(project["Total Value"] ?? 0) > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Total value</span>
-                  <span className="text-white font-semibold">
+                  <span className="text-[#5A6678]">Total value</span>
+                  <span className="text-[#1B2533] font-semibold">
                     ${(project["Total Value"] ?? 0).toLocaleString()}
                   </span>
                 </div>
               )}
               {project["Start Date"] && (
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Start date</span>
-                  <span className="text-zinc-300">{project["Start Date"]}</span>
+                  <span className="text-[#5A6678]">Start date</span>
+                  <span className="text-[#334155]">{project["Start Date"]}</span>
                 </div>
               )}
               {project["End Date"] && (
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">End date</span>
-                  <span className="text-zinc-300">{project["End Date"]}</span>
+                  <span className="text-[#5A6678]">End date</span>
+                  <span className="text-[#334155]">{project["End Date"]}</span>
                 </div>
               )}
               {(project["Paid To Date"] ?? 0) > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Paid to date</span>
-                  <span className="text-[#bfff3a] font-semibold">
+                  <span className="text-[#5A6678]">Paid to date</span>
+                  <span className="text-[#1D4ED8] font-semibold">
                     ${(project["Paid To Date"] ?? 0).toLocaleString()}
                   </span>
                 </div>
               )}
             </div>
             {project.Notes ? (
-              <div className="mt-4 pt-4 border-t border-[#2a2e34]">
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Notes</p>
-                <p className="text-xs text-zinc-300 leading-relaxed">{project.Notes}</p>
+              <div className="mt-4 pt-4 border-t border-[#DCE1E8]">
+                <p className="text-[10px] text-[#5A6678] uppercase tracking-wider mb-1.5">Notes</p>
+                <p className="text-xs text-[#334155] leading-relaxed">{project.Notes}</p>
               </div>
             ) : (
-              <div className="mt-4 pt-4 border-t border-[#2a2e34]">
-                <p className="text-xs text-zinc-600 italic">No notes</p>
+              <div className="mt-4 pt-4 border-t border-[#DCE1E8]">
+                <p className="text-xs text-[#6B7789] italic">No notes</p>
               </div>
             )}
           </>
@@ -545,11 +545,11 @@ function Column({
         <span className={`text-xs font-semibold uppercase tracking-wider ${style.header}`}>
           {status}
         </span>
-        <span className="text-xs text-zinc-600 ml-1">{projects.length}</span>
+        <span className="text-xs text-[#6B7789] ml-1">{projects.length}</span>
       </div>
       <div
         ref={setNodeRef}
-        className={`min-h-14 md:min-h-[120px] rounded-2xl p-2 space-y-2 transition-colors ${
+        className={`min-h-14 md:min-h-[120px] rounded-[4px] p-2 space-y-2 transition-colors ${
           isOver ? "bg-white/[0.03]" : ""
         }`}
       >
@@ -655,19 +655,19 @@ export function ProjectBoard({ projects, clients = [], leads = [], initialClient
   }
 
   return (
-    <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
+    <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-6 hover:-translate-y-0.5 hover:shadow-lg transition-transform">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <p className="text-xs text-zinc-500 uppercase tracking-wider">Projects</p>
+        <p className="text-xs text-[#5A6678] uppercase tracking-wider">Projects</p>
         {ownerOptions.length > 0 && (
-          <div className="flex gap-1 bg-[#0b0d10] rounded-xl p-1">
+          <div className="flex gap-1 bg-[#F3F5F8] rounded-[4px] p-1">
             {(["All", ...ownerOptions] as OwnerFilter[]).map((f) => {
               const initials = f === "All" ? "All" : ownerInitials(f);
               return (
                 <button
                   key={f}
                   onClick={() => setOwnerFilter(f)}
-                  className={`min-h-11 sm:min-h-0 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
-                    ownerFilter === f ? "bg-[#bfff3a] text-black" : "text-zinc-400 hover:text-white"
+                  className={`min-h-11 sm:min-h-0 px-2.5 py-1 rounded-[4px] text-[10px] font-medium transition-colors ${
+                    ownerFilter === f ? "bg-[#1D4ED8] text-white" : "text-[#4A5568] hover:text-[#0E1A2B]"
                   }`}
                   title={f === "All" ? "All owners" : `Owner: ${f}`}
                 >
@@ -680,7 +680,7 @@ export function ProjectBoard({ projects, clients = [], leads = [], initialClient
         {clientFilter && (
           <button
             onClick={() => setClientFilter(null)}
-            className="min-h-11 sm:min-h-0 text-[10px] px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/30 hover:bg-[#bfff3a]/20 transition-colors"
+            className="min-h-11 sm:min-h-0 text-[10px] px-2.5 py-1 rounded-[4px] bg-[#1D4ED8]/10 text-[#1D4ED8] border border-[#1D4ED8]/30 hover:bg-[#1D4ED8]/20 transition-colors"
           >
             {clients.find((c) => c.id === clientFilter)?.Company ??
               clients.find((c) => c.id === clientFilter)?.Name ??

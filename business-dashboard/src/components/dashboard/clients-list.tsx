@@ -11,16 +11,16 @@ import type { Client, Invoice, Project } from "@/lib/db";
 const STATUSES = ["Active", "Inactive", "Lead"] as const;
 type ClientStatus = (typeof STATUSES)[number];
 
-export const PANEL = "bg-[#14181d] border border-[#2a2e34] rounded-[20px]";
+export const PANEL = "bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px]";
 
 export const STATUS_BADGE: Record<ClientStatus, string> = {
-  Active: "bg-[#bfff3a]/10 text-[#bfff3a] border-[#bfff3a]/20",
-  Inactive: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-  Lead: "bg-[#3affd1]/10 text-[#3affd1] border-[#3affd1]/20",
+  Active: "bg-[#1D4ED8]/10 text-[#1D4ED8] border-[#1D4ED8]/20",
+  Inactive: "bg-zinc-500/10 text-[#4A5568] border-[#94A3B8]/20",
+  Lead: "bg-[#0F766E]/10 text-[#0F766E] border-[#0F766E]/20",
 };
 
 export const inputCls =
-  "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
+  "w-full bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-3 py-2 text-sm text-[#1B2533] placeholder:text-[#8B9AB0] focus:outline-none focus:border-[#94A3B8] transition-colors";
 export const selectCls = inputCls + " cursor-pointer";
 
 type TimelineCounts = Record<string, { entries: number; promises: number }>;
@@ -62,23 +62,23 @@ export function ClientsList({ clients, invoices, projects, timelineCounts }: Pro
   );
 
   return (
-    <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-4 sm:p-6">
+    <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-4 sm:p-6">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <p className="text-xs text-zinc-500 uppercase tracking-wider">All clients</p>
+        <p className="text-xs text-[#5A6678] uppercase tracking-wider">All clients</p>
         <button
           onClick={() => setCreating(true)}
-          className="min-h-11 sm:min-h-0 text-xs px-3 py-2 rounded-lg font-semibold bg-[#bfff3a] text-black hover:bg-[#bfff3a]/80 transition-colors"
+          className="min-h-11 sm:min-h-0 text-xs px-3 py-2 rounded-[4px] font-semibold bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/80 transition-colors"
         >
           + New client
         </button>
       </div>
 
       {sorted.length === 0 ? (
-        <p className="py-8 text-center text-zinc-600 text-sm">
+        <p className="py-8 text-center text-[#6B7789] text-sm">
           No clients yet. Add one, or convert a won lead.
         </p>
       ) : (
-        <ul className="divide-y divide-[#2a2e34]">
+        <ul className="divide-y divide-[#DCE1E8]">
           {sorted.map((client) => {
             const status = (STATUSES as readonly string[]).includes(client.Status ?? "")
               ? (client.Status as ClientStatus)
@@ -88,23 +88,23 @@ export function ClientsList({ clients, invoices, projects, timelineCounts }: Pro
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <Link
                     href={`/admin/clients/${encodeURIComponent(client.id)}`}
-                    className="flex-1 text-left min-w-0 rounded-lg px-1 -mx-1 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#bfff3a]"
+                    className="flex-1 text-left min-w-0 rounded-[4px] px-1 -mx-1 hover:bg-[#0E1A2B]/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1D4ED8]"
                   >
-                    <p className="font-medium text-white leading-tight truncate">
+                    <p className="font-medium text-[#1B2533] leading-tight truncate">
                       {client.Company || client.Name}
                     </p>
                     {client.Company && client.Name !== client.Company && (
-                      <p className="text-xs text-zinc-500 truncate">{client.Name}</p>
+                      <p className="text-xs text-[#5A6678] truncate">{client.Name}</p>
                     )}
                   </Link>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-xs px-2 py-1 rounded-full border font-medium ${STATUS_BADGE[status]}`}>
+                    <span className={`text-xs px-2 py-1 rounded-[4px] border font-medium ${STATUS_BADGE[status]}`}>
                       {status}
                     </span>
                     <button
                       type="button"
                       onClick={() => setEditing(client)}
-                      className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-lg border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+                      className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
                     >
                       Edit
                     </button>
@@ -114,7 +114,7 @@ export function ClientsList({ clients, invoices, projects, timelineCounts }: Pro
                         e.stopPropagation();
                         router.push(`/admin/finance/invoices?client=${encodeURIComponent(client.id)}`);
                       }}
-                      className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-lg border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+                      className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
                     >
                       Invoices
                     </button>
@@ -124,7 +124,7 @@ export function ClientsList({ clients, invoices, projects, timelineCounts }: Pro
                         e.stopPropagation();
                         router.push(`/admin/projects?client=${encodeURIComponent(client.id)}`);
                       }}
-                      className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-lg border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+                      className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
                     >
                       Projects
                     </button>
@@ -236,27 +236,27 @@ export function ClientModal({
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Name</label>
+            <label className="text-xs text-[#4A5568]">Name</label>
             <input name="name" defaultValue={client?.Name ?? ""} className={inputCls} required />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Company</label>
+            <label className="text-xs text-[#4A5568]">Company</label>
             <input name="company" defaultValue={client?.Company ?? ""} className={inputCls} />
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Email</label>
+            <label className="text-xs text-[#4A5568]">Email</label>
             <input name="email" type="email" defaultValue={client?.Email ?? ""} className={inputCls} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Phone</label>
+            <label className="text-xs text-[#4A5568]">Phone</label>
             <input name="phone" defaultValue={client?.Phone ?? ""} className={inputCls} />
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Status</label>
+            <label className="text-xs text-[#4A5568]">Status</label>
             <select name="status" defaultValue={client?.Status ?? "Active"} className={selectCls}>
               {STATUSES.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -264,21 +264,21 @@ export function ClientModal({
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Owner</label>
+            <label className="text-xs text-[#4A5568]">Owner</label>
             <input name="owner" defaultValue={client?.Owner ?? ""} className={inputCls} />
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs text-zinc-400">Notes</label>
+          <label className="text-xs text-[#4A5568]">Notes</label>
           <textarea name="notes" rows={3} defaultValue={client?.Notes ?? ""} className={inputCls} />
         </div>
-        {error && <p className="text-xs text-[#ff4d8b]">Failed to save. Try again.</p>}
+        {error && <p className="text-xs text-[#B23A0A]">Failed to save. Try again.</p>}
         <div className="flex gap-2 justify-between items-center mt-2">
           {onDelete ? (
             <button
               type="button"
               onClick={onDelete}
-              className="text-xs px-3 py-2 rounded-xl border border-[#ff4d8b]/30 text-[#ff4d8b] hover:bg-[#ff4d8b]/10 transition-colors"
+              className="text-xs px-3 py-2 rounded-[4px] border border-[#B23A0A]/30 text-[#B23A0A] hover:bg-[#B23A0A]/10 transition-colors"
             >
               Delete
             </button>
@@ -289,14 +289,14 @@ export function ClientModal({
             <button
               type="button"
               onClick={onClose}
-              className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+              className="text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={pending}
-              className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80"
+              className="text-xs px-4 py-2 rounded-[4px] font-semibold bg-[#1D4ED8] text-white disabled:opacity-40 transition-colors hover:bg-[#1D4ED8]/80"
             >
               {pending ? "Saving…" : client ? "Save changes" : "Create client"}
             </button>
@@ -329,12 +329,12 @@ function DeleteClientModal({
 
   return (
     <ModalShell title="Delete client" onClose={onClose}>
-      <p className="text-sm text-zinc-300">
-        Delete <span className="font-medium text-white">{client.Company || client.Name}</span>?
+      <p className="text-sm text-[#334155]">
+        Delete <span className="font-medium text-[#1B2533]">{client.Company || client.Name}</span>?
       </p>
       {hasDependents && (
-        <div className="mt-3 rounded-xl border border-[#fbbf24]/30 bg-[#fbbf24]/10 p-3">
-          <p className="text-xs text-[#fbbf24] leading-relaxed">
+        <div className="mt-3 rounded-[4px] border border-[#B45309]/30 bg-[#B45309]/10 p-3">
+          <p className="text-xs text-[#B45309] leading-relaxed">
             This will detach {projectCount} {projectCount === 1 ? "project" : "projects"} and{" "}
             {invoiceCount} {invoiceCount === 1 ? "invoice" : "invoices"}
             {hasTimeline &&
@@ -352,14 +352,14 @@ function DeleteClientModal({
         <button
           type="button"
           onClick={onClose}
-          className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+          className="text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#ff4d8b] text-black transition-colors hover:bg-[#ff4d8b]/80"
+          className="text-xs px-4 py-2 rounded-[4px] font-semibold bg-[#B23A0A] text-white transition-colors hover:bg-[#B23A0A]/80"
         >
           Delete client
         </button>

@@ -85,17 +85,17 @@ export function ModalShell({ title, onClose, children, maxWidthClass = "max-w-md
       style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
     >
       <div
-        className={`bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-4 sm:p-6 w-full ${maxWidthClass} shadow-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto`}
+        className={`bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-4 sm:p-6 w-full ${maxWidthClass} shadow-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto`}
       >
         <div className="flex items-start justify-between mb-5 gap-3">
-          <p className="text-sm font-semibold text-white leading-snug">{title}</p>
+          <p className="text-sm font-semibold text-[#1B2533] leading-snug">{title}</p>
           <div className="flex items-center gap-2 shrink-0">
             {headerExtra}
             <button
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex h-11 w-11 items-center justify-center text-lg leading-none text-zinc-500 transition-colors hover:text-white sm:h-6 sm:w-6"
+              className="flex h-11 w-11 items-center justify-center text-lg leading-none text-[#5A6678] transition-colors hover:text-[#0E1A2B] sm:h-6 sm:w-6"
             >
               ✕
             </button>

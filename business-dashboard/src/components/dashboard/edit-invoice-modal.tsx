@@ -9,7 +9,7 @@ import { HOLDERS, HOLDER_LABEL, shareError, type Holder, type SplitRule } from "
 import type { Invoice, Project, Subscription } from "@/lib/airtable";
 
 const inputCls =
-  "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
+  "w-full bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-3 py-2 text-sm text-[#1B2533] placeholder:text-[#8B9AB0] focus:outline-none focus:border-[#94A3B8] transition-colors";
 const selectCls = inputCls + " cursor-pointer";
 
 type InvoiceTypeValue = "deposit" | "milestone" | "final" | "recurring" | "one_off";
@@ -121,7 +121,7 @@ export function EditInvoiceModal({
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {subscriptions.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Subscription</label>
+              <label className="text-xs text-[#4A5568]">Subscription</label>
               <select
                 name="subscriptionId"
                 defaultValue={invoice.Subscription?.[0] ?? ""}
@@ -138,7 +138,7 @@ export function EditInvoiceModal({
           )}
           {projects.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Project</label>
+              <label className="text-xs text-[#4A5568]">Project</label>
               <select name="projectId" defaultValue={invoice.Project?.[0] ?? ""} className={selectCls}>
                 <option value="">— None</option>
                 {projects.map((p) => (
@@ -151,13 +151,13 @@ export function EditInvoiceModal({
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Invoice Number</label>
-              <p className={inputCls + " text-zinc-500"}>
+              <label className="text-xs text-[#4A5568]">Invoice Number</label>
+              <p className={inputCls + " text-[#5A6678]"}>
                 {invoice["Invoice Number"] ?? "Assigned when sent"}
               </p>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Amount ($)</label>
+              <label className="text-xs text-[#4A5568]">Amount ($)</label>
               <input
                 name="amount"
                 type="number"
@@ -172,7 +172,7 @@ export function EditInvoiceModal({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Type</label>
+              <label className="text-xs text-[#4A5568]">Type</label>
               <select name="invoiceType" defaultValue={invoice["Invoice Type"] ?? ""} className={selectCls}>
                 <option value="">—</option>
                 <option value="deposit">Deposit</option>
@@ -183,9 +183,9 @@ export function EditInvoiceModal({
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Status</label>
+              <label className="text-xs text-[#4A5568]">Status</label>
               {isPaid ? (
-                <p className={inputCls + " text-zinc-400"}>Paid</p>
+                <p className={inputCls + " text-[#4A5568]"}>Paid</p>
               ) : (
                 <select name="status" defaultValue={invoice.Status ?? "Draft"} className={selectCls}>
                   <option value="Draft" disabled={locked}>Draft</option>
@@ -198,17 +198,17 @@ export function EditInvoiceModal({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Issue Date</label>
+              <label className="text-xs text-[#4A5568]">Issue Date</label>
               <input name="issueDate" type="date" defaultValue={invoice["Issue Date"] ?? ""} className={inputCls} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Due Date</label>
+              <label className="text-xs text-[#4A5568]">Due Date</label>
               <input name="dueDate" type="date" defaultValue={invoice["Due Date"] ?? ""} className={inputCls} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Michael bonus share (%)</label>
+              <label className="text-xs text-[#4A5568]">Michael bonus share (%)</label>
               <input
                 type="number"
                 min="0"
@@ -223,7 +223,7 @@ export function EditInvoiceModal({
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-zinc-400">Zane bonus share (%)</label>
+              <label className="text-xs text-[#4A5568]">Zane bonus share (%)</label>
               <input
                 type="number"
                 min="0"
@@ -239,15 +239,15 @@ export function EditInvoiceModal({
             </div>
           </div>
           {locked && sharesChanged && !sharesProblem && (
-            <p className="text-xs text-[#fbbf24]">
+            <p className="text-xs text-[#B45309]">
               Payments are recorded, so saving re-splits their bonus. Payouts already paid out get a
               correction line: what one of you pays back and the other is owed.
             </p>
           )}
-          {sharesProblem && <p className="text-xs text-[#ff4d8b]">{sharesProblem}</p>}
+          {sharesProblem && <p className="text-xs text-[#B23A0A]">{sharesProblem}</p>}
           {locked && collector !== undefined && (
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="collected-by" className="text-xs text-zinc-400">Collected by (who has the money)</label>
+              <label htmlFor="collected-by" className="text-xs text-[#4A5568]">Collected by (who has the money)</label>
               <select
                 id="collected-by"
                 value={collectedBy}
@@ -265,22 +265,22 @@ export function EditInvoiceModal({
             <SplitPreview amount={parseFloat(amount) || 0} rule={rule} michaelShare={parseFloat(michael) / 100} />
           )}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400">Notes</label>
+            <label className="text-xs text-[#4A5568]">Notes</label>
             <input name="notes" defaultValue={invoice.Notes ?? ""} placeholder="Optional" className={inputCls} />
           </div>
-          {error && <p className="text-xs text-[#ff4d8b]">{error}</p>}
+          {error && <p className="text-xs text-[#B23A0A]">{error}</p>}
           <div className="flex gap-2 justify-end mt-2">
             <button
               type="button"
               onClick={onClose}
-              className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+              className="text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={pending || !!sharesProblem}
-              className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80"
+              className="text-xs px-4 py-2 rounded-[4px] font-semibold bg-[#1D4ED8] text-white disabled:opacity-40 transition-colors hover:bg-[#1D4ED8]/80"
             >
               {pending ? "Saving…" : "Save"}
             </button>

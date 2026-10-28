@@ -16,14 +16,14 @@ export default function AdminError({
   }, [error]);
 
   return (
-    <div className="bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-6 text-center">
-      <p className="text-base font-semibold text-white">This section did not load</p>
-      <p className="mt-1 text-sm text-zinc-500">Nothing was saved or changed. Try again, or open another section from the menu.</p>
-      {error.digest && <p className="mt-2 font-mono text-[10px] text-zinc-600">Ref {error.digest}</p>}
+    <div className="bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-6 text-center">
+      <p className="text-base font-semibold text-[#1B2533]">This section did not load</p>
+      <p className="mt-1 text-sm text-[#5A6678]">Nothing was saved or changed. Try again, or open another section from the menu.</p>
+      {error.digest && <p className="mt-2 font-mono text-[10px] text-[#6B7789]">Ref {error.digest}</p>}
       <button
         type="button"
         onClick={() => unstable_retry()}
-        className="mt-4 min-h-11 rounded-xl bg-[#bfff3a] px-5 text-sm font-semibold text-black transition-colors hover:bg-[#bfff3a]/80"
+        className="mt-4 min-h-11 rounded-[4px] bg-[#1D4ED8] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8]/80"
       >
         Try again
       </button>

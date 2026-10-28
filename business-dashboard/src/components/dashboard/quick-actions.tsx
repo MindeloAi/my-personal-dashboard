@@ -29,14 +29,14 @@ type Props = {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs text-zinc-400">{label}</label>
+      <label className="text-xs text-[#4A5568]">{label}</label>
       {children}
     </div>
   );
 }
 
 const inputCls =
-  "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
+  "w-full bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-3 py-2 text-sm text-[#1B2533] placeholder:text-[#8B9AB0] focus:outline-none focus:border-[#94A3B8] transition-colors";
 const selectCls = inputCls + " cursor-pointer";
 
 function SubmitRow({
@@ -53,14 +53,14 @@ function SubmitRow({
       <button
         type="button"
         onClick={onClose}
-        className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+        className="text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#4A5568] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors"
       >
         Cancel
       </button>
       <button
         type="submit"
         disabled={pending}
-        className="text-xs px-4 py-2 rounded-xl font-semibold disabled:opacity-40 transition-colors"
+        className="text-xs px-4 py-2 rounded-[4px] font-semibold disabled:opacity-40 transition-colors"
         style={{ background: accent, color: "#000" }}
       >
         {pending ? "Saving…" : "Save"}
@@ -141,7 +141,7 @@ function InvoiceModal({
         </Field>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Invoice Number">
-            <p className={inputCls + " text-zinc-500"}>Assigned automatically when sent</p>
+            <p className={inputCls + " text-[#5A6678]"}>Assigned automatically when sent</p>
           </Field>
           <Field label="Amount ($)">
             <input
@@ -217,8 +217,8 @@ function InvoiceModal({
         <Field label="Notes">
           <input name="notes" placeholder="Optional" className={inputCls} />
         </Field>
-        {(error ?? sharesProblem) && <p className="text-xs text-[#ff4d8b]">{error ?? sharesProblem}</p>}
-        <SubmitRow pending={pending} onClose={onClose} accent="#bfff3a" />
+        {(error ?? sharesProblem) && <p className="text-xs text-[#B23A0A]">{error ?? sharesProblem}</p>}
+        <SubmitRow pending={pending} onClose={onClose} accent="#1D4ED8" />
       </form>
     </ModalShell>
   );
@@ -353,15 +353,15 @@ function ExpenseModal({ cutover, onClose }: { cutover: string; onClose: () => vo
             ))}
           </select>
         </Field>
-        <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none">
-          <input name="recurring" type="checkbox" className="w-3.5 h-3.5 accent-[#bfff3a]" />
+        <label className="flex items-center gap-2 text-xs text-[#4A5568] cursor-pointer select-none">
+          <input name="recurring" type="checkbox" className="w-3.5 h-3.5 accent-[#1D4ED8]" />
           Recurring expense
         </label>
         <Field label="Notes">
           <input name="notes" placeholder="Optional" className={inputCls} />
         </Field>
-        {error && <p className="text-xs text-[#ff4d8b]">{error}</p>}
-        <SubmitRow pending={pending} onClose={onClose} accent="#ff4d8b" />
+        {error && <p className="text-xs text-[#B23A0A]">{error}</p>}
+        <SubmitRow pending={pending} onClose={onClose} accent="#B23A0A" />
       </form>
     </ModalShell>
   );
@@ -474,7 +474,7 @@ function ProjectModal({
           </Field>
         </div>
         {isRecurring && (
-          <p className="text-xs text-[#3affd1] bg-[#3affd1]/10 border border-[#3affd1]/20 rounded-xl px-3 py-2 leading-relaxed">
+          <p className="text-xs text-[#0F766E] bg-[#0F766E]/10 border border-[#0F766E]/20 rounded-[4px] px-3 py-2 leading-relaxed">
             Recurring revenue is tracked separately, in Finance → Recurring. Add a subscription there so it counts toward MRR and gets an invoice reminder.
           </p>
         )}
@@ -512,7 +512,7 @@ function ProjectModal({
         <Field label="Notes">
           <input name="notes" placeholder="Optional" className={inputCls} />
         </Field>
-        <SubmitRow pending={pending} onClose={onClose} accent="#c44dff" />
+        <SubmitRow pending={pending} onClose={onClose} accent="#7E22CE" />
       </form>
     </ModalShell>
   );
@@ -546,19 +546,19 @@ export function QuickActions({ clients = [], leads = [], projects = [], ledger }
       <div className="flex flex-wrap gap-1.5">
         <button
           onClick={() => setOpen("invoice")}
-          className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 bg-[#1a1d22] text-[#bfff3a] border border-[#2a2e34] rounded-full font-medium hover:bg-[#2a2e34] transition-colors"
+          className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 bg-[#EFF4FF] text-[#1D4ED8] border border-[#DCE1E8] rounded-[4px] font-medium hover:bg-[#DCE1E8] transition-colors"
         >
           + Invoice
         </button>
         <button
           onClick={() => setOpen("expense")}
-          className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 bg-[#1a1d22] text-zinc-400 border border-[#2a2e34] rounded-full hover:text-white hover:bg-[#2a2e34] transition-colors"
+          className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 bg-[#EFF4FF] text-[#4A5568] border border-[#DCE1E8] rounded-[4px] hover:text-[#0E1A2B] hover:bg-[#DCE1E8] transition-colors"
         >
           + Expense
         </button>
         <button
           onClick={() => setOpen("project")}
-          className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 bg-[#1a1d22] text-zinc-400 border border-[#2a2e34] rounded-full hover:text-white hover:bg-[#2a2e34] transition-colors"
+          className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 bg-[#EFF4FF] text-[#4A5568] border border-[#DCE1E8] rounded-[4px] hover:text-[#0E1A2B] hover:bg-[#DCE1E8] transition-colors"
         >
           + Project
         </button>

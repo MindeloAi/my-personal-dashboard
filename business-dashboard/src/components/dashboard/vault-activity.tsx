@@ -20,8 +20,8 @@ function formatDate(date: string): string {
 export function VaultActivity({ activity }: { activity: VaultActivity[] }) {
   if (activity.length === 0) {
     return (
-      <div className="rounded-[20px] border border-[#2a2e34] bg-[#14181d] p-6">
-        <p className="text-sm text-zinc-600">No recent activity logged in daily notes.</p>
+      <div className="rounded-[4px] border border-[#DCE1E8] bg-[#FFFFFF] p-6">
+        <p className="text-sm text-[#6B7789]">No recent activity logged in daily notes.</p>
       </div>
     );
   }
@@ -35,32 +35,32 @@ export function VaultActivity({ activity }: { activity: VaultActivity[] }) {
   }
 
   return (
-    <div className="rounded-[20px] border border-[#2a2e34] bg-[#14181d] p-6">
+    <div className="rounded-[4px] border border-[#DCE1E8] bg-[#FFFFFF] p-6">
       <div className="space-y-5">
         {groups.map((group) => (
           <div key={group.date}>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[#5A6678]">
               {formatDate(group.date)}
             </p>
-            <ul className="space-y-2 border-l border-[#2a2e34] pl-4">
+            <ul className="space-y-2 border-l border-[#DCE1E8] pl-4">
               {group.items.map((item, i) => (
                 <li key={`${group.date}-${i}`} className="relative">
                   <span
                     className={`absolute -left-[21px] top-1.5 h-1.5 w-1.5 rounded-full ${
-                      item.kind === "decision" ? "bg-[#c44dff]" : "bg-[#3affd1]"
+                      item.kind === "decision" ? "bg-[#7E22CE]" : "bg-[#0F766E]"
                     }`}
                   />
                   <div className="text-xs leading-relaxed">
                     {item.project && (
-                      <span className="font-medium text-zinc-200">{item.project}</span>
+                      <span className="font-medium text-[#1B2533]">{item.project}</span>
                     )}
                     {item.kind === "decision" && (
-                      <span className="ml-1.5 rounded bg-[#c44dff]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#c44dff]">
+                      <span className="ml-1.5 rounded bg-[#7E22CE]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#7E22CE]">
                         decision
                       </span>
                     )}
                     {item.note && (
-                      <span className="ml-1 text-zinc-500">
+                      <span className="ml-1 text-[#5A6678]">
                         {item.project ? "— " : ""}
                         {item.note}
                       </span>

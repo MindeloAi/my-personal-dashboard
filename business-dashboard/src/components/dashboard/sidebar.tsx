@@ -83,10 +83,10 @@ function NavLink({ item, active, onNavigate, large, nested }: {
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex w-full items-center rounded-lg px-3 text-left font-medium transition-colors",
+        "flex w-full items-center rounded-[4px] px-3 text-left font-medium transition-colors",
         large ? "min-h-12 text-base" : "py-2 text-sm",
         nested && "pl-6",
-        active ? "bg-white/10 text-[#f5f5f5]" : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200",
+        active ? "bg-[#1D4ED8] text-white" : "text-[#C9D3E0] hover:bg-white/5 hover:text-white",
       )}
     >
       {item.label}
@@ -142,12 +142,12 @@ function NavLinks({ pathname, onNavigate, large }: { pathname: string; onNavigat
             >
               <summary
                 className={cn(
-                  "flex cursor-pointer list-none items-center justify-between rounded-lg px-3 font-medium text-zinc-300 transition-colors hover:bg-white/5 [&::-webkit-details-marker]:hidden",
-                  large ? "min-h-12 text-base" : "py-2 text-sm",
+                  "flex cursor-pointer list-none items-center justify-between rounded-[4px] px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8B9AB0] transition-colors hover:bg-white/5 hover:text-[#C9D3E0] [&::-webkit-details-marker]:hidden",
+                  large ? "min-h-12" : "py-2",
                 )}
               >
                 {entry.label}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className="text-zinc-500 transition-transform group-open:rotate-180">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className="text-[#8B9AB0] transition-transform group-open:rotate-180">
                   <path d="M6 9l6 6 6-6" />
                 </svg>
               </summary>
@@ -171,7 +171,7 @@ function Account({ adminEmail, large }: { adminEmail?: string; large?: boolean }
   return (
     <div className="border-t border-white/10 pt-3">
       {adminEmail && (
-        <p className="truncate px-3 pb-1.5 text-[10px] text-zinc-600" title={adminEmail}>
+        <p className="truncate px-3 pb-1.5 text-[11px] text-[#8B9AB0]" title={adminEmail}>
           {adminEmail}
         </p>
       )}
@@ -179,7 +179,7 @@ function Account({ adminEmail, large }: { adminEmail?: string; large?: boolean }
         <button
           type="submit"
           className={cn(
-            "flex w-full items-center whitespace-nowrap rounded-lg px-3 text-left font-medium text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300",
+            "flex w-full items-center whitespace-nowrap rounded-[4px] px-3 text-left font-medium text-[#8B9AB0] transition-colors hover:bg-white/5 hover:text-white",
             large ? "min-h-12 text-base" : "py-2 text-sm",
           )}
         >
@@ -225,7 +225,7 @@ export function Sidebar({
     <div className="flex min-h-screen flex-col md:flex-row">
       {/* Phone: app bar with a hamburger. Padded under the notch, since the
           installed app draws beneath a translucent status bar. */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0e1116]/95 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0E1A2B]/95 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
         <div className="flex h-14 items-center gap-2 px-2">
           <button
             ref={menuButton}
@@ -234,13 +234,13 @@ export function Sidebar({
             aria-label="Open menu"
             aria-expanded={open}
             aria-controls="dashboard-menu"
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-300 transition-colors hover:bg-white/5 active:bg-white/10"
+            className="flex h-11 w-11 items-center justify-center rounded-[4px] text-[#C9D3E0] transition-colors hover:bg-white/5 active:bg-white/10"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-          <p className="text-base font-semibold text-[#f5f5f5]">{current}</p>
+          <p className="text-base font-semibold text-white">{current}</p>
         </div>
       </header>
 
@@ -252,24 +252,24 @@ export function Sidebar({
       >
         <div
           onClick={() => setOpen(false)}
-          className={cn("absolute inset-0 bg-black/60 transition-opacity duration-200", open ? "opacity-100" : "opacity-0")}
+          className={cn("absolute inset-0 bg-[#0E1A2B]/50 transition-opacity duration-200", open ? "opacity-100" : "opacity-0")}
         />
         <nav
           id="dashboard-menu"
           aria-label="Dashboard sections"
           className={cn(
-            "absolute inset-y-0 left-0 flex w-[min(18rem,85vw)] flex-col border-r border-white/10 bg-[#0e1116] px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)] shadow-2xl transition-transform duration-200 ease-out motion-reduce:transition-none",
+            "absolute inset-y-0 left-0 flex w-[min(18rem,85vw)] flex-col border-r border-white/10 bg-[#0E1A2B] px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)] shadow-2xl transition-transform duration-200 ease-out motion-reduce:transition-none",
             open ? "translate-x-0" : "-translate-x-full",
           )}
         >
           <div className="flex h-14 items-center justify-between pl-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Mindelo</p>
+            <p className="text-base font-semibold text-white">Mindelo</p>
             <button
               ref={closeButton}
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close menu"
-              className="flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-white/5 active:bg-white/10"
+              className="flex h-11 w-11 items-center justify-center rounded-[4px] text-[#C9D3E0] transition-colors hover:bg-white/5 active:bg-white/10"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <path d="M6 6l12 12M18 6L6 18" />
@@ -286,9 +286,9 @@ export function Sidebar({
       {/* Desktop: fixed rail. */}
       <nav
         aria-label="Dashboard sections"
-        className="relative hidden shrink-0 border-r border-white/10 bg-[#0e1116] px-3 py-5 md:sticky md:top-0 md:flex md:h-screen md:w-56 md:flex-col"
+        className="relative hidden shrink-0 border-r border-white/10 bg-[#0E1A2B] px-3 py-5 md:sticky md:top-0 md:flex md:h-screen md:w-56 md:flex-col"
       >
-        <p className="px-2 pb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Mindelo</p>
+        <p className="px-2 pb-3 text-base font-semibold text-white">Mindelo</p>
         <div className="flex-1 overflow-y-auto">
           <NavLinks pathname={pathname} />
         </div>

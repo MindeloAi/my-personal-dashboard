@@ -9,13 +9,13 @@ import type { VaultProject } from "@/lib/vault";
 // so it drops in seamlessly.
 
 const STATUS_STYLES: Record<string, { dot: string; text: string }> = {
-  active: { dot: "bg-[#bfff3a]", text: "text-[#bfff3a]" },
-  paused: { dot: "bg-[#fbbf24]", text: "text-[#fbbf24]" },
-  reference: { dot: "bg-zinc-500", text: "text-zinc-400" },
+  active: { dot: "bg-[#1D4ED8]", text: "text-[#1D4ED8]" },
+  paused: { dot: "bg-[#B45309]", text: "text-[#B45309]" },
+  reference: { dot: "bg-[#94A3B8]", text: "text-[#4A5568]" },
 };
 
 function statusStyle(status: string) {
-  return STATUS_STYLES[status.toLowerCase()] ?? { dot: "bg-zinc-600", text: "text-zinc-400" };
+  return STATUS_STYLES[status.toLowerCase()] ?? { dot: "bg-[#94A3B8]", text: "text-[#4A5568]" };
 }
 
 /** MindeloAi/foo-bar -> foo-bar (nicer button label). */
@@ -53,7 +53,7 @@ function GithubIcon() {
 }
 
 const btnCls =
-  "inline-flex items-center gap-1.5 rounded-lg border border-[#2a2e34] bg-[#0b0d10] px-2.5 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white";
+  "inline-flex items-center gap-1.5 rounded-[4px] border border-[#DCE1E8] bg-[#F3F5F8] px-2.5 py-1 text-[11px] font-medium text-[#334155] transition-colors hover:border-[#94A3B8] hover:text-[#0E1A2B]";
 
 function ProjectCard({ project }: { project: VaultProject }) {
   const s = statusStyle(project.status);
@@ -61,9 +61,9 @@ function ProjectCard({ project }: { project: VaultProject }) {
   const githubUrl = project.github ? `https://github.com/${project.github}` : "";
 
   return (
-    <div className="flex flex-col rounded-2xl border border-[#2a2e34] bg-[#0b0d10] p-4 transition-colors hover:border-zinc-600">
+    <div className="flex flex-col rounded-[4px] border border-[#DCE1E8] bg-[#F3F5F8] p-4 transition-colors hover:border-[#CBD5E1]">
       <div className="mb-2 flex items-start justify-between gap-2">
-        <p className="flex-1 text-sm font-medium leading-tight text-white">{project.name}</p>
+        <p className="flex-1 text-sm font-medium leading-tight text-[#1B2533]">{project.name}</p>
         {project.status && (
           <span className="flex shrink-0 items-center gap-1.5">
             <span className={`h-2 w-2 rounded-full ${s.dot}`} />
@@ -76,17 +76,17 @@ function ProjectCard({ project }: { project: VaultProject }) {
 
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         {project.category && (
-          <span className="rounded-full bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-zinc-300">
+          <span className="rounded-[4px] bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-[#334155]">
             {project.category}
           </span>
         )}
-        <span className="rounded-full bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-zinc-500">
+        <span className="rounded-[4px] bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-[#5A6678]">
           {project.folder}
         </span>
       </div>
 
       {project.client && (
-        <p className="mb-2 truncate text-[11px] text-zinc-500" title={project.client}>
+        <p className="mb-2 truncate text-[11px] text-[#5A6678]" title={project.client}>
           {project.client}
         </p>
       )}
@@ -96,13 +96,13 @@ function ProjectCard({ project }: { project: VaultProject }) {
           {project.stack.slice(0, 6).map((tech) => (
             <span
               key={tech}
-              className="rounded-md bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-zinc-400"
+              className="rounded-[4px] bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-[#4A5568]"
             >
               {tech}
             </span>
           ))}
           {project.stack.length > 6 && (
-            <span className="px-1 py-0.5 text-[10px] text-zinc-600">
+            <span className="px-1 py-0.5 text-[10px] text-[#6B7789]">
               +{project.stack.length - 6}
             </span>
           )}
@@ -129,7 +129,7 @@ function ProjectCard({ project }: { project: VaultProject }) {
           </a>
         )}
         {project.last_touched && (
-          <span className="ml-auto text-[10px] text-zinc-600">{project.last_touched}</span>
+          <span className="ml-auto text-[10px] text-[#6B7789]">{project.last_touched}</span>
         )}
       </div>
     </div>
@@ -169,7 +169,7 @@ export function VaultProjects({ projects }: Props) {
   }, [projects, query, status, folder]);
 
   return (
-    <div className="rounded-[20px] border border-[#2a2e34] bg-[#14181d] p-6">
+    <div className="rounded-[4px] border border-[#DCE1E8] bg-[#FFFFFF] p-6">
       {/* Controls */}
       <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <input
@@ -177,7 +177,7 @@ export function VaultProjects({ projects }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search name, client, stack…"
-          className="w-full rounded-xl border border-[#2a2e34] bg-[#0b0d10] px-3 py-2 text-sm text-white placeholder:text-zinc-600 transition-colors focus:border-zinc-500 focus:outline-none lg:max-w-xs"
+          className="w-full rounded-[4px] border border-[#DCE1E8] bg-[#F3F5F8] px-3 py-2 text-sm text-[#1B2533] placeholder:text-[#8B9AB0] transition-colors focus:border-[#94A3B8] focus:outline-none lg:max-w-xs"
         />
         <div className="flex flex-wrap items-center gap-3">
           <FilterChips label="Folder" value={folder} options={folders} onChange={setFolder} />
@@ -187,7 +187,7 @@ export function VaultProjects({ projects }: Props) {
 
       {/* Grid */}
       {visible.length === 0 ? (
-        <p className="py-10 text-center text-sm text-zinc-600">No projects match those filters.</p>
+        <p className="py-10 text-center text-sm text-[#6B7789]">No projects match those filters.</p>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((p) => (
@@ -196,7 +196,7 @@ export function VaultProjects({ projects }: Props) {
         </div>
       )}
 
-      <p className="mt-4 text-right text-[10px] text-zinc-600">
+      <p className="mt-4 text-right text-[10px] text-[#6B7789]">
         {visible.length} of {projects.length} projects
       </p>
     </div>
@@ -216,15 +216,15 @@ function FilterChips({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] uppercase tracking-wider text-zinc-600">{label}</span>
-      <div className="flex gap-1 rounded-xl bg-[#0b0d10] p-1">
+      <span className="text-[10px] uppercase tracking-wider text-[#6B7789]">{label}</span>
+      <div className="flex gap-1 rounded-[4px] bg-[#F3F5F8] p-1">
         {options.map((opt) => (
           <button
             key={opt}
             type="button"
             onClick={() => onChange(opt)}
-            className={`rounded-lg px-2.5 py-1 text-[10px] font-medium capitalize transition-colors ${
-              value === opt ? "bg-[#fbbf24] text-black" : "text-zinc-400 hover:text-white"
+            className={`rounded-[4px] px-2.5 py-1 text-[10px] font-medium capitalize transition-colors ${
+              value === opt ? "bg-[#B45309] text-white" : "text-[#4A5568] hover:text-[#0E1A2B]"
             }`}
           >
             {opt}

@@ -6,19 +6,19 @@ import { toast } from "sonner";
 // Same look as the client dialogs.
 export { inputCls, selectCls } from "@/components/dashboard/clients-list";
 export const cancelBtn =
-  "min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors disabled:opacity-40";
+  "min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-[4px] border border-[#DCE1E8] text-[#334155] hover:text-[#0E1A2B] hover:border-[#94A3B8] transition-colors disabled:opacity-40";
 export const primaryBtn =
-  "min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80";
+  "min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-[4px] font-semibold bg-[#1D4ED8] text-white disabled:opacity-40 transition-colors hover:bg-[#1D4ED8]/80";
 // The prototype highlight for a lit row: a blue wash and a blue bar on the left.
-export const LIT_ROW = "bg-[#172235] shadow-[inset_3px_0_#60a5fa]";
+export const LIT_ROW = "bg-[#EFF4FF] shadow-[inset_3px_0_#2563EB]";
 // Late labels, late diamonds, errors and delete buttons. Applied as an inline style, so the colour lives only here.
-export const LATE = "#ff4d8b";
+export const LATE = "#B23A0A";
 export const THROWN = "That did not save. Check your connection and try again.";
 
 export function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-xs text-zinc-400">
+      <label htmlFor={id} className="text-xs text-[#4A5568]">
         {label}
       </label>
       {children}
@@ -49,13 +49,13 @@ export function ConfirmRow({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-wrap items-center gap-2 bg-[#1a1215] px-3 py-2 text-xs text-zinc-200 ${className}`} role="alert">
+    <div className={`flex flex-wrap items-center gap-2 bg-[#FCEBE3] px-3 py-2 text-xs text-[#1B2533] ${className}`} role="alert">
       <span>{text}</span>
       <button
         type="button"
         disabled={busy}
         onClick={onConfirm}
-        className="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-lg font-semibold text-white disabled:opacity-40"
+        className="min-h-11 sm:min-h-0 px-3 py-1.5 rounded-[4px] font-semibold text-[#1B2533] disabled:opacity-40"
         style={{ background: LATE }}
       >
         Delete

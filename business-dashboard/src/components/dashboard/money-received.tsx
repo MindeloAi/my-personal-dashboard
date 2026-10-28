@@ -14,11 +14,11 @@ import { runAction } from "@/components/dashboard/cash-panel";
 import { FOUNDER_LABEL, HOLDERS, HOLDER_LABEL, tt, type Founder, type Holder } from "@/lib/ledger";
 import type { Collection, CollectionStep, Ledger } from "@/lib/db";
 
-const cardCls = "bg-[#14181d] border border-[#2a2e34] rounded-[20px] p-5";
-const titleCls = "text-[10px] text-zinc-500 font-medium tracking-wider uppercase";
+const cardCls = "bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5";
+const titleCls = "text-[10px] text-[#5A6678] font-medium tracking-wider uppercase";
 const actionCls =
-  "min-h-11 sm:min-h-0 text-[11px] px-2.5 py-1 rounded-lg bg-[#bfff3a]/10 text-[#bfff3a] border border-[#bfff3a]/20 hover:bg-[#bfff3a]/20 disabled:opacity-40 transition-colors";
-const undoCls = "min-h-11 sm:min-h-0 text-[11px] text-zinc-500 hover:text-white disabled:opacity-40 transition-colors";
+  "min-h-11 sm:min-h-0 text-[11px] px-2.5 py-1 rounded-[4px] bg-[#1D4ED8]/10 text-[#1D4ED8] border border-[#1D4ED8]/20 hover:bg-[#1D4ED8]/20 disabled:opacity-40 transition-colors";
+const undoCls = "min-h-11 sm:min-h-0 text-[11px] text-[#5A6678] hover:text-[#0E1A2B] disabled:opacity-40 transition-colors";
 
 const day = (s: string) => format(parseISO(s.slice(0, 10)), "d MMM yyyy");
 
@@ -126,12 +126,12 @@ function StepRow({ step }: { step: Step }) {
   return (
     <li className="flex items-center justify-between gap-3 py-1.5 text-xs">
       <div className="min-w-0">
-        <span className={step.done ? "text-zinc-500" : "text-zinc-200"}>{step.label}</span>
-        <span className={`ml-2 tabular-nums ${step.done ? "text-zinc-500" : "text-white font-medium"}`}>
+        <span className={step.done ? "text-[#5A6678]" : "text-[#1B2533]"}>{step.label}</span>
+        <span className={`ml-2 tabular-nums ${step.done ? "text-[#5A6678]" : "text-[#1B2533] font-medium"}`}>
           {tt(step.amount)}
         </span>
         {!step.done && step.left !== undefined && step.left < step.amount && (
-          <span className={`ml-2 text-[11px] tabular-nums ${step.left < 0 ? "text-[#ff4d8b]" : "text-[#fbbf24]"}`}>
+          <span className={`ml-2 text-[11px] tabular-nums ${step.left < 0 ? "text-[#B23A0A]" : "text-[#B45309]"}`}>
             {step.left < 0 ? `overpaid, ${tt(-step.left)} to pay back` : `${tt(step.left)} still to go`}
           </span>
         )}
@@ -139,7 +139,7 @@ function StepRow({ step }: { step: Step }) {
       <div className="flex items-center gap-3 shrink-0">
         {step.done ? (
           <>
-            <span className="text-[11px] text-[#bfff3a]">{step.doneText}</span>
+            <span className="text-[11px] text-[#1D4ED8]">{step.doneText}</span>
             {step.undo && (
               <button
                 type="button"
@@ -162,7 +162,7 @@ function StepRow({ step }: { step: Step }) {
             {pending ? "Saving…" : step.action.label}
           </button>
         ) : (
-          <span className="text-[11px] text-zinc-600">After handover</span>
+          <span className="text-[11px] text-[#6B7789]">After handover</span>
         )}
       </div>
     </li>
@@ -172,7 +172,7 @@ function StepRow({ step }: { step: Step }) {
 /** Who has this money. Fixable until any of it has been handed over or put in the safe. */
 function CollectorSelect({ c, locked }: { c: Collection; locked: boolean }) {
   const [pending, start] = useTransition();
-  if (locked) return <span className="text-zinc-300">{HOLDER_LABEL[c.receivedBy]}</span>;
+  if (locked) return <span className="text-[#334155]">{HOLDER_LABEL[c.receivedBy]}</span>;
   return (
     <select
       aria-label={`Who collected ${c.invoiceNumber ?? "this payment"}`}
@@ -185,7 +185,7 @@ function CollectorSelect({ c, locked }: { c: Collection; locked: boolean }) {
           if (!err) toast.success(`Collected by ${HOLDER_LABEL[holder]}`);
         });
       }}
-      className="min-h-11 sm:min-h-0 bg-[#0b0d10] border border-[#2a2e34] rounded-lg px-2 py-0.5 text-[11px] text-white cursor-pointer hover:border-zinc-500 focus:outline-none focus:border-zinc-500 disabled:opacity-40"
+      className="min-h-11 sm:min-h-0 bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-2 py-0.5 text-[11px] text-[#1B2533] cursor-pointer hover:border-[#94A3B8] focus:outline-none focus:border-[#94A3B8] disabled:opacity-40"
     >
       {HOLDERS.map((h) => (
         <option key={h} value={h}>{HOLDER_LABEL[h]}</option>
@@ -200,26 +200,26 @@ function CollectionItem({ c, ledger }: { c: Collection; ledger: Ledger }) {
   const who = c.client ?? "No client";
 
   return (
-    <li className="py-4 border-t border-[#1f242a] first:border-t-0">
+    <li className="py-4 border-t border-[#EEF1F5] first:border-t-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm text-white font-medium">
+          <p className="text-sm text-[#1B2533] font-medium">
             {who}
-            {c.project && <span className="text-zinc-400 font-normal"> · {c.project}</span>}
+            {c.project && <span className="text-[#4A5568] font-normal"> · {c.project}</span>}
           </p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">
+          <p className="text-[11px] text-[#5A6678] mt-0.5">
             {day(c.paidAt)} · {c.invoiceNumber ?? "No invoice no."} · collected by{" "}
             <CollectorSelect c={c} locked={ledger.movements.some((m) => m.paymentId === c.paymentId)} />
             {c.method && ` · ${c.method}`}
           </p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-base text-white font-semibold tabular-nums">{tt(c.amount)}</p>
+          <p className="text-base text-[#1B2533] font-semibold tabular-nums">{tt(c.amount)}</p>
           <span
             className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
               open
-                ? "bg-[#fbbf24]/10 text-[#fbbf24] border-[#fbbf24]/20"
-                : "bg-[#bfff3a]/10 text-[#bfff3a] border-[#bfff3a]/20"
+                ? "bg-[#B45309]/10 text-[#B45309] border-[#B45309]/20"
+                : "bg-[#1D4ED8]/10 text-[#1D4ED8] border-[#1D4ED8]/20"
             }`}
           >
             {open ? "To sort" : "Sorted"}
@@ -228,18 +228,18 @@ function CollectionItem({ c, ledger }: { c: Collection; ledger: Ledger }) {
       </div>
 
       {(c.invoiceNotes || c.note) && (
-        <div className="mt-2 border-l-2 border-[#bfff3a]/40 pl-3 space-y-1">
-          {c.invoiceNotes && <p className="text-sm text-zinc-200 whitespace-pre-line break-words">{c.invoiceNotes}</p>}
+        <div className="mt-2 border-l-2 border-[#1D4ED8]/40 pl-3 space-y-1">
+          {c.invoiceNotes && <p className="text-sm text-[#1B2533] whitespace-pre-line break-words">{c.invoiceNotes}</p>}
           {c.note && (
-            <p className="text-sm text-zinc-300 whitespace-pre-line break-words">
-              <span className="text-zinc-500">Payment note: </span>
+            <p className="text-sm text-[#334155] whitespace-pre-line break-words">
+              <span className="text-[#5A6678]">Payment note: </span>
               {c.note}
             </p>
           )}
         </div>
       )}
 
-      <ul className="mt-2 bg-[#0b0d10] rounded-xl px-3 py-1 divide-y divide-[#1f242a]">
+      <ul className="mt-2 bg-[#F3F5F8] rounded-[4px] px-3 py-1 divide-y divide-[#EEF1F5]">
         {list.map((s) => (
           <StepRow key={s.label} step={s} />
         ))}
@@ -267,22 +267,22 @@ export function MoneyReceived({ ledger }: { ledger: Ledger }) {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <p id="money-received-title" className={titleCls}>Money received</p>
-          <p className="text-2xl font-bold mt-1 tabular-nums text-white">{tt(toSort.received)}</p>
-          <p className="text-xs text-zinc-500 mt-1">
+          <p className="text-2xl font-bold mt-1 tabular-nums text-[#1B2533]">{tt(toSort.received)}</p>
+          <p className="text-xs text-[#5A6678] mt-1">
             {ledger.collections.length} payment{ledger.collections.length === 1 ? "" : "s"} since the ledger started
           </p>
         </div>
-        <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer min-h-11 sm:min-h-0">
-          <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} className="accent-[#bfff3a]" />
+        <label className="flex items-center gap-2 text-xs text-[#4A5568] cursor-pointer min-h-11 sm:min-h-0">
+          <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} className="accent-[#1D4ED8]" />
           Only still to sort
         </label>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-4">
         {tiles.map((t) => (
-          <div key={t.label} className="bg-[#0b0d10] rounded-xl px-3 py-2.5">
-            <p className="text-[11px] text-zinc-500">{t.label}</p>
-            <p className={`text-lg font-semibold tabular-nums ${t.value > 0 ? "text-[#fbbf24]" : "text-zinc-500"}`}>
+          <div key={t.label} className="bg-[#F3F5F8] rounded-[4px] px-3 py-2.5">
+            <p className="text-[11px] text-[#5A6678]">{t.label}</p>
+            <p className={`text-lg font-semibold tabular-nums ${t.value > 0 ? "text-[#B45309]" : "text-[#5A6678]"}`}>
               {tt(t.value)}
             </p>
           </div>
@@ -290,7 +290,7 @@ export function MoneyReceived({ ledger }: { ledger: Ledger }) {
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-xs text-zinc-600 mt-4">
+        <p className="text-xs text-[#6B7789] mt-4">
           {onlyOpen ? "Everything received has been sorted." : "No payments recorded yet."}
         </p>
       ) : (

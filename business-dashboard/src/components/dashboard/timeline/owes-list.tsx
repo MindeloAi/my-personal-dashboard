@@ -37,14 +37,14 @@ const SHOWN = 5;
 
 function DueLabel({ dueOn, today }: { dueOn: string | null; today: string }) {
   const s = dueState(dueOn, today);
-  if (!dueOn || s.kind === "none") return <span className="text-zinc-500">no date</span>;
+  if (!dueOn || s.kind === "none") return <span className="text-[#5A6678]">no date</span>;
   if (s.kind === "late")
     return (
       <span className="font-medium" style={{ color: LATE }}>
         {s.days} {s.days === 1 ? "day" : "days"} late
       </span>
     );
-  return <span className={s.kind === "soon" ? "text-amber-400" : "text-zinc-500"}>{formatDay(dueOn)}</span>;
+  return <span className={s.kind === "soon" ? "text-amber-400" : "text-[#5A6678]"}>{formatDay(dueOn)}</span>;
 }
 
 // A disclosure, not an ARIA menu: the trigger toggles a list of plain buttons.
@@ -84,12 +84,12 @@ function RowMenu({ what, items }: { what: string; items: [string, () => void][] 
         aria-controls={listId}
         aria-label={`Actions for ${what}`}
         onClick={() => setOpen(!open)}
-        className="size-8 sm:size-6 rounded-md text-zinc-400 hover:text-white hover:bg-white/10 leading-none"
+        className="size-8 sm:size-6 rounded-[4px] text-[#4A5568] hover:text-[#0E1A2B] hover:bg-[#0E1A2B]/10 leading-none"
       >
         ⋯
       </button>
       {open && (
-        <ul id={listId} className="absolute right-0 z-30 mt-1 w-28 rounded-lg border border-[#2a2e34] bg-[#14171b] p-1 shadow-lg">
+        <ul id={listId} className="absolute right-0 z-30 mt-1 w-28 rounded-[4px] border border-[#DCE1E8] bg-[#FFFFFF] p-1 shadow-lg">
           {items.map(([label, fn]) => (
             <li key={label}>
               <button
@@ -99,7 +99,7 @@ function RowMenu({ what, items }: { what: string; items: [string, () => void][] 
                   if (label !== "Delete") trigger();
                   fn();
                 }}
-                className="block w-full rounded-md px-2 py-2 sm:py-1 text-left text-xs text-zinc-200 hover:bg-white/10"
+                className="block w-full rounded-[4px] px-2 py-2 sm:py-1 text-left text-xs text-[#1B2533] hover:bg-[#0E1A2B]/10"
               >
                 {label}
               </button>
@@ -152,26 +152,26 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
     }
   }
 
-  const row = "flex items-start gap-2 px-3 py-2 border-t border-[#23272d] cursor-pointer hover:bg-white/[0.03]";
+  const row = "flex items-start gap-2 px-3 py-2 border-t border-[#EEF1F5] cursor-pointer hover:bg-white/[0.03]";
   // The text column is the keyboard control for the highlight. A click elsewhere on the row bubbles to the row handler.
   const lightBtn = "min-w-0 flex-1 text-left text-sm cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-sky-400";
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
-  const more = "w-full px-3 py-2 border-t border-[#23272d] text-left text-xs text-sky-400 hover:bg-white/5";
+  const more = "w-full px-3 py-2 border-t border-[#EEF1F5] text-left text-xs text-sky-400 hover:bg-[#0E1A2B]/5";
 
   return (
-    <section className={`${PANEL} min-w-0 [&>*:last-child]:rounded-b-[20px]`} aria-label={title}>
+    <section className={`${PANEL} min-w-0 [&>*:last-child]:rounded-b-[4px]`} aria-label={title}>
       <div className="flex items-center justify-between gap-2 px-3 py-3">
-        <h2 className="text-sm font-semibold text-white min-w-0 [overflow-wrap:anywhere]">{title}</h2>
+        <h2 className="text-sm font-semibold text-[#1B2533] min-w-0 [overflow-wrap:anywhere]">{title}</h2>
         <button
           type="button"
           onClick={() => setModal({ mode: "add" })}
-          className="min-h-11 sm:min-h-0 shrink-0 text-xs px-3 py-1.5 rounded-lg border border-[#2a2e34] text-zinc-200 hover:bg-white/5"
+          className="min-h-11 sm:min-h-0 shrink-0 text-xs px-3 py-1.5 rounded-[4px] border border-[#DCE1E8] text-[#1B2533] hover:bg-[#0E1A2B]/5"
         >
           + Add promise
         </button>
       </div>
 
-      {items.length === 0 && <p className="px-3 pb-3 text-sm text-zinc-500">Nothing open.</p>}
+      {items.length === 0 && <p className="px-3 pb-3 text-sm text-[#5A6678]">Nothing open.</p>}
 
       {visible.map((item) => {
         const on = isLit(item);
@@ -183,7 +183,7 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
               className={`${row} ${on ? LIT_ROW : ""}`}
               onClick={() => toggle(litFromItems([], [inv.id], promises))}
             >
-              <button type="button" aria-pressed={on} className={`${lightBtn} text-zinc-200`}>
+              <button type="button" aria-pressed={on} className={`${lightBtn} text-[#1B2533]`}>
                 <span className="block [overflow-wrap:anywhere]">
                   Invoice {inv.number} · {tt(inv.balance)}
                 </span>
@@ -217,15 +217,15 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
                 aria-label={`Mark done: ${p.what}`}
                 onClick={stop}
                 onChange={() => act(p.id, () => closePromiseAction(p.id, { status: "done", note: null }))}
-                className="mt-0.5 size-5 sm:size-4 accent-[#bfff3a] cursor-pointer"
+                className="mt-0.5 size-5 sm:size-4 accent-[#1D4ED8] cursor-pointer"
               />
-              <button type="button" aria-pressed={on} className={`${lightBtn} text-zinc-200`}>
+              <button type="button" aria-pressed={on} className={`${lightBtn} text-[#1B2533]`}>
                 <span className="block [overflow-wrap:anywhere]">{p.what}</span>
                 <span className="block text-xs">
                   <DueLabel dueOn={p.dueOn} today={today} />
                 </span>
                 {moved !== undefined && (
-                  <span className="block text-xs text-zinc-500">moved from {moved ? formatDay(moved) : "no date"}</span>
+                  <span className="block text-xs text-[#5A6678]">moved from {moved ? formatDay(moved) : "no date"}</span>
                 )}
               </button>
               <RowMenu
@@ -269,7 +269,7 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
           return (
             <div
               key={p.id}
-              className={`${row} text-zinc-400 ${on ? LIT_ROW : ""}`}
+              className={`${row} text-[#4A5568] ${on ? LIT_ROW : ""}`}
               onClick={() => toggle(litFromItems([p.id], [], promises))}
             >
               {p.status === "done" && (
@@ -280,17 +280,17 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
                   aria-label={`Mark not done: ${p.what}`}
                   onClick={stop}
                   onChange={() => act(p.id, () => reopenPromiseAction(p.id))}
-                  className="mt-0.5 size-5 sm:size-4 accent-[#bfff3a] cursor-pointer"
+                  className="mt-0.5 size-5 sm:size-4 accent-[#1D4ED8] cursor-pointer"
                 />
               )}
               <button type="button" aria-pressed={on} className={lightBtn}>
                 <span className="block [overflow-wrap:anywhere] line-through decoration-zinc-600">{p.what}</span>
-                <span className="block text-xs text-zinc-500">
+                <span className="block text-xs text-[#5A6678]">
                   {p.status[0].toUpperCase() + p.status.slice(1)}
                   {p.closedOn ? ` ${formatDay(p.closedOn)}` : ""}
                   {p.closedBy ? ` by ${p.closedBy.split("@")[0]}` : ""}
                 </span>
-                {p.note && <span className="block text-xs text-zinc-500 [overflow-wrap:anywhere]">{p.note}</span>}
+                {p.note && <span className="block text-xs text-[#5A6678] [overflow-wrap:anywhere]">{p.note}</span>}
               </button>
               <button
                 type="button"

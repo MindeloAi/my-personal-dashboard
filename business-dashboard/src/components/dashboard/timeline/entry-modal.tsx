@@ -233,7 +233,7 @@ export function EntryModal({ clientId, today, promises, entry, onClose }: Props)
             <input id={id("people")} value={people} maxLength={MAX_LINE} onChange={(e) => setPeople(e.target.value)} className={inputCls} />
           </Field>
           {cards.length === 0 ? (
-            <p className="text-sm text-zinc-400">No promises found in this text.</p>
+            <p className="text-sm text-[#4A5568]">No promises found in this text.</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {cards.map((c, i) => (
@@ -293,17 +293,17 @@ function SuggestionCard({
   const uid = useId();
   const id = `${uid}-${i}`;
   return (
-    <li className="rounded-xl border border-[#2a2e34] bg-[#0b0d10]/60 p-3 flex flex-col gap-3">
-      <label className="flex items-start gap-2 min-h-6 text-sm font-medium text-white">
+    <li className="rounded-[4px] border border-[#DCE1E8] bg-[#F3F5F8]/60 p-3 flex flex-col gap-3">
+      <label className="flex items-start gap-2 min-h-6 text-sm font-medium text-[#1B2533]">
         <input
           type="checkbox"
           checked={c.keep}
           onChange={(e) => onChange({ keep: e.target.checked })}
-          className="mt-0.5 h-4 w-4 shrink-0 accent-[#bfff3a]"
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[#1D4ED8]"
         />
         <span className="min-w-0 break-words">{label}</span>
       </label>
-      {c.action === "replace" && old && <p className="text-xs text-zinc-500 break-words">Was: {old.what}</p>}
+      {c.action === "replace" && old && <p className="text-xs text-[#5A6678] break-words">Was: {old.what}</p>}
       {c.action !== "done" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field id={`${id}-who`} label="Who owes it">
@@ -322,7 +322,7 @@ function SuggestionCard({
           </div>
         </div>
       )}
-      {c.quote && <blockquote className="rounded-lg bg-white/5 px-3 py-2 text-xs text-zinc-400 break-words">“{c.quote}”</blockquote>}
+      {c.quote && <blockquote className="rounded-[4px] bg-[#0E1A2B]/5 px-3 py-2 text-xs text-[#4A5568] break-words">“{c.quote}”</blockquote>}
     </li>
   );
 }

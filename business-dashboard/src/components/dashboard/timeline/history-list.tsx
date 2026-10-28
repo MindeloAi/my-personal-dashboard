@@ -21,7 +21,7 @@ type Props = {
 };
 
 const SHOWN = 20;
-const CHIP = "text-[11px] px-2 py-0.5 rounded-full border border-[#2a2e34] text-zinc-300";
+const CHIP = "text-[11px] px-2 py-0.5 rounded-[4px] border border-[#DCE1E8] text-[#334155]";
 
 export function HistoryList({ entries, promises, lit, onLight, onClear, clientId, today, scrollTo }: Props) {
   const [all, setAll] = useState(false);
@@ -64,9 +64,9 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
   }
 
   return (
-    <section ref={root} className={`${PANEL} min-w-0 [&>*:last-child]:rounded-b-[20px]`} aria-label="History">
-      <h2 className="px-3 py-3 text-sm font-semibold text-white">History</h2>
-      {entries.length === 0 && <p className="px-3 pb-3 text-sm text-zinc-500">No calls, emails or messages yet. Add the first one.</p>}
+    <section ref={root} className={`${PANEL} min-w-0 [&>*:last-child]:rounded-b-[4px]`} aria-label="History">
+      <h2 className="px-3 py-3 text-sm font-semibold text-[#1B2533]">History</h2>
+      {entries.length === 0 && <p className="px-3 pb-3 text-sm text-[#5A6678]">No calls, emails or messages yet. Add the first one.</p>}
 
       {visible.map((e) => {
         const on = !!lit?.entries.includes(e.id);
@@ -78,7 +78,7 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
           <div
             key={e.id}
             data-entry-id={e.id}
-            className={`border-t border-[#23272d] cursor-pointer hover:bg-white/[0.03] ${on ? LIT_ROW : ""}`}
+            className={`border-t border-[#EEF1F5] cursor-pointer hover:bg-white/[0.03] ${on ? LIT_ROW : ""}`}
             onClick={() => {
               const next = litFromEntry(e.id, promises);
               if (sameLit(lit, next)) onClear();
@@ -91,11 +91,11 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
                 aria-pressed={on}
                 className="min-w-0 flex-1 text-left cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-sky-400"
               >
-                <span className="block text-xs text-zinc-500">
+                <span className="block text-xs text-[#5A6678]">
                   {formatDay(e.occurredOn)} · {entryTag(e.kind, e.direction)}
                 </span>
-                <span className="block text-sm text-zinc-100 [overflow-wrap:anywhere]">{e.summary}</span>
-                {e.people && <span className="block text-xs text-zinc-400 [overflow-wrap:anywhere]">{e.people}</span>}
+                <span className="block text-sm text-[#1B2533] [overflow-wrap:anywhere]">{e.summary}</span>
+                {e.people && <span className="block text-xs text-[#4A5568] [overflow-wrap:anywhere]">{e.people}</span>}
                 {(made > 0 || ticked.length > 0 || moved > 0) && (
                   <span className="mt-1 flex flex-wrap gap-1.5">
                     {made > 0 && <span className={CHIP}>{plural(made, "promise")} from this</span>}
@@ -116,7 +116,7 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
                   ev.stopPropagation();
                   setOpen(expanded ? null : e.id);
                 }}
-                className="shrink-0 size-8 sm:size-6 rounded-md text-zinc-400 hover:text-white hover:bg-white/10"
+                className="shrink-0 size-8 sm:size-6 rounded-[4px] text-[#4A5568] hover:text-[#0E1A2B] hover:bg-[#0E1A2B]/10"
               >
                 {expanded ? "▴" : "▾"}
               </button>
@@ -124,7 +124,7 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
 
             {expanded && (
               <div className="px-3 pb-3 space-y-2" onClick={(ev) => ev.stopPropagation()}>
-                {e.body && <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-zinc-300">{e.body}</p>}
+                {e.body && <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-[#334155]">{e.body}</p>}
                 {e.link && (
                   <a href={e.link} target="_blank" rel="noopener noreferrer" className="block text-xs text-sky-400 hover:underline break-all">
                     {e.link}
@@ -144,7 +144,7 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
                     busy={deleting}
                     onConfirm={() => remove(e.id)}
                     onCancel={() => setConfirming(null)}
-                    className="rounded-lg"
+                    className="rounded-[4px]"
                   />
                 )}
               </div>
@@ -157,7 +157,7 @@ export function HistoryList({ entries, promises, lit, onLight, onClear, clientId
         <button
           type="button"
           onClick={() => setAll(true)}
-          className="w-full px-3 py-2 border-t border-[#23272d] text-left text-xs text-sky-400 hover:bg-white/5"
+          className="w-full px-3 py-2 border-t border-[#EEF1F5] text-left text-xs text-sky-400 hover:bg-[#0E1A2B]/5"
         >
           Show older
         </button>
