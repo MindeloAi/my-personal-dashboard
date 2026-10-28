@@ -106,11 +106,18 @@ function statusOf(lead: Lead): LeadStatus {
 }
 
 /**
- * Find a client that already represents this lead. Email is the strong signal;
- * name is the fallback when the lead has no email. Prevents a second Won flip
- * from silently creating a duplicate client.
+ * Find a client that already represents this lead. The lead's own client link
+ * wins outright, so an already-linked lead is never re-pointed by a heuristic
+ * match. Otherwise email is the strong signal and name is the fallback when the
+ * lead has no email. Prevents a second Won flip from silently creating a
+ * duplicate client.
  */
 function findExistingClient(lead: Lead, clients: Client[]): Client | undefined {
+  const linkedId = lead.Client?.[0];
+  if (linkedId) {
+    const linked = clients.find((c) => c.id === linkedId);
+    if (linked) return linked;
+  }
   const email = lead.Email?.trim().toLowerCase();
   if (email) {
     const byEmail = clients.find((c) => c.Email?.trim().toLowerCase() === email);
@@ -485,8 +492,9 @@ export function LeadsTable({ leads, clients }: Props) {
         await updateLeadStatusAction(lead.id, next);
         toast.success(`Moved to ${next}`);
         // Won is the only status that offers conversion, and it only ever
-        // offers — never converts automatically. A second Won flip would
-        // otherwise create a duplicate client with no warning.
+        // offers — never converts automatically. A second Won flip finds the
+        // lead's linked client first (then email/name), and the server also
+        // reuses an already-linked client, so no duplicate is created.
         if (next === "Won") setConvertLead(lead);
       } catch {
         // The transition tears down on throw; the next server render replaces

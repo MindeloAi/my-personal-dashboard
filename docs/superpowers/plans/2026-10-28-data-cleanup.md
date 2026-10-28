@@ -896,6 +896,20 @@ with:
 
 and change the explanatory sentence `business, email and phone are copied across. The lead itself is left as it is.` to `business, email and phone are copied across, the lead is linked to the new client, and its projects move onto it.`
 
+- [ ] **Step 2b: Check the lead's existing link first**
+
+In `findExistingClient` (same file, ~L113), before the email/name heuristics, return the client the lead is already linked to:
+
+```tsx
+  const linkedId = lead.Client?.[0];
+  if (linkedId) {
+    const linked = clients.find((c) => c.id === linkedId);
+    if (linked) return linked;
+  }
+```
+
+so an already-linked lead gets "Link to existing client?" (not "Create client") and a heuristic match can never re-point it to a different client. Update the function's doc comment, and the comment in `handleStatusChange` about a second Won flip, to say the link is checked first and the server also reuses a linked client.
+
 - [ ] **Step 3: Fix the import**
 
 In the `@/app/actions` import at the top of `leads-table.tsx`, replace `createClientAction,` with `convertLeadAction,` (if `createClientAction` is still used elsewhere in the file, keep it and add `convertLeadAction,`; check with `grep -n createClientAction src/components/dashboard/leads-table.tsx`).

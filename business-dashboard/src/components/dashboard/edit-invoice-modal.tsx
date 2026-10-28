@@ -152,7 +152,7 @@ export function EditInvoiceModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Invoice Number</label>
-              <p className={inputCls + " text-zinc-400"}>
+              <p className={inputCls + " text-zinc-500"}>
                 {invoice["Invoice Number"] ?? "Assigned when sent"}
               </p>
             </div>
