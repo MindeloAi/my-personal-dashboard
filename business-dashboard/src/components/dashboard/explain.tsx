@@ -34,3 +34,14 @@ export function Explain({ shows, read, watch, className }: { shows: string; read
     </div>
   );
 }
+
+/** A headline number: what it counts, the figure, and where it comes from. */
+export function StatTile({ label, value, note, tone }: { label: string; value: string; note: string; tone?: string }) {
+  return (
+    <div className="border border-[#DCE1E8] bg-white p-4 break-inside-avoid">
+      <p className="text-xs font-medium text-[#4A5568]">{label}</p>
+      <p className={`mt-1 text-xl font-semibold sm:text-2xl ${tone ?? "text-[#1B2533]"}`}>{value}</p>
+      <p className="mt-1 text-xs leading-snug text-[#5A6678]">{note}</p>
+    </div>
+  );
+}

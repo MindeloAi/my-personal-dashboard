@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { BusinessCounters } from "@/components/dashboard/business-counters";
-import { PageHeader } from "@/components/dashboard/explain";
+import { PageHeader, StatTile } from "@/components/dashboard/explain";
 import {
   MonthlyMoneyChart, RevenueToDateChart, ProfitBarsChart, MoneyHeldChart,
   OwedByClientChart, LeadsByStageChart, TopClientsChart, ServiceMixChart,
@@ -44,15 +44,6 @@ function exportPdf() {
   setTimeout(() => window.print(), 300);
 }
 
-function Tile({ label, value, note, tone }: { label: string; value: string; note: string; tone?: string }) {
-  return (
-    <div className="border border-[#DCE1E8] bg-white p-4 break-inside-avoid">
-      <p className="text-xs font-medium text-[#4A5568]">{label}</p>
-      <p className={`mt-1 text-xl font-semibold sm:text-2xl ${tone ?? "text-[#1B2533]"}`}>{value}</p>
-      <p className="mt-1 text-xs leading-snug text-[#5A6678]">{note}</p>
-    </div>
-  );
-}
 
 export function OverviewView({ clients, projects, invoices, expenses, subscriptions, leads, ledger }: Props) {
   const router = useRouter();
@@ -111,12 +102,12 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
       />
 
       <div className="overview-tiles grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <Tile label="Business cash (safe)" value={tt(cash.business)} note="Counted money in the safe, held by Mikey." />
-        <Tile label="All money held" value={tt(cash.total)} note={`Safe plus unsorted money: Zane ${tt(cash.zane)}, Mikey ${tt(cash.mikey)}.`} />
-        <Tile label="Owed to us" value={tt(owedToUs.total)} note={`Unpaid balance on ${owedToUs.count} sent invoices.`} tone="text-[#B45309]" />
-        <Tile label="Overdue" value={tt(d.split.overdue)} note={`${d.split.overdueCount} invoices past their due date.`} tone="text-[#B23A0A]" />
-        <Tile label={`This month's net (${since})`} value={tt(month.net)} note={`${tt(month.payments)} in, ${tt(month.expenses)} expenses, ${tt(month.payoutsPaidOut)} founder pay.`} />
-        <Tile label="Monthly recurring revenue" value={tt(d.monthly)} note="What live retainers and subscriptions bring in each month." />
+        <StatTile label="Business cash (safe)" value={tt(cash.business)} note="Counted money in the safe, held by Mikey." />
+        <StatTile label="All money held" value={tt(cash.total)} note={`Safe plus unsorted money: Zane ${tt(cash.zane)}, Mikey ${tt(cash.mikey)}.`} />
+        <StatTile label="Owed to us" value={tt(owedToUs.total)} note={`Unpaid balance on ${owedToUs.count} sent invoices.`} tone="text-[#B45309]" />
+        <StatTile label="Overdue" value={tt(d.split.overdue)} note={`${d.split.overdueCount} invoices past their due date.`} tone="text-[#B23A0A]" />
+        <StatTile label={`This month's net (${since})`} value={tt(month.net)} note={`${tt(month.payments)} in, ${tt(month.expenses)} expenses, ${tt(month.payoutsPaidOut)} founder pay.`} />
+        <StatTile label="Monthly recurring revenue" value={tt(d.monthly)} note="What live retainers and subscriptions bring in each month." />
       </div>
 
       <section className="border border-[#DCE1E8] bg-white p-4 sm:p-5 break-inside-avoid">

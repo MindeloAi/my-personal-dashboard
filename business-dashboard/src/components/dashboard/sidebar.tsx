@@ -19,6 +19,7 @@ const NAV: (NavItem | NavGroup)[] = [
   {
     label: "Finance",
     items: [
+      { href: "/admin/finance", label: "Summary" },
       { href: "/admin/finance/received", label: "Money received" },
       { href: "/admin/finance/invoices", label: "Invoices" },
       { href: "/admin/finance/founder-pay", label: "Founder pay" },

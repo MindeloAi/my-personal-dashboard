@@ -2106,3 +2106,119 @@ export async function getAccountsExport(from: string, to: string, today: string)
     };
   });
 }
+
+// ─── Finance history (Finance Summary and subpage charts) ──────────────────
+// Every total here is summed by SQL from the ledger tables and views, so the
+// charts never redo ledger arithmetic in TypeScript. Ledger-only series start
+// at the cutover; "collected" also counts invoices marked Paid before it, by
+// paid date, the same rule as the accounts export.
+
+export type FinanceHistory = {
+  /** Money collected per month by who received it; "before" = Paid before the ledger. */
+  collected: { month: string; source: "mikey" | "zane" | "business" | "before"; amount: number }[];
+  /** Where each month's payments go: business share and each founder's pay (collections view). */
+  split: { month: string; business: number; michael: number; zane: number }[];
+  /** End-of-day balance of each holder (cash_flows, running total). */
+  cash: { day: string; location: Holder; balance: number }[];
+  /** End-of-day money still to sort: Zane still to hand over, business share not yet in the safe. */
+  toSort: { day: string; handover: number; business: number }[];
+  /** Money that reached the safe per month: transfers into it plus payments taken straight to it. */
+  intoSafe: { month: string; amount: number }[];
+  /** Average days from a client paying to the business share reaching the safe, by payment month. */
+  daysToSafe: { month: string; days: number; payments: number }[];
+  /** Every cash count against what the books expected at that moment. */
+  counts: { day: string; location: Holder; counted: number; expected: number; variance: number }[];
+  /** Founder pay per month (by payment month): base, bonus, paid out and still due. */
+  payouts: { month: string; founder: Founder; base: number; bonus: number; paidOut: number; due: number }[];
+};
+
+export async function getFinanceHistory(): Promise<FinanceHistory> {
+  const sql = getSql();
+  const [collected, split, cash, toSort, intoSafe, daysToSafe, counts, payouts] = await Promise.all([
+    sql`
+      select to_char(d, 'YYYY-MM') as month, source, sum(amount)::float8 as amount from (
+        select paid_at as d, received_by as source, amount from payments
+        union all
+        select i.paid_date, 'before', i.amount from invoices i, ledger_settings s
+         where i.status = 'Paid' and i.paid_date < s.cutover_date
+           and not exists (select 1 from payments p where p.invoice_id = i.id)
+      ) x where d is not null group by 1, 2 order by 1, 2`,
+    sql`
+      select to_char(paid_at, 'YYYY-MM') as month, sum(business_share)::float8 as business,
+             sum(michael_payout)::float8 as michael, sum(zane_payout)::float8 as zane
+        from collections group by 1 order by 1`,
+    sql`
+      with f as (select location, on_date::date as d, sum(amount) as a from cash_flows group by 1, 2),
+      days as (select generate_series((select min(d) from f), current_date, interval '1 day')::date as d),
+      locs as (select unnest(array['mikey', 'zane', 'business']) as location)
+      select to_char(days.d, 'YYYY-MM-DD') as day, locs.location,
+             (sum(coalesce(f.a, 0)) over (partition by locs.location order by days.d))::float8 as balance
+        from days cross join locs
+        left join f on f.d = days.d and f.location = locs.location
+       order by 1, 2`,
+    sql`
+      with po as (
+        select payment_id, sum(total) filter (where founder = 'michael') as michael,
+               sum(total) filter (where founder = 'zane') as zane
+          from payouts group by 1),
+      days as (select generate_series((select cutover_date from ledger_settings), current_date, interval '1 day')::date as d)
+      select to_char(days.d, 'YYYY-MM-DD') as day,
+             coalesce(sum(case when p.received_by = 'zane'
+                               then greatest(p.amount - coalesce(po.zane, 0) - coalesce(m.to_mikey, 0), 0)
+                               else 0 end), 0)::float8 as handover,
+             coalesce(sum(greatest(p.amount - coalesce(po.michael, 0) - coalesce(po.zane, 0)
+                               - case when p.received_by = 'business' then p.amount else coalesce(m.to_business, 0) end, 0)), 0)::float8 as business
+        from days
+        left join payments p on p.paid_at <= days.d
+        left join po on po.payment_id = p.id
+        left join lateral (
+          select sum(amount) filter (where to_loc = 'mikey') as to_mikey,
+                 sum(amount) filter (where to_loc = 'business') as to_business
+            from cash_movements cm where cm.payment_id = p.id and cm.moved_at <= days.d
+        ) m on true
+       group by days.d order by days.d`,
+    sql`
+      select to_char(d, 'YYYY-MM') as month, sum(amount)::float8 as amount from (
+        select moved_at as d, amount from cash_movements where to_loc = 'business' and kind = 'transfer'
+        union all
+        select paid_at, amount from payments where received_by = 'business'
+      ) x group by 1 order by 1`,
+    sql`
+      select to_char(p.paid_at, 'YYYY-MM') as month,
+             avg(case when p.received_by = 'business' then 0 else m.first_in::date - p.paid_at::date end)::float8 as days,
+             count(*)::int as payments
+        from payments p
+        left join lateral (select min(moved_at) as first_in from cash_movements
+                            where payment_id = p.id and to_loc = 'business') m on true
+       where p.received_by = 'business' or m.first_in is not null
+       group by 1 order by 1`,
+    sql`
+      select to_char(k.counted_at, 'YYYY-MM-DD') as day, k.location, k.amount::float8 as counted,
+             e.expected::float8 as expected, (k.amount - e.expected)::float8 as variance
+        from cash_counts k
+        left join lateral (
+          select coalesce(sum(f.amount), 0) as expected from cash_flows f
+           where f.location = k.location
+             and (f.on_date < k.counted_at
+                  or (f.on_date = k.counted_at and (f.entered_at is null or f.entered_at <= k.created_at)))
+        ) e on true
+       order by k.counted_at, k.created_at`,
+    sql`
+      select to_char(pm.paid_at, 'YYYY-MM') as month, po.founder,
+             sum(po.base)::float8 as base, sum(po.bonus)::float8 as bonus,
+             coalesce(sum(po.total) filter (where po.status = 'paid_out'), 0)::float8 as paid_out,
+             coalesce(sum(po.total) filter (where po.status = 'due'), 0)::float8 as due
+        from payouts po join payments pm on pm.id = po.payment_id
+       group by 1, 2 order by 1, 2`,
+  ]);
+  return {
+    collected: collected.map((r) => ({ month: r.month, source: r.source, amount: r.amount })),
+    split: split.map((r) => ({ month: r.month, business: r.business, michael: r.michael, zane: r.zane })),
+    cash: cash.map((r) => ({ day: r.day, location: r.location, balance: r.balance })),
+    toSort: toSort.map((r) => ({ day: r.day, handover: r.handover, business: r.business })),
+    intoSafe: intoSafe.map((r) => ({ month: r.month, amount: r.amount })),
+    daysToSafe: daysToSafe.map((r) => ({ month: r.month, days: r.days, payments: r.payments })),
+    counts: counts.map((r) => ({ day: r.day, location: r.location, counted: r.counted, expected: r.expected, variance: r.variance })),
+    payouts: payouts.map((r) => ({ month: r.month, founder: r.founder, base: r.base, bonus: r.bonus, paidOut: r.paid_out, due: r.due })),
+  };
+}
