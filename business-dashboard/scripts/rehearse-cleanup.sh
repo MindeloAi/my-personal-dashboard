@@ -32,18 +32,39 @@ snapshot() {
                                               (select 'lead ' || coalesce(business_name, name) from leads l where l.id = p.lead_id), '-')
                                      || case when p.internal then ' (internal)' else '' end from projects p
     union all select 'invoice', coalesce(invoice_number, '(none)'), status || ' ' || amount || ' ' || split_part(coalesce(notes, ''), E'\n', 1) from invoices
+    union all select 'subscription', name, replace(coalesce(notes, ''), E'\n', ' / ') from subscriptions
+    union all select 'payment', paid_at || ' ' || amount, replace(note, E'\n', ' / ') from payments where coalesce(note, '') <> ''
     order by 1, 2;" 2>/dev/null
 }
+
+# Every free-text note 020 may rewrite, keyed by row. Kept in a side schema of
+# the local copy so it can be compared after 020.
+NOTES="select 'invoice' t, id, notes n from invoices
+       union all select 'subscription', id, notes from subscriptions
+       union all select 'payment', id, note from payments
+       union all select 'project', id, notes from projects"
 
 snapshot > /tmp/rehearse-before.txt || true
 echo "Business cash before 019/020: $(docker exec rehearse-pg psql -U postgres -At -c "select 'business ' || business || ', total ' || total from business_cash")"
 DIRECT_URL=$LOCAL node scripts/run-migration.mjs scripts/migrations/019_links_and_numbering.up.sql
 snapshot > /tmp/rehearse-mid.txt
+docker exec rehearse-pg psql -U postgres -q -c "create schema rehearse; create table rehearse.notes as $NOTES;"
 DIRECT_URL=$LOCAL node scripts/run-migration.mjs scripts/migrations/020_data_cleanup.up.sql
 snapshot > /tmp/rehearse-after.txt
 
 echo; echo "===== CHANGES (- before, + after) ====="
 diff /tmp/rehearse-mid.txt /tmp/rehearse-after.txt || true
+echo; echo "===== NOTE REFERENCES CHANGED (prepended 'Previously …' line not counted) ====="
+docker exec rehearse-pg psql -U postgres -At -c "
+  with after as (
+    select t, id, case when t = 'invoice' then nullif(regexp_replace(n, E'^Previously (issued as [^\n]*|unnumbered)\\\\.\n?', ''), '') else n end n
+      from ($NOTES) x
+  )
+  select a.t || ' ' || coalesce(i.invoice_number, a.id::text) || E'\n  - ' || replace(b.n, E'\n', ' / ') || E'\n  + ' || replace(a.n, E'\n', ' / ')
+    from after a join rehearse.notes b using (t, id)
+    left join invoices i on a.t = 'invoice' and i.id = a.id
+   where a.n is distinct from b.n
+   order by 1;"
 echo; echo "===== CHECKS ====="
 docker exec rehearse-pg psql -U postgres -At -c "
   select 'issued invoices ' || count(*) || ', numbered INV-0001..' || max(invoice_number) from invoices where status in ('Sent','Overdue','Paid');

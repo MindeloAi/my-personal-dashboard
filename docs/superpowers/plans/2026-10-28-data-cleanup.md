@@ -991,6 +991,8 @@ declare
   p_taylor   uuid;
   p_decle    uuid;
   n          int;
+  r          record;
+  t          text;
 begin
   -- Jade: the empty duplicate client goes; the Won lead points at Interior Jade.
   select count(*) into n from projects where client_id = c_jades;
@@ -1069,20 +1071,42 @@ begin
   -- Renumber. Issued (Sent, Overdue, Paid) → INV-0001…, voided → VOID-0001…,
   -- oldest issue date first, no date last, ties by sort_key. Old number kept
   -- as the first line of notes. Drafts untouched.
+  create temp table invoice_renumber on commit drop as
+  select id, invoice_number as old,
+         case when status = 'Void' then 'VOID-' else 'INV-' end
+           || lpad((row_number() over (partition by (status = 'Void')
+                                       order by issue_date nulls last, sort_key, id))::text, 4, '0') as new
+    from invoices
+   where status in ('Sent', 'Overdue', 'Paid', 'Void');
+
+  -- Old numbers mentioned in free text become the new numbers. Case-sensitive
+  -- (INV-0018 and Inv-0018 are different invoices), whole tokens only (INV-0017
+  -- never hits INV-0017-B, dates are never touched). Two phases so a chain
+  -- (old INV-0014 → INV-0010 while old INV-0017 → INV-0014) cannot happen:
+  -- old number → unique placeholder, longest first, then placeholder → new.
+  for r in select id, old, new from invoice_renumber where old is not null order by length(old) desc, old loop
+    foreach t in array array['invoices.notes', 'subscriptions.notes', 'payments.note', 'projects.notes'] loop
+      execute format('update %I set %I = regexp_replace(%2$I, $1, $2, ''g'') where %2$I ~ $1',
+                     split_part(t, '.', 1), split_part(t, '.', 2))
+        using '(?<![A-Za-z0-9-])' || regexp_replace(r.old, '([^A-Za-z0-9])', '\\\1', 'g') || '(?![A-Za-z0-9-])',
+              chr(1) || r.id || chr(1);
+    end loop;
+  end loop;
+  for r in select id, new from invoice_renumber loop
+    foreach t in array array['invoices.notes', 'subscriptions.notes', 'payments.note', 'projects.notes'] loop
+      execute format('update %I set %I = replace(%2$I, $1, $2) where strpos(%2$I, $1) > 0',
+                     split_part(t, '.', 1), split_part(t, '.', 2))
+        using chr(1) || r.id || chr(1), r.new;
+    end loop;
+  end loop;
+
   perform set_config('invoices.renumber', 'on', true);
-  with ordered as (
-    select id, invoice_number as old,
-           case when status = 'Void' then 'VOID-' else 'INV-' end as prefix,
-           row_number() over (partition by (status = 'Void') order by issue_date nulls last, sort_key, id) as rn
-      from invoices
-     where status in ('Sent', 'Overdue', 'Paid', 'Void')
-  )
   update invoices i
-     set invoice_number = o.prefix || lpad(o.rn::text, 4, '0'),
-         notes = case when o.old is null then 'Previously unnumbered.' else 'Previously issued as ' || o.old || '.' end
+     set invoice_number = m.new,
+         notes = case when m.old is null then 'Previously unnumbered.' else 'Previously issued as ' || m.old || '.' end
                  || coalesce(E'\n' || i.notes, '')
-    from ordered o
-   where o.id = i.id;
+    from invoice_renumber m
+   where m.id = i.id;
   perform set_config('invoices.renumber', 'off', true);
 end $$;
 
