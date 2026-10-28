@@ -65,7 +65,6 @@ function steps(c: Collection, ledger: Ledger): Step[] {
       undo: moved("mikey") ? undo("handover") : undefined,
       undoAlso: [
         ...(moved("business") ? ["Into business cash"] : []),
-        ...(paid("zane") ? [zaneLabel] : []),
         ...(paid("michael") ? ["Mikey keeps"] : []),
       ],
     });
