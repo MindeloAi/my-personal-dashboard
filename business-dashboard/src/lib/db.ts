@@ -1664,6 +1664,16 @@ export async function recordPayment(p: PaymentInput): Promise<{ id: string }> {
   return { id };
 }
 
+/**
+ * Re-divide the bonus pool of every payment on an invoice (migration 017).
+ * Due payouts change in place; a founder already paid out gets a correction
+ * payout, negative if he must pay some back.
+ */
+export async function changeBonusShares(invoiceId: string, michaelShare: number, createdBy: string): Promise<void> {
+  const sql = getSql();
+  await sql`select change_bonus_shares(${invoiceId}, ${michaelShare}, ${createdBy})`;
+}
+
 /** Correction. Its payouts go with it; a Paid invoice reopens as Sent. */
 export async function deletePayment(id: string): Promise<void> {
   const sql = getSql();

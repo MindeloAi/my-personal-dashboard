@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { updateInvoiceAction } from "@/app/actions";
+import { changeBonusSharesAction, updateInvoiceAction } from "@/app/actions";
 import { SplitPreview } from "@/components/dashboard/record-payment-modal";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { shareError, type SplitRule } from "@/lib/ledger";
@@ -40,10 +40,13 @@ export function EditInvoiceModal({
   const [amount, setAmount] = useState(invoice.Amount != null ? String(invoice.Amount) : "");
   const [michael, setMichael] = useState(toPct(invoice["Michael Bonus Share"]));
   const [zane, setZane] = useState(toPct(invoice["Zane Bonus Share"]));
-  // The database locks amount and shares once a payment exists.
+  // The database locks the amount once a payment exists. Shares stay editable,
+  // but then go through changeBonusSharesAction, which corrects the payouts.
   const locked = (invoice["Paid So Far"] ?? 0) > 0;
   const isPaid = invoice.Status === "Paid";
-  const sharesProblem = locked ? null : shareError(michael, zane);
+  const sharesProblem = locked && (michael === "" || zane === "") ? "Set both bonus shares." : shareError(michael, zane);
+  const sharesChanged =
+    toPct(invoice["Michael Bonus Share"]) !== michael || toPct(invoice["Zane Bonus Share"]) !== zane;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -57,6 +60,14 @@ export function EditInvoiceModal({
     setError(null);
     start(async () => {
       try {
+        if (locked && sharesChanged) {
+          const res = await changeBonusSharesAction(invoice.id, parseFloat(michael) / 100);
+          if (res.error) {
+            setError(res.error);
+            toast.error(res.error);
+            return;
+          }
+        }
         // "" clears a column; undefined would leave the old value in place while
         // reporting success (db.ts toColumns). Type/Status/Amount stay undefined
         // when blank: "" fails their enum/number validation.
@@ -195,7 +206,6 @@ export function EditInvoiceModal({
                   setMichael(e.target.value);
                   if (zane === "") setZane(fillOther(e.target.value));
                 }}
-                disabled={locked}
                 className={inputCls + " disabled:opacity-50"}
               />
             </div>
@@ -211,14 +221,14 @@ export function EditInvoiceModal({
                   setZane(e.target.value);
                   if (michael === "") setMichael(fillOther(e.target.value));
                 }}
-                disabled={locked}
                 className={inputCls + " disabled:opacity-50"}
               />
             </div>
           </div>
-          {locked && (
-            <p className="text-[10px] text-zinc-600">
-              Locked because payments are recorded. Delete the payments to change these.
+          {locked && sharesChanged && !sharesProblem && (
+            <p className="text-xs text-[#fbbf24]">
+              Payments are recorded, so saving re-splits their bonus. Payouts already paid out get a
+              correction line: what one of you pays back and the other is owed.
             </p>
           )}
           {sharesProblem && <p className="text-xs text-[#ff4d8b]">{sharesProblem}</p>}

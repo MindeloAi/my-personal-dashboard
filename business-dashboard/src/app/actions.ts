@@ -32,6 +32,7 @@ import {
   getCutoverDate,
   ledgerErrorMessage,
   recordPayment,
+  changeBonusShares,
   deletePayment,
   markPayoutPaidOut,
   undoPayoutPaidOut,
@@ -292,6 +293,13 @@ export async function recordPaymentAction(input: z.infer<typeof PaymentForm>): P
   const admin = await requireAdmin();
   const p = PaymentForm.parse(input);
   return run(() => recordPayment({ ...p, createdBy: admin.email }));
+}
+
+export async function changeBonusSharesAction(invoiceId: string, michaelShare: number): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const id = z.string().uuid().parse(invoiceId);
+  const share = z.number().min(0).max(1).parse(michaelShare);
+  return run(() => changeBonusShares(id, share, admin.email));
 }
 
 export async function deletePaymentAction(id: string): Promise<ActionResult> {
