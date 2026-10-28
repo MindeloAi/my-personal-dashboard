@@ -201,6 +201,8 @@ export const ProjectSchema = z.object({
   id: z.string(),
   Name: z.string(),
   Client: z.array(z.string()).optional(),
+  Lead: z.array(z.string()).optional(),
+  Internal: z.boolean().optional(),
   Status: z
     .enum(["Lead", "In Progress", "Review", "Done", "Cancelled"])
     .optional(),
@@ -336,6 +338,7 @@ export const LeadSchema = z.object({
   Owner: z.string().optional(),
   Created: z.string().optional(),
   Notes: z.string().optional(),
+  Client: z.array(z.string()).optional(),
 });
 export type Lead = z.infer<typeof LeadSchema>;
 
@@ -404,6 +407,8 @@ export type ClientWrite = z.infer<typeof ClientWriteSchema>;
 export const ProjectWriteSchema = z.object({
   Name: z.string().optional(),
   Client: z.array(z.string()).optional(),
+  Lead: z.array(z.string()).optional(),
+  Internal: z.boolean().optional(),
   Status: z
     .enum(["Lead", "In Progress", "Review", "Done", "Cancelled"])
     .optional(),
@@ -436,7 +441,6 @@ export const ProjectWriteSchema = z.object({
 export type ProjectWrite = z.infer<typeof ProjectWriteSchema>;
 
 export const InvoiceWriteSchema = z.object({
-  "Invoice Number": z.string().optional(),
   Project: z.array(z.string()).optional(),
   Client: z.array(z.string()).optional(),
   Subscription: z.array(z.string()).optional(),
@@ -585,11 +589,11 @@ const PROJECT_COLS: ColMap = {
   "Deploy URL": "deploy_url",
   Host: "host",
   "Tech Stack": "tech_stack",
+  Internal: "internal",
 };
-const PROJECT_LINKS: ColMap = { Client: "client_id" };
+const PROJECT_LINKS: ColMap = { Client: "client_id", Lead: "lead_id" };
 
 const INVOICE_COLS: ColMap = {
-  "Invoice Number": "invoice_number",
   Amount: "amount",
   "Invoice Type": "invoice_type",
   Status: "status",
@@ -707,6 +711,8 @@ function shapeProject(r: Row) {
     id: String(r.id),
     Name: r.name,
     Client: link(r.client_id),
+    Lead: link(r.lead_id),
+    Internal: r.internal,
     Status: r.status,
     "Payment Structure": r.payment_structure,
     "Total Value": r.total_value,
@@ -821,6 +827,7 @@ function shapeLead(r: Row) {
     Owner: r.owner,
     Created: r.created,
     Notes: r.notes,
+    Client: link(r.client_id),
   };
 }
 
@@ -1196,6 +1203,36 @@ export const updateLead = (id: string, payload: LeadWrite) =>
 
 // Nothing in the schema references leads, so a delete orphans nothing.
 export const deleteLead = (id: string) => deleteRow("leads", id);
+
+/**
+ * A Won lead becomes a client: create the client from the lead's details (or
+ * use `existingClientId` when that client already represents them), link the
+ * lead to it, and move every project the lead owns onto the client. lead_id
+ * stays on the projects as history. One transaction.
+ */
+export async function convertLeadToClient(
+  leadId: string,
+  existingClientId: string | null,
+): Promise<{ clientId: string }> {
+  const sql = getSql();
+  return sql.begin(async (tx) => {
+    const [lead] = await tx`select * from leads where id = ${leadId} for update`;
+    if (!lead) throw new Error(`[db] lead ${leadId} not found`);
+    // Reuse the lead's client if it has one: a lead converted twice, or pre-linked
+    // by the cleanup migration, must not create a duplicate client.
+    let clientId = existingClientId ?? (lead.client_id ? String(lead.client_id) : null);
+    if (!clientId) {
+      const [c] = await tx`
+        insert into clients (name, company, email, phone, status)
+        values (${lead.name}, ${lead.business_name}, ${lead.email}, ${lead.phone_whatsapp}, 'Active')
+        returning id`;
+      clientId = String(c.id);
+    }
+    await tx`update leads set client_id = ${clientId} where id = ${leadId}`;
+    await tx`update projects set client_id = ${clientId} where lead_id = ${leadId} and client_id is null`;
+    return { clientId };
+  });
+}
 
 export const createTask = (payload: TaskWrite) =>
   createRow("tasks", TaskWriteSchema, payload, TASK_COLS, TASK_LINKS);

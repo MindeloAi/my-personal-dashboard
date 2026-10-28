@@ -86,7 +86,6 @@ export function EditInvoiceModal({
         // Paid is reached only by recording payments: a Paid invoice never sends
         // Status, and Paid Date is never sent.
         const res = await updateInvoiceAction(invoice.id, {
-          "Invoice Number": (fd.get("invoiceNumber") as string) || "",
           Amount: !locked && amount ? parseFloat(amount) : undefined,
           "Invoice Type": invoiceType ? (invoiceType as InvoiceTypeValue) : undefined,
           Status: !isPaid && status ? (status as InvoiceStatusValue) : undefined,
@@ -153,7 +152,9 @@ export function EditInvoiceModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Invoice Number</label>
-              <input name="invoiceNumber" defaultValue={invoice["Invoice Number"] ?? ""} className={inputCls} />
+              <p className={inputCls + " text-zinc-500"}>
+                {invoice["Invoice Number"] ?? "Assigned when sent"}
+              </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-zinc-400">Amount ($)</label>
