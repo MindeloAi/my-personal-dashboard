@@ -16,7 +16,7 @@ import {
   undoPayoutPaidOutAction,
 } from "@/app/actions";
 import { runAction } from "@/components/dashboard/cash-panel";
-import { HOLDER_LABEL, tt, type Founder, type Holder } from "@/lib/ledger";
+import { FOUNDER_LABEL, HOLDER_LABEL, tt, type Founder, type Holder } from "@/lib/ledger";
 import { today } from "@/lib/subscriptions";
 import type { Collection, Ledger } from "@/lib/db";
 
@@ -48,7 +48,7 @@ function steps(c: Collection, ledger: Ledger): Step[] {
   const waiting = c.receivedBy === "zane" && c.handoverDue > 0;
   const moves = ledger.movements.filter((m) => m.paymentId === c.paymentId);
   const lastMove = (to: Holder) => moves.find((m) => m.toLoc === to); // newest first
-  const payout = (f: Founder) => ledger.payouts.find((p) => p.paymentId === c.paymentId && p.founder === f);
+  const payouts = (f: Founder) => ledger.payouts.filter((p) => p.paymentId === c.paymentId && p.founder === f);
   const move = (fromLoc: Holder, toLoc: Holder, amount: number) => () =>
     runAction(
       () => recordTransferAction({ movedAt: today(), fromLoc, toLoc, amount, note: null, paymentId: c.paymentId }),
@@ -87,24 +87,33 @@ function steps(c: Collection, ledger: Ledger): Step[] {
     ["zane", "Give Zane", "Given to Zane"],
     ["michael", "Mikey keeps", "Kept"],
   ] as const) {
-    const p = payout(founder);
-    if (!p) continue;
+    // Newest first. More than one when a split was changed after paying out
+    // (017): the extra one is a correction, negative if he was overpaid.
+    const rows = payouts(founder);
+    if (rows.length === 0) continue;
+    const due = rows.filter((p) => p.status === "due");
+    const lastPaid = rows.find((p) => p.status === "paid_out");
+    const left = due.reduce((s, p) => s + p.total, 0);
     out.push({
       label,
-      amount: p.total,
-      done: p.status === "paid_out",
-      doneText: p.paidFrom ? `${doneText}, from ${HOLDER_LABEL[p.paidFrom]}` : doneText,
+      amount: founder === "zane" ? c.zanePayout : c.michaelPayout,
+      left,
+      done: due.length === 0,
+      doneText: lastPaid?.paidFrom ? `${doneText}, from ${HOLDER_LABEL[lastPaid.paidFrom]}` : doneText,
       action:
-        p.status === "due" && !waiting
+        due.length > 0 && !waiting
           ? {
-              label: founder === "zane" ? "Mark given" : "Mark kept",
-              run: () => runAction(() => markPayoutPaidOutAction(p.id, today(), from), "Failed to mark paid out"),
+              label: left < 0 ? `${FOUNDER_LABEL[founder]} paid back ${tt(-left)}` : founder === "zane" ? "Mark given" : "Mark kept",
+              run: async () => {
+                for (const p of due) {
+                  const err = await runAction(() => markPayoutPaidOutAction(p.id, today(), from), "Failed to mark paid out");
+                  if (err) return err;
+                }
+                return null;
+              },
             }
           : undefined,
-      undo:
-        p.status === "paid_out"
-          ? () => runAction(() => undoPayoutPaidOutAction(p.id), "Failed to undo")
-          : undefined,
+      undo: lastPaid ? () => runAction(() => undoPayoutPaidOutAction(lastPaid.id), "Failed to undo") : undefined,
     });
   }
   return out;
@@ -125,7 +134,9 @@ function StepRow({ step }: { step: Step }) {
           {tt(step.amount)}
         </span>
         {!step.done && step.left !== undefined && step.left < step.amount && (
-          <span className="ml-2 text-[11px] text-[#fbbf24] tabular-nums">{tt(step.left)} still to go</span>
+          <span className={`ml-2 text-[11px] tabular-nums ${step.left < 0 ? "text-[#ff4d8b]" : "text-[#fbbf24]"}`}>
+            {step.left < 0 ? `overpaid, ${tt(-step.left)} to pay back` : `${tt(step.left)} still to go`}
+          </span>
         )}
       </div>
       <div className="flex items-center gap-3 shrink-0">

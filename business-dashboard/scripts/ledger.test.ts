@@ -8,6 +8,7 @@
 //   docker exec ledger-pg psql -U postgres -c "create role anon; create role authenticated;"
 //   docker exec -i ledger-pg psql -U postgres < scripts/schema.sql
 //   DIRECT_URL=postgres://postgres:pg@localhost:55432/postgres node scripts/run-migration.mjs scripts/migrations/011_founder_ledger.up.sql
+//   (then 012, 013, 015, 016, 017 the same way)
 //   DATABASE_URL=postgres://postgres:pg@localhost:55432/postgres bun scripts/ledger.test.ts
 
 import postgres from "postgres";
@@ -24,6 +25,7 @@ import {
   reimburseExpense,
   undoReimburseExpense,
   ledgerErrorMessage,
+  changeBonusShares,
   closeDb,
 } from "../src/lib/db";
 import { holderLine, splitPreview } from "../src/lib/ledger";
@@ -463,6 +465,40 @@ try {
     await pay(direct, 500, { receivedBy: "business" });
     const d = (await getLedger(TODAY)).collections[0];
     check("   paid straight into the business: nothing to hand over or put in", d.handoverDue === 0 && d.businessDue === 0, JSON.stringify(d));
+  }
+
+  // 16 — changing the split after payment (017). The real slip: INV-0016-B was
+  // 100% Michael, paid out from Mikey, but Zane should have had 100%.
+  await reset();
+  {
+    const inv = await invoice(2700, 1);
+    await pay(inv, 2700, { payOutFrom: "mikey" });
+    const before = await cash();
+    const locked = await rejection(() => sql`update invoices set michael_bonus_share = 0, zane_bonus_share = 1 where id = ${inv}`);
+    check("16 a plain edit of the shares is still refused once paid", !!locked?.includes("Change split"), String(locked));
+
+    await changeBonusShares(inv, 0, MICHAEL);
+    const po = await sql`select founder, base, bonus, total, status from payouts where invoice_id = ${inv} order by number`;
+    const sum = (f: string) => po.filter((r) => r.founder === f).reduce((s, r) => s + Number(r.total), 0);
+    const corr = po.filter((r) => Number(r.base) === 0);
+    check("   paid-out payouts are kept; corrections: Michael -270, Zane +270, both due",
+      po.length === 4 && corr.length === 2 && corr.every((r) => r.status === "due") &&
+        sum("michael") === 364.5 && sum("zane") === 634.5,
+      JSON.stringify(po));
+    check("   cash does not move until someone pays the difference", JSON.stringify(await cash()) === JSON.stringify(before));
+    const [i] = await sql`select michael_bonus_share, zane_bonus_share from invoices where id = ${inv}`;
+    check("   the invoice now reads 0 / 100", Number(i.michael_bonus_share) === 0 && Number(i.zane_bonus_share) === 1);
+
+    await changeBonusShares(inv, 1, MICHAEL);
+    const back = await sql`select count(*)::int as n from payouts where invoice_id = ${inv}`;
+    check("   changing it back cancels the corrections out", back[0].n === 2, `${back[0].n} payouts`);
+
+    const due = await invoice(1000, 0.5);
+    await pay(due, 1000);
+    await changeBonusShares(due, 0.2, MICHAEL);
+    const d = await payoutsFor(due);
+    check("   due payouts just change in place: 1000 at 20/80 = Michael 155, Zane 215",
+      d.length === 2 && Number(d[0].total) === 155 && Number(d[1].total) === 215, JSON.stringify(d));
   }
 
   await reset();

@@ -61,6 +61,8 @@ function StatusPill({ status }: { status: Payout["status"] }) {
 function PaidOutModal({ payout, onClose }: { payout: Payout; onClose: () => void }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // A negative payout is a split correction: the founder returns money to a pot.
+  const back = payout.total < 0;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -86,18 +88,20 @@ function PaidOutModal({ payout, onClose }: { payout: Payout; onClose: () => void
   }
 
   return (
-    <ModalShell title={`Mark ${payout.number} paid out`} onClose={onClose}>
+    <ModalShell title={`Mark ${payout.number} ${back ? "paid back" : "paid out"}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <p className="text-xs text-zinc-400">
-          {FOUNDER_LABEL[payout.founder]}, {tt(payout.total)}
+          {back
+            ? `${FOUNDER_LABEL[payout.founder]} pays back ${tt(-payout.total)} (a split correction)`
+            : `${FOUNDER_LABEL[payout.founder]}, ${tt(payout.total)}`}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="payout-date" className="text-xs text-zinc-400">Date paid out</label>
+            <label htmlFor="payout-date" className="text-xs text-zinc-400">{back ? "Date paid back" : "Date paid out"}</label>
             <input id="payout-date" name="date" type="date" required defaultValue={today()} className={inputCls} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="payout-from" className="text-xs text-zinc-400">Paid from</label>
+            <label htmlFor="payout-from" className="text-xs text-zinc-400">{back ? "Paid back to" : "Paid from"}</label>
             <select id="payout-from" name="from" defaultValue={DEFAULT_FROM} className={selectCls}>
               {HOLDERS.map((h) => (
                 <option key={h} value={h}>{HOLDER_LABEL[h]}</option>
@@ -111,7 +115,7 @@ function PaidOutModal({ payout, onClose }: { payout: Payout; onClose: () => void
             Cancel
           </button>
           <button type="submit" disabled={pending} className="min-h-11 sm:min-h-0 text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80">
-            {pending ? "Saving..." : "Mark paid out"}
+            {pending ? "Saving..." : back ? "Mark paid back" : "Mark paid out"}
           </button>
         </div>
       </form>
@@ -352,7 +356,10 @@ export function FounderPay({ ledger }: { ledger: Ledger }) {
                   </td>
                   <td className="hidden sm:table-cell py-3 pl-4 text-right text-zinc-400 whitespace-nowrap">{tt(p.base)}</td>
                   <td className="hidden sm:table-cell py-3 pl-4 text-right text-zinc-400 whitespace-nowrap">{tt(p.bonus)}</td>
-                  <td className="py-3 pl-4 text-right font-semibold text-white whitespace-nowrap">{tt(p.total)}</td>
+                  <td className={`py-3 pl-4 text-right font-semibold whitespace-nowrap ${p.total < 0 ? "text-[#ff4d8b]" : "text-white"}`}>
+                    {tt(p.total)}
+                    {p.total < 0 && <span className="block text-[10px] font-normal text-zinc-500">pays back</span>}
+                  </td>
                   <td className="py-3 pl-6 whitespace-nowrap"><StatusPill status={p.status} /></td>
                   <td className="py-3 pl-4 text-zinc-400 whitespace-nowrap">
                     {p.status === "paid_out" && p.paidOutAt ? (
@@ -371,7 +378,7 @@ export function FounderPay({ ledger }: { ledger: Ledger }) {
                         onClick={() => setPaying(p)}
                         className="min-h-11 sm:min-h-0 text-xs px-2.5 py-1 rounded-lg border border-[#bfff3a]/30 text-[#bfff3a] hover:bg-[#bfff3a]/10 transition-colors"
                       >
-                        Mark paid out
+                        {p.total < 0 ? "Mark paid back" : "Mark paid out"}
                       </button>
                     ) : (
                       <UndoButton payout={p} />
