@@ -129,7 +129,18 @@ Rules:
 - All aggregation happens in SQL (views or queries in `db.ts`); components only draw. Same rule as the ledger.
 - Money before the ledger cutover (22 Oct 2026) counts from invoice paid dates, as the accounts export already does. Charts that rely on ledger-only data (8, 9) start at the cutover and say so in their text.
 - Colours and chart forms follow the `dataviz` skill; light and dark both readable.
-- The other Finance subpages keep their working views and get a small summary strip at the top.
+- Every other Finance subpage keeps its working view and adds a summary strip plus its own charts, in the same piece-3 format:
+
+| Subpage | Charts |
+|---|---|
+| Money received | Collections per month by collector (Mikey / Zane / paid to business) · Money still to sort over time (to hand over, to put in the safe) · Average days from client payment to the safe |
+| Invoices | Invoices by status (count and value) · Value invoiced per month · Average invoice size per month |
+| Founder pay | Payouts per founder per month · Base vs bonus per founder · Paid out vs still due |
+| Cash & safe | Business cash balance over time · Money moved into the safe per month · Cash-count variance over time |
+| Expenses | Spending by category · Spending per month by category · Paid from business cash vs paid personally, with what is still owed back to founders |
+| Recurring | Monthly recurring revenue over time · Recurring revenue by client · Recurring invoices expected in the next 3 months |
+
+That is 11 charts on Summary and 18 across the subpages: 29 in Finance. Charts built on ledger-only data (collector, sorting, founder pay, cash pots, cash counts) start at the 22 Oct 2026 cutover and say so in their text.
 
 ## 5. Other pages
 
