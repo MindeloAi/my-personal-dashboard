@@ -1492,9 +1492,11 @@ export async function getLedger(today: string): Promise<Ledger> {
       select (select coalesce(sum(amount), 0) from payments) as received,
              (select coalesce(sum(handover_due), 0) from collections) as handover,
              (select coalesce(sum(business_due), 0) from collections) as business,
-             coalesce(sum(total) filter (where founder = 'zane'), 0)    as give_zane,
-             coalesce(sum(total) filter (where founder = 'michael'), 0) as mikey_keeps
-        from payouts where status = 'due'`,
+             -- Zane keeps his share of what he collected, so only the rest is Mikey's to give.
+             coalesce(sum(po.total) filter (where po.founder = 'zane' and pm.received_by <> 'zane'), 0) as give_zane,
+             coalesce(sum(po.total) filter (where po.founder = 'michael'), 0) as mikey_keeps
+        from payouts po join payments pm on pm.id = po.payment_id
+       where po.status = 'due'`,
   ]);
 
   const owedTo =Object.fromEntries(owedFounders.map((r) => [r.founder, Number(r.owed)]));
@@ -1672,6 +1674,24 @@ export async function recordPayment(p: PaymentInput): Promise<{ id: string }> {
 export async function changeBonusShares(invoiceId: string, michaelShare: number, createdBy: string): Promise<void> {
   const sql = getSql();
   await sql`select change_bonus_shares(${invoiceId}, ${michaelShare}, ${createdBy})`;
+}
+
+/**
+ * Correct who collected an invoice's payments. Refused once any of its money
+ * has been moved on (handed over / put in the safe): undo those moves first.
+ * Returns an error message, or null.
+ */
+export async function setCollector(invoiceId: string, holder: Holder): Promise<string | null> {
+  const sql = getSql();
+  return sql.begin(async (tx) => {
+    const [{ moved }] = await tx`
+      select exists (
+        select 1 from cash_movements m join payments p on p.id = m.payment_id
+         where p.invoice_id = ${invoiceId}) as moved`;
+    if (moved) return "Some of this invoice's money has already been moved. Undo those steps in Money received first.";
+    await tx`update payments set received_by = ${holder} where invoice_id = ${invoiceId}`;
+    return null;
+  });
 }
 
 /** Correction. Its payouts go with it; a Paid invoice reopens as Sent. */

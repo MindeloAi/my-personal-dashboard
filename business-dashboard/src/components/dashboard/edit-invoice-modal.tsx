@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { changeBonusSharesAction, updateInvoiceAction } from "@/app/actions";
+import { changeBonusSharesAction, setCollectorAction, updateInvoiceAction } from "@/app/actions";
 import { SplitPreview } from "@/components/dashboard/record-payment-modal";
 import { ModalShell } from "@/components/ui/modal-shell";
-import { shareError, type SplitRule } from "@/lib/ledger";
+import { HOLDERS, HOLDER_LABEL, shareError, type Holder, type SplitRule } from "@/lib/ledger";
 import type { Invoice, Project, Subscription } from "@/lib/airtable";
 
 const inputCls =
@@ -27,12 +27,15 @@ export function EditInvoiceModal({
   projects = [],
   subscriptions = [],
   rule,
+  collector,
   onClose,
 }: {
   invoice: Invoice;
   projects?: Project[];
   subscriptions?: Subscription[];
   rule?: SplitRule;
+  /** Who holds its payments now; null when they differ. Omit to hide the field. */
+  collector?: Holder | null;
   onClose: () => void;
 }) {
   const [pending, start] = useTransition();
@@ -40,6 +43,7 @@ export function EditInvoiceModal({
   const [amount, setAmount] = useState(invoice.Amount != null ? String(invoice.Amount) : "");
   const [michael, setMichael] = useState(toPct(invoice["Michael Bonus Share"]));
   const [zane, setZane] = useState(toPct(invoice["Zane Bonus Share"]));
+  const [collectedBy, setCollectedBy] = useState<Holder | "">(collector ?? "");
   // The database locks the amount once a payment exists. Shares stay editable,
   // but then go through changeBonusSharesAction, which corrects the payouts.
   const locked = (invoice["Paid So Far"] ?? 0) > 0;
@@ -60,6 +64,14 @@ export function EditInvoiceModal({
     setError(null);
     start(async () => {
       try {
+        if (collectedBy && collectedBy !== collector) {
+          const res = await setCollectorAction(invoice.id, collectedBy);
+          if (res.error) {
+            setError(res.error);
+            toast.error(res.error);
+            return;
+          }
+        }
         if (locked && sharesChanged) {
           const res = await changeBonusSharesAction(invoice.id, parseFloat(michael) / 100);
           if (res.error) {
@@ -232,6 +244,22 @@ export function EditInvoiceModal({
             </p>
           )}
           {sharesProblem && <p className="text-xs text-[#ff4d8b]">{sharesProblem}</p>}
+          {locked && collector !== undefined && (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="collected-by" className="text-xs text-zinc-400">Collected by (who has the money)</label>
+              <select
+                id="collected-by"
+                value={collectedBy}
+                onChange={(e) => setCollectedBy(e.target.value as Holder)}
+                className={selectCls}
+              >
+                {collectedBy === "" && <option value="">Mixed, pick one</option>}
+                {HOLDERS.map((h) => (
+                  <option key={h} value={h}>{HOLDER_LABEL[h]}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {rule && !sharesProblem && michael !== "" && zane !== "" && (
             <SplitPreview amount={parseFloat(amount) || 0} rule={rule} michaelShare={parseFloat(michael) / 100} />
           )}

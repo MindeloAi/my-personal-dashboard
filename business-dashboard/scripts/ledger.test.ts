@@ -8,7 +8,7 @@
 //   docker exec ledger-pg psql -U postgres -c "create role anon; create role authenticated;"
 //   docker exec -i ledger-pg psql -U postgres < scripts/schema.sql
 //   DIRECT_URL=postgres://postgres:pg@localhost:55432/postgres node scripts/run-migration.mjs scripts/migrations/011_founder_ledger.up.sql
-//   (then 012, 013, 015, 016, 017 the same way)
+//   (then 012, 013, 015, 016, 017, 018 the same way)
 //   DATABASE_URL=postgres://postgres:pg@localhost:55432/postgres bun scripts/ledger.test.ts
 
 import postgres from "postgres";
@@ -26,6 +26,7 @@ import {
   undoReimburseExpense,
   ledgerErrorMessage,
   changeBonusShares,
+  setCollector,
   closeDb,
 } from "../src/lib/db";
 import { holderLine, splitPreview } from "../src/lib/ledger";
@@ -424,9 +425,9 @@ try {
     check("   a transfer out of an empty pot is refused", !!tooMuch?.includes("Zane"), String(tooMuch));
   }
 
-  // 15 — collections (016): Zane collects, hands to Mikey, Mikey puts the
-  // business share in the safe and pays both founders. 1000 at 50/50 under
-  // rule 1 = 185 each, 630 for the business.
+  // 15 — collections (016, 018): Zane collects, keeps his 185, hands Mikey
+  // the other 815; Mikey puts 630 in the safe and keeps his 185. 1000 at
+  // 50/50 under rule 1.
   await reset();
   {
     const inv = await invoice(1000, 0.5);
@@ -434,19 +435,20 @@ try {
     let l = await getLedger(TODAY);
     const c = l.collections[0];
     check("15 a collection shows its split and what is still to sort",
-      c?.businessShare === 630 && c.handoverDue === 1000 && c.businessDue === 630 && c.zanePayout === 185 && c.michaelPayout === 185,
+      c?.businessShare === 630 && c.handoverDue === 815 && c.businessDue === 630 && c.zanePayout === 185 && c.michaelPayout === 185,
       JSON.stringify(c));
     check("   totals: received, hand over, into business cash, give Zane, Mikey keeps",
-      l.toSort.received === 1000 && l.toSort.handover === 1000 && l.toSort.business === 630 && l.toSort.giveZane === 185 && l.toSort.mikeyKeeps === 185,
+      l.toSort.received === 1000 && l.toSort.handover === 815 && l.toSort.business === 630 && l.toSort.giveZane === 0 && l.toSort.mikeyKeeps === 185,
       JSON.stringify(l.toSort));
 
     const move = (fromLoc: "zane" | "mikey", toLoc: "mikey" | "business", amount: number) =>
       createTransfer({ movedAt: TODAY, fromLoc, toLoc, amount, note: null, createdBy: MICHAEL, paymentId });
-    await move("zane", "mikey", 1000);
-    const twice = await rejection(() => move("zane", "mikey", 1));
+    await move("zane", "mikey", 815);
+    const twice = await rejection(() => move("zane", "mikey", 815));
     check("   handing the same collection over twice is refused", !!twice?.includes("for a payment of"), String(twice));
     await move("mikey", "business", 630);
-    for (const p of l.payouts.filter((p) => p.paymentId === paymentId)) await markPayoutPaidOut(p.id, TODAY, "mikey");
+    for (const p of l.payouts.filter((p) => p.paymentId === paymentId))
+      await markPayoutPaidOut(p.id, TODAY, p.founder === "zane" ? "zane" : "mikey");
 
     l = await getLedger(TODAY);
     const done = l.collections[0];
@@ -465,6 +467,15 @@ try {
     await pay(direct, 500, { receivedBy: "business" });
     const d = (await getLedger(TODAY)).collections[0];
     check("   paid straight into the business: nothing to hand over or put in", d.handoverDue === 0 && d.businessDue === 0, JSON.stringify(d));
+
+    // Recorded as Mikey's by mistake: correct it to Zane.
+    const wrong = await invoice(2000, 0.5);
+    const { id: wrongPay } = await pay(wrong, 2000);
+    check("   the collector can be corrected", (await setCollector(wrong, "zane")) === null &&
+      (await getLedger(TODAY)).collections.find((x) => x.paymentId === wrongPay)?.handoverDue === 1630);
+    await createTransfer({ movedAt: TODAY, fromLoc: "zane", toLoc: "mikey", amount: 100, note: null, createdBy: MICHAEL, paymentId: wrongPay });
+    const blocked = await setCollector(wrong, "mikey");
+    check("   but not once its money has been moved on", !!blocked?.includes("Undo"), String(blocked));
   }
 
   // 16 — changing the split after payment (017). The real slip: INV-0016-B was

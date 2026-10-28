@@ -7,7 +7,7 @@ import { deletePaymentAction } from "@/app/actions";
 import { EditInvoiceModal } from "@/components/dashboard/edit-invoice-modal";
 import { RecordPaymentModal } from "@/components/dashboard/record-payment-modal";
 import { effectiveStatus, isOverdue } from "@/lib/invoices";
-import { HOLDER_LABEL, tt } from "@/lib/ledger";
+import { HOLDER_LABEL, tt, type Holder } from "@/lib/ledger";
 import type { Invoice, Ledger, Payment, Project, Subscription } from "@/lib/airtable";
 
 export type InvoiceStatusFilter = "All" | "Sent" | "Overdue" | "Paid" | "Draft";
@@ -39,6 +39,13 @@ const TYPE_LABELS: Record<string, string> = {
   recurring: "Recurring",
   one_off: "One-off",
 };
+
+/** Who holds an invoice's payments: one holder, null if they differ, undefined if none. */
+function collectorOf(ledger: Ledger, invoiceId: string): Holder | null | undefined {
+  const holders = new Set(ledger.payments.filter((p) => p.invoiceId === invoiceId).map((p) => p.receivedBy));
+  if (holders.size === 0) return undefined;
+  return holders.size === 1 ? [...holders][0] : null;
+}
 
 function StatusBadge({ status }: { status: string }) {
   return (
@@ -312,6 +319,7 @@ export function InvoicesTable({
           projects={projects}
           subscriptions={subscriptions}
           rule={ledger.rule}
+          collector={collectorOf(ledger, editingInvoice.id)}
           onClose={() => setEditingInvoice(null)}
         />
       )}

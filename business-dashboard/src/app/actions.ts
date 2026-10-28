@@ -33,6 +33,7 @@ import {
   ledgerErrorMessage,
   recordPayment,
   changeBonusShares,
+  setCollector,
   deletePayment,
   markPayoutPaidOut,
   undoPayoutPaidOut,
@@ -300,6 +301,18 @@ export async function changeBonusSharesAction(invoiceId: string, michaelShare: n
   const id = z.string().uuid().parse(invoiceId);
   const share = z.number().min(0).max(1).parse(michaelShare);
   return run(() => changeBonusShares(id, share, admin.email));
+}
+
+export async function setCollectorAction(invoiceId: string, holder: string): Promise<ActionResult> {
+  await requireAdmin();
+  const id = z.string().uuid().parse(invoiceId);
+  const h = Holder.parse(holder);
+  // run() still catches the cash_never_negative check firing at commit.
+  let refused: string | null = null;
+  const res = await run(async () => {
+    refused = await setCollector(id, h);
+  });
+  return refused ? { error: refused } : res;
 }
 
 export async function deletePaymentAction(id: string): Promise<ActionResult> {
