@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useEffect, useState, useTransition } from "react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { deletePaymentAction } from "@/app/actions";
@@ -8,8 +8,9 @@ import { EditInvoiceModal } from "@/components/dashboard/edit-invoice-modal";
 import { RecordPaymentModal } from "@/components/dashboard/record-payment-modal";
 import { effectiveStatus, isOverdue } from "@/lib/invoices";
 import { HOLDER_LABEL, tt, type Holder } from "@/lib/ledger";
-import type { Invoice, Ledger, Payment, Project, Subscription } from "@/lib/airtable";
+import type { Client, Invoice, Lead, Ledger, Payment, Project, Subscription } from "@/lib/airtable";
 import { Explain } from "./explain";
+import { LinkedRecords } from "./linked-records";
 
 export type InvoiceStatusFilter = "All" | "Sent" | "Overdue" | "Paid" | "Draft";
 
@@ -23,6 +24,9 @@ type Props = {
   clientFilter?: string | null;
   onClearClientFilter?: () => void;
   clientName?: string | null;
+  /** For the linked-records line: client and lead names around each invoice. */
+  clients?: Client[];
+  leads?: Lead[];
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -132,8 +136,20 @@ export function InvoicesTable({
   clientFilter,
   onClearClientFilter,
   clientName,
+  clients = [],
+  leads = [],
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const graph = { clients, leads, projects: projects ?? [], invoices };
+  // A link to /admin/finance/invoices#invoice-<id> opens that invoice's details.
+  useEffect(() => {
+    const open = () => {
+      if (window.location.hash.startsWith("#invoice-")) setExpandedId(window.location.hash.slice(9));
+    };
+    open();
+    window.addEventListener("hashchange", open);
+    return () => window.removeEventListener("hashchange", open);
+  }, []);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
 
@@ -229,8 +245,9 @@ export function InvoicesTable({
                 return (
                   <Fragment key={inv.id}>
                     <tr
+                      id={`invoice-${inv.id}`}
                       onClick={() => setExpandedId(isExpanded ? null : inv.id)}
-                      className="hover:bg-white/[0.02] transition-colors cursor-pointer"
+                      className="scroll-mt-24 hover:bg-[#F7F8FA] target:bg-[#EFF4FF] transition-colors cursor-pointer"
                     >
                       <td className="py-3 font-mono text-[#334155] text-xs font-semibold whitespace-nowrap">
                         {inv["Invoice Number"] ?? "—"}
@@ -272,6 +289,7 @@ export function InvoicesTable({
                     {isExpanded && (
                       <tr className="bg-[#F3F5F8]/60">
                         <td colSpan={6} className="px-2 pb-3 pt-1">
+                          <LinkedRecords kind="invoice" id={inv.id} graph={graph} hide={["invoices"]} className="mb-2" />
                           <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-xs text-[#4A5568]">
                             {inv["Issue Date"] && (
                               <span>

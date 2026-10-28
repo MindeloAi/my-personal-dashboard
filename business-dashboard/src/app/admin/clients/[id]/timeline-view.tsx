@@ -17,9 +17,11 @@ type Props = {
   promises: ClientPromise[];
   invoices: UnpaidInvoice[];
   today: string;
+  /** Shown under the header: the deal from lead to cash. */
+  linked?: React.ReactNode;
 };
 
-export function TimelineView({ client, projects, entries, promises, invoices, today }: Props) {
+export function TimelineView({ client, projects, entries, promises, invoices, today, linked }: Props) {
   const [lit, setLit] = useState<Lit | null>(null);
   // A new object per dot click tells the history to scroll; row and diamond clicks leave it null.
   const [scrollTo, setScrollTo] = useState<{ ids: string[] } | null>(null);
@@ -83,6 +85,7 @@ export function TimelineView({ client, projects, entries, promises, invoices, to
           </button>
         </div>
       </header>
+      {linked}
 
       <DateLine entries={entries} promises={promises} invoices={invoices} today={today} lit={lit} onLight={light} />
 

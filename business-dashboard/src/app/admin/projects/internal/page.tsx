@@ -1,6 +1,6 @@
 import { requireAdminPage } from "@/lib/auth";
 import { ProjectBoard } from "@/components/dashboard/project-board";
-import { getProjects, getClients, getLeads } from "@/lib/db";
+import { getProjects, getClients, getLeads, getInvoices } from "@/lib/db";
 import { PageHeader, StatTile } from "@/components/dashboard/explain";
 import { PageCharts } from "@/components/dashboard/page-charts";
 import { tt } from "@/lib/ledger";
@@ -12,7 +12,7 @@ export const revalidate = 0;
 /** Mindelo's own products (Cruz, CariPromos): projects with no client or lead behind them. */
 export default async function InternalProjectsPage() {
   await requireAdminPage();
-  const [projects, clients, leads] = await Promise.all([getProjects(), getClients(), getLeads()]);
+  const [projects, clients, leads, invoices] = await Promise.all([getProjects(), getClients(), getLeads(), getInvoices()]);
   const s = projectsSummary(projects.filter((p) => p.Internal));
   return (
     <>
@@ -22,7 +22,7 @@ export default async function InternalProjectsPage() {
         <StatTile label="In review" value={String(s.inReview)} note="Built and waiting on the client's sign-off." />
         <StatTile label="Value of active work" value={tt(s.activeValue)} note="Total value of projects in progress or in review." />
       </div>
-      <ProjectBoard projects={projects.filter((p) => p.Internal)} clients={clients} leads={leads} />
+      <ProjectBoard projects={projects.filter((p) => p.Internal)} clients={clients} leads={leads} invoices={invoices} />
       <PageCharts page="projects" projects={projects.filter((p) => p.Internal)} clients={clients} />
     </>
   );

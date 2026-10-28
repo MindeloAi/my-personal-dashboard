@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { requireAdminPage } from "@/lib/auth";
-import { getClientById, getInvoices, getProjects } from "@/lib/db";
+import { getClientById, getInvoices, getProjects, getClients, getLeads, getLedger } from "@/lib/db";
 import { round2 } from "@/lib/ledger";
 import { today } from "@/lib/subscriptions";
 import { getClientTimeline } from "@/lib/timeline-db";
 import type { UnpaidInvoice } from "@/lib/timeline";
 import { TimelineView } from "./timeline-view";
+import { ClientRecords } from "@/components/dashboard/client-records";
 
 export const dynamic = "force-dynamic";
 // Covers the slow Claude call made by the Server Action on this page.
@@ -20,10 +21,13 @@ export default async function ClientTimelinePage({ params }: { params: Promise<{
   const client = await getClientById(id);
   if (!client) notFound();
 
-  const [projects, invoices, timeline] = await Promise.all([
+  const [projects, invoices, timeline, clients, leads, ledger] = await Promise.all([
     getProjects(),
     getInvoices(),
     getClientTimeline(id),
+    getClients(),
+    getLeads(),
+    getLedger(today()),
   ]);
 
   const unpaid: UnpaidInvoice[] = invoices
@@ -44,6 +48,7 @@ export default async function ClientTimelinePage({ params }: { params: Promise<{
       promises={timeline.promises}
       invoices={unpaid}
       today={today()}
+      linked={<ClientRecords clientId={id} graph={{ clients, leads, projects, invoices }} payments={ledger.payments} cutover={ledger.cutover} />}
     />
   );
 }

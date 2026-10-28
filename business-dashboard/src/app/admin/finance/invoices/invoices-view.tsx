@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { InvoicesTable, type InvoiceStatusFilter } from "@/components/dashboard/invoices-table";
 import { Cashflow } from "@/components/dashboard/cashflow";
-import type { Client, Project, Invoice, Subscription, Ledger } from "@/lib/db";
+import type { Client, Project, Invoice, Subscription, Ledger, Lead } from "@/lib/db";
 
 type Props = {
   clients: Client[];
@@ -11,6 +11,7 @@ type Props = {
   invoices: Invoice[];
   subscriptions: Subscription[];
   ledger: Ledger;
+  leads?: Lead[];
   initialStatus: InvoiceStatusFilter;
   initialClientId: string | null;
 };
@@ -21,6 +22,7 @@ export function InvoicesView({
   invoices,
   subscriptions,
   ledger,
+  leads = [],
   initialStatus,
   initialClientId,
 }: Props) {
@@ -43,6 +45,8 @@ export function InvoicesView({
           onClearClientFilter={() => setInvoiceClient(null)}
           clientName={selectedClientName}
           ledger={ledger}
+          clients={clients}
+          leads={leads}
         />
       </div>
       <Cashflow invoices={invoices} projects={projects} subscriptions={subscriptions} />

@@ -1,6 +1,6 @@
 import { requireAdminPage } from "@/lib/auth";
 import { LeadsTable } from "@/components/dashboard/leads-table";
-import { getLeads, getClients } from "@/lib/db";
+import { getLeads, getClients, getProjects, getInvoices } from "@/lib/db";
 import { PageHeader, StatTile } from "@/components/dashboard/explain";
 import { PageCharts } from "@/components/dashboard/page-charts";
 import { today } from "@/lib/subscriptions";
@@ -12,7 +12,7 @@ export const revalidate = 0;
 export default async function LeadsPage() {
   await requireAdminPage();
   // clients is needed by the Won→client conversion's duplicate check.
-  const [leads, clients] = await Promise.all([getLeads(), getClients()]);
+  const [leads, clients, projects, invoices] = await Promise.all([getLeads(), getClients(), getProjects(), getInvoices()]);
   const s = leadsSummary(leads, today());
   return (
     <>
@@ -23,7 +23,7 @@ export default async function LeadsPage() {
         <StatTile label="Win rate" value={`${Math.round(s.winRate)}%`} note="Won out of every lead decided (won or lost)." />
         <StatTile label="Follow-ups due" value={String(s.followUps)} note="Open leads whose follow-up date has arrived." tone={s.followUps ? "text-[#B45309]" : undefined} />
       </div>
-      <LeadsTable leads={leads} clients={clients} />
+      <LeadsTable leads={leads} clients={clients} projects={projects} invoices={invoices} />
       <PageCharts page="leads" leads={leads} />
     </>
   );

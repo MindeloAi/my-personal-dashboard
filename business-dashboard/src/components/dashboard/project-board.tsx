@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useOptimistic, useState, useSyncExternalStore, useTransition } from "react";
+import { useEffect, useMemo, useOptimistic, useState, useSyncExternalStore, useTransition } from "react";
 import { serviceTypeOptions } from "@/lib/service-types";
 import { createPortal } from "react-dom";
 import {
@@ -22,10 +22,12 @@ import {
   updateProjectStatus,
 } from "@/app/actions";
 import { ModalShell } from "@/components/ui/modal-shell";
-import type { Client, Lead, Project } from "@/lib/airtable";
+import type { Client, Lead, Project, Invoice } from "@/lib/airtable";
 import { OwnerSelect } from "@/components/dashboard/owner-select";
 import { ownerPatch, ownerValue } from "@/lib/project-owner";
 import { Explain } from "./explain";
+import { LinkedRecords } from "./linked-records";
+import type { Graph } from "@/lib/record-graph";
 
 function TrashIcon({ className }: { className?: string }) {
   return (
@@ -76,7 +78,7 @@ const inputCls =
   "w-full bg-[#F3F5F8] border border-[#DCE1E8] rounded-[4px] px-3 py-2 text-sm text-[#1B2533] placeholder:text-[#8B9AB0] focus:outline-none focus:border-[#94A3B8] transition-colors";
 const selectCls = inputCls + " cursor-pointer";
 
-type Props = { projects: Project[]; clients?: Client[]; leads?: Lead[]; initialClientId?: string | null };
+type Props = { projects: Project[]; clients?: Client[]; leads?: Lead[]; invoices?: Invoice[]; initialClientId?: string | null };
 type Status = "Lead" | "In Progress" | "Review" | "Done";
 type ProjectStatusValue = Status | "Cancelled";
 type PaymentStructureValue =
@@ -195,11 +197,13 @@ function ProjectDetailModal({
   project,
   clients,
   leads,
+  graph,
   onClose,
 }: {
   project: Project;
   clients: Client[];
   leads: Lead[];
+  graph: Graph;
   onClose: () => void;
 }) {
   const [editMode, setEditMode] = useState(false);
@@ -476,6 +480,7 @@ function ProjectDetailModal({
                 </div>
               )}
             </div>
+            <LinkedRecords kind="project" id={project.id} graph={graph} hide={["projects"]} className="mt-4 pt-4 border-t border-[#DCE1E8]" />
             {project.Notes ? (
               <div className="mt-4 pt-4 border-t border-[#DCE1E8]">
                 <p className="text-[10px] text-[#5A6678] uppercase tracking-wider mb-1.5">Notes</p>
@@ -504,6 +509,7 @@ function DraggableCard({
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: project.id });
   return (
     <div
+      id={`project-${project.id}`}
       ref={setNodeRef}
       {...listeners}
       {...attributes}
@@ -514,7 +520,7 @@ function DraggableCard({
         }
       }}
       // No text selection or iOS callout menu stealing the long-press that starts a drag.
-      className="cursor-grab active:cursor-grabbing select-none [-webkit-touch-callout:none]"
+      className="scroll-mt-24 rounded-[4px] target:ring-2 target:ring-[#1D4ED8] cursor-grab active:cursor-grabbing select-none [-webkit-touch-callout:none]"
     >
       <ProjectCard
         project={project}
@@ -577,9 +583,22 @@ type OptimisticAction =
   | { kind: "status"; id: string; status: Status }
   | { kind: "delete"; id: string };
 
-export function ProjectBoard({ projects, clients = [], leads = [], initialClientId = null }: Props) {
+export function ProjectBoard({ projects, clients = [], leads = [], invoices = [], initialClientId = null }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [detailProject, setDetailProject] = useState<Project | null>(null);
+  const graph = { clients, leads, projects, invoices };
+  // A link to /admin/projects#project-<id> opens that project (after load, so
+  // the server and browser render the same HTML first).
+  useEffect(() => {
+    const open = () => {
+      const id = window.location.hash.startsWith("#project-") ? window.location.hash.slice(9) : null;
+      const p = id ? projects.find((x) => x.id === id) : undefined;
+      if (p) setDetailProject(p);
+    };
+    open();
+    window.addEventListener("hashchange", open);
+    return () => window.removeEventListener("hashchange", open);
+  }, [projects]);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("All");
   const [clientFilter, setClientFilter] = useState<string | null>(initialClientId);
   const [, startTransition] = useTransition();
@@ -728,6 +747,7 @@ export function ProjectBoard({ projects, clients = [], leads = [], initialClient
           project={detailProject}
           clients={clients}
           leads={leads}
+          graph={graph}
           onClose={() => setDetailProject(null)}
         />
       )}

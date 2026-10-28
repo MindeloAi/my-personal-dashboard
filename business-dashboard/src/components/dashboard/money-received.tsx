@@ -14,6 +14,8 @@ import { runAction } from "@/components/dashboard/cash-panel";
 import { FOUNDER_LABEL, HOLDERS, HOLDER_LABEL, tt, type Founder, type Holder } from "@/lib/ledger";
 import type { Collection, CollectionStep, Ledger } from "@/lib/db";
 import { Explain } from "./explain";
+import Link from "next/link";
+import { href, linksFor, type Graph } from "@/lib/record-graph";
 
 const cardCls = "bg-[#FFFFFF] border border-[#DCE1E8] rounded-[4px] p-5";
 const titleCls = "text-[10px] text-[#5A6678] font-medium tracking-wider uppercase";
@@ -195,21 +197,30 @@ function CollectorSelect({ c, locked }: { c: Collection; locked: boolean }) {
   );
 }
 
-function CollectionItem({ c, ledger }: { c: Collection; ledger: Ledger }) {
+function CollectionItem({ c, ledger, graph }: { c: Collection; ledger: Ledger; graph?: Graph }) {
   const list = steps(c, ledger);
   const open = list.some((s) => !s.done);
   const who = c.client ?? "No client";
+  // With the records loaded, the client, project and invoice are links.
+  const r = graph ? linksFor("invoice", c.invoiceId, graph) : null;
+  const linkCls = "hover:underline text-[#1D4ED8]";
 
   return (
     <li className="py-4 border-t border-[#EEF1F5] first:border-t-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm text-[#1B2533] font-medium">
-            {who}
-            {c.project && <span className="text-[#4A5568] font-normal"> · {c.project}</span>}
+            {r?.client ? <Link className={linkCls} href={href.client(r.client.id)}>{who}</Link> : who}
+            {c.project && (
+              <span className="text-[#4A5568] font-normal">
+                {" · "}
+                {r?.projects[0] ? <Link className={linkCls} href={href.project(r.projects[0].id)}>{c.project}</Link> : c.project}
+              </span>
+            )}
           </p>
           <p className="text-[11px] text-[#5A6678] mt-0.5">
-            {day(c.paidAt)} · {c.invoiceNumber ?? "No invoice no."} · collected by{" "}
+            {day(c.paidAt)} ·{" "}
+            {c.invoiceNumber ? <Link className={linkCls} href={href.invoice(c.invoiceId)}>{c.invoiceNumber}</Link> : "No invoice no."} · collected by{" "}
             <CollectorSelect c={c} locked={ledger.movements.some((m) => m.paymentId === c.paymentId)} />
             {c.method && ` · ${c.method}`}
           </p>
@@ -249,7 +260,7 @@ function CollectionItem({ c, ledger }: { c: Collection; ledger: Ledger }) {
   );
 }
 
-export function MoneyReceived({ ledger }: { ledger: Ledger }) {
+export function MoneyReceived({ ledger, graph }: { ledger: Ledger; graph?: Graph }) {
   const [onlyOpen, setOnlyOpen] = useState(false);
   const { toSort } = ledger;
   const rows = onlyOpen
@@ -304,7 +315,7 @@ export function MoneyReceived({ ledger }: { ledger: Ledger }) {
       ) : (
         <ul className="mt-2">
           {rows.map((c) => (
-            <CollectionItem key={c.paymentId} c={c} ledger={ledger} />
+            <CollectionItem key={c.paymentId} c={c} ledger={ledger} graph={graph} />
           ))}
         </ul>
       )}
