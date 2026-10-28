@@ -225,7 +225,7 @@ export function Sidebar({
     <div className="flex min-h-screen flex-col md:flex-row">
       {/* Phone: app bar with a hamburger. Padded under the notch, since the
           installed app draws beneath a translucent status bar. */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0E1A2B]/95 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
+      <header className="print:hidden sticky top-0 z-40 border-b border-white/10 bg-[#0E1A2B]/95 pt-[env(safe-area-inset-top)] backdrop-blur md:hidden">
         <div className="flex h-14 items-center gap-2 px-2">
           <button
             ref={menuButton}
@@ -286,7 +286,7 @@ export function Sidebar({
       {/* Desktop: fixed rail. */}
       <nav
         aria-label="Dashboard sections"
-        className="relative hidden shrink-0 border-r border-white/10 bg-[#0E1A2B] px-3 py-5 md:sticky md:top-0 md:flex md:h-screen md:w-56 md:flex-col"
+        className="relative hidden shrink-0 print:!hidden border-r border-white/10 bg-[#0E1A2B] px-3 py-5 md:sticky md:top-0 md:flex md:h-screen md:w-56 md:flex-col"
       >
         <p className="px-2 pb-3 text-base font-semibold text-white">Mindelo</p>
         <div className="flex-1 overflow-y-auto">

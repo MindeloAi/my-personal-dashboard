@@ -214,3 +214,26 @@
 @utility flex-grow-0 {
   flex-grow: 0;
 }
+
+/* Overview → Export PDF prints the page. Keep chart and badge colours, drop
+   the app chrome (hidden with print: utilities), and let panels avoid
+   splitting across pages. */
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  html, body { background: #fff !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .dashboard-fade-in { animation: none !important; }
+}
+
+/* A4 landscape minus margins is ~1046px wide. The report is fixed at that
+   width both while the dialog is prepared (html.printing) and on paper, so the
+   charts measured on screen are exactly the size printed. */
+html.printing #overview-report { width: 1040px; }
+html.printing #overview-report .overview-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+html.printing #overview-report .overview-charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media print {
+  #overview-report { width: 1040px; }
+  #overview-report .overview-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #overview-report .overview-charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #overview-report .break-inside-avoid { break-inside: avoid; }
+}
