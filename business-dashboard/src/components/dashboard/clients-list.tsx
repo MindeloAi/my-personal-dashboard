@@ -112,7 +112,7 @@ export function ClientsList({ clients, invoices, projects, timelineCounts }: Pro
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/admin/finance?client=${encodeURIComponent(client.id)}`);
+                        router.push(`/admin/finance/invoices?client=${encodeURIComponent(client.id)}`);
                       }}
                       className="min-h-11 sm:min-h-0 text-xs px-3 py-1.5 rounded-lg border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
                     >

@@ -192,7 +192,7 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
                 </span>
               </button>
               <Link
-                href={`/admin/finance?client=${clientId}`}
+                href={`/admin/finance/invoices?client=${clientId}`}
                 onClick={stop}
                 aria-label={`Open in Finance: invoice ${inv.number}`}
                 className="text-xs text-sky-400 hover:underline self-center py-2"

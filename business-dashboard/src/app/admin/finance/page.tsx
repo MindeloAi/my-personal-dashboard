@@ -1,54 +1,19 @@
-import { requireAdminPage } from "@/lib/auth";
-import {
-  getClients,
-  getProjects,
-  getInvoices,
-  getExpenses,
-  getSubscriptions,
-  getLedger,
-} from "@/lib/db";
-import { today } from "@/lib/subscriptions";
-import type { InvoiceStatusFilter } from "@/components/dashboard/invoices-table";
-import { FinanceView } from "./finance-view";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-// Verified against invoices-table.tsx:11 — this union has no "Void" member,
-// even though the Invoice schema has a Void status.
-const STATUSES: InvoiceStatusFilter[] = ["All", "Sent", "Overdue", "Paid", "Draft"];
-
-export default async function FinancePage({
+/**
+ * Finance is a group of subpages. Old bookmarks and emails that point here
+ * with ?status= or ?client= were invoice filters, so they land on Invoices
+ * with the same parameters. A bare /admin/finance lands on Money received.
+ * ponytail: piece 4 replaces this with the Finance Summary page.
+ */
+export default async function FinanceIndex({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; client?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { status, client } = await searchParams;
-
-  await requireAdminPage();
-  const [clients, projects, invoices, expenses, subscriptions, ledger] = await Promise.all([
-    getClients(),
-    getProjects(),
-    getInvoices(),
-    getExpenses(),
-    getSubscriptions(),
-    getLedger(today()),
-  ]);
-
-  const initialStatus = STATUSES.includes(status as InvoiceStatusFilter)
-    ? (status as InvoiceStatusFilter)
-    : "All";
-
-  return (
-    <FinanceView
-      clients={clients}
-      projects={projects}
-      invoices={invoices}
-      expenses={expenses}
-      subscriptions={subscriptions}
-      ledger={ledger}
-      initialStatus={initialStatus}
-      initialClientId={client ?? null}
-    />
-  );
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(await searchParams)) {
+    for (const one of [value].flat()) if (one !== undefined) params.append(key, one);
+  }
+  redirect(params.size ? `/admin/finance/invoices?${params}` : "/admin/finance/received");
 }

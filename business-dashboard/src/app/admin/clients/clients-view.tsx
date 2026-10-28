@@ -24,7 +24,7 @@ export function ClientsView({ clients, invoices, projects, timelineCounts }: Pro
         selectedClientId={null}
         onSelectClient={(clientId) => {
           // Was "/finance?client=" — a dead route since the move under /admin.
-          if (clientId) router.push(`/admin/finance?client=${encodeURIComponent(clientId)}`);
+          if (clientId) router.push(`/admin/finance/invoices?client=${encodeURIComponent(clientId)}`);
         }}
       />
       <ClientsList
