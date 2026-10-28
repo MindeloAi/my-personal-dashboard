@@ -32,6 +32,7 @@ import {
   getCutoverDate,
   ledgerErrorMessage,
   recordPayment,
+  convertLeadToClient,
   changeBonusShares,
   setCollector,
   doCollectionStep,
@@ -224,6 +225,14 @@ export async function updateLeadAction(id: string, data: LeadWrite) {
 export async function deleteLeadAction(id: string) {
   await requireAdmin();
   await deleteLead(id);
+  revalidatePath("/", "layout");
+}
+
+export async function convertLeadAction(leadId: string, existingClientId: string | null) {
+  await requireAdmin();
+  const id = z.string().uuid().parse(leadId);
+  const existing = z.string().uuid().nullable().parse(existingClientId);
+  await convertLeadToClient(id, existing);
   revalidatePath("/", "layout");
 }
 

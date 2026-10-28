@@ -6,6 +6,7 @@
 //   DATABASE_URL=$U bun scripts/cleanup.test.ts
 
 import postgres from "postgres";
+import { convertLeadToClient, closeDb } from "../src/lib/db";
 
 const url = process.env.DATABASE_URL ?? "";
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) {
@@ -127,9 +128,35 @@ try {
     check("  deleting the lead leaves the project, unlinked", after.lead_id === null);
   }
 
+  // 5 — converting a Won lead makes (or reuses) the client, links the lead,
+  // and moves the lead's projects to the client in one go.
+  await reset();
+  {
+    const [l] = await sql`
+      insert into leads (name, business_name, email, phone_whatsapp, status)
+      values ('Robert', 'Aeromarine', 'r@aero.tt', '+1868', 'Won') returning id`;
+    await sql`insert into projects (name, lead_id) values ('Aero site', ${l.id})`;
+    const { clientId } = await convertLeadToClient(String(l.id), null);
+    const [c] = await sql`select name, company, email, phone, status from clients where id = ${clientId}`;
+    const [lead] = await sql`select client_id from leads where id = ${l.id}`;
+    const [p] = await sql`select client_id, lead_id from projects where name = 'Aero site'`;
+    check("5 conversion creates the client from the lead's details",
+      c.name === "Robert" && c.company === "Aeromarine" && c.email === "r@aero.tt" && c.phone === "+1868" && c.status === "Active",
+      JSON.stringify(c));
+    check("  links the lead to it", String(lead.client_id) === clientId);
+    check("  and moves the lead's projects to the client, keeping the lead as history",
+      String(p.client_id) === clientId && String(p.lead_id) === String(l.id), JSON.stringify(p));
+
+    const [l2] = await sql`insert into leads (name, status) values ('Again', 'Won') returning id`;
+    const reused = await convertLeadToClient(String(l2.id), clientId);
+    const [{ n }] = await sql`select count(*)::int as n from clients`;
+    check("  converting onto an existing client links it without creating another", reused.clientId === clientId && n === 1);
+  }
+
   await reset();
 } finally {
   await sql.end();
+  await closeDb();
 }
 
 console.log(failures ? `\n${failures} FAILED` : "\nAll checks passed.");
