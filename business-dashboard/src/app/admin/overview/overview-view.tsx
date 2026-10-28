@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { BusinessCounters } from "@/components/dashboard/business-counters";
 import { PageHeader, StatTile } from "@/components/dashboard/explain";
+import { NeedsAction } from "@/components/dashboard/needs-action";
+import { needsAction } from "@/lib/pages-data";
 import {
   MonthlyMoneyChart, RevenueToDateChart, ProfitBarsChart, MoneyHeldChart,
   OwedByClientChart, LeadsByStageChart, TopClientsChart, ServiceMixChart,
@@ -66,6 +68,7 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
       held: moneyHeld(ledger.cash),
       monthly: mrr(subscriptions),
       recs: buildRecords({ invoices, expenses, projects, clients, leads, ledger }, tt),
+      actions: needsAction({ invoices, leads, subscriptions, clients, projects, ledger }, todayIso, tt),
     };
   }, [invoices, expenses, projects, clients, leads, subscriptions, ledger, todayIso]);
 
@@ -126,6 +129,8 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
           <li><strong className="text-[#1B2533]">Recurring:</strong> {tt(d.monthly)} a month from retainers and subscriptions ({tt(d.monthly * 12)} a year).</li>
         </ul>
       </section>
+
+      <NeedsAction items={d.actions} />
 
       <div className="overview-charts grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         <MonthlyMoneyChart data={d.months} records={(m) => d.recs.month(monthKeyOf(m))} />

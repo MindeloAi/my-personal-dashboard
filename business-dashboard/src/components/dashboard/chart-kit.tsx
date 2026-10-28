@@ -70,11 +70,12 @@ export function Legend({ items }: { items: { name: string; color: string; value?
   );
 }
 
-export type Format = "money" | "count" | "days";
+export type Format = "money" | "count" | "days" | "percent";
 const FMT: Record<Format, { full: (n: number) => string; tick: (n: number) => string; width: number }> = {
   money: { full: tt, tick: short, width: 64 },
   count: { full: (n) => n.toLocaleString("en-US"), tick: (n) => n.toLocaleString("en-US"), width: 36 },
   days: { full: (n) => `${Math.round(n)} days`, tick: (n) => `${Math.round(n)}d`, width: 40 },
+  percent: { full: (n) => `${Math.round(n)}%`, tick: (n) => `${Math.round(n)}%`, width: 44 },
 };
 
 export type SeriesRow = { label: string } & Record<string, string | number>;
