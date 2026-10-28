@@ -8,7 +8,7 @@ The admin dashboard has grown one feature at a time. Finance is a single long pa
 
 ## Scope and order
 
-Six pieces, each shipped as its own PR in this order. Piece 7 is recorded here but designed later.
+Six pieces, each shipped as its own PR in this order (piece 4 may ship as two PRs: Summary and subpages, then Analytics). Piece 7 is recorded here but designed later.
 
 | # | Piece | Depends on |
 |---|---|---|
@@ -82,6 +82,7 @@ Finance ▾
   Cash & safe             /admin/finance/cash
   Expenses                /admin/finance/expenses
   Recurring               /admin/finance/recurring
+  Analytics               /admin/finance/analytics  (new, piece 4)
   Export                  /admin/finance/export
 Sales ▾
   Leads                   /admin/leads
@@ -139,6 +140,26 @@ Rules:
 | Cash & safe | Business cash balance over time · Money moved into the safe per month · Cash-count variance over time |
 | Expenses | Spending by category · Spending per month by category · Paid from business cash vs paid personally, with what is still owed back to founders |
 | Recurring | Monthly recurring revenue over time · Recurring revenue by client · Recurring invoices expected in the next 3 months |
+
+### Overview charts, in detail
+
+Every chart on today's Overview keeps a compact version there with a "See details" link, and gets a detailed version on Finance → Summary:
+
+| Overview widget | Detailed version adds |
+|---|---|
+| Revenue chart (paid / outstanding / expenses, 1M–All, running totals) | Measure switch (paid, invoiced, outstanding, expenses); breakdown by client, project or service type; month / quarter / year; click a bar to list the invoices behind it |
+| Owner split YTD | Michael vs Zane per month, base vs bonus, running total |
+| Recurring revenue (MRR / ARR) | MRR and ARR over time, by client, next 3 months expected |
+| Service type donuts (active pipeline, paid revenue) | Each service type per month, and the clients behind each |
+| Hero cards (Business cash, Owed to us, This month net) | Each number with a trend line and change since last month |
+
+### Finance → Analytics (new subpage)
+
+For raw analysis.
+
+1. **Chart builder.** Measure: collected, invoiced, outstanding, expenses, profit, founder pay, cash. Breakdown: month, quarter, year, client, project, service type, expense category, founder, collector. Chart type: bar, line, area, pie, stacked, table. Date range. The numbers behind the chart show as a table underneath. All aggregation is done by SQL; the measure and breakdown lists are fixed (no free-form queries).
+2. **Gallery of other chart types:** monthly waterfall (invoiced → collected → expenses → founder pay → kept by the business); lead-to-cash funnel (leads → won → invoiced → paid); revenue treemap by client and project; payment calendar heatmap (day of week × month); scatter of invoice size against days to get paid; cumulative revenue, this year vs last.
+3. **Export.** Every chart downloads its numbers as CSV or Excel. "Export all analytics" downloads one Excel workbook with a sheet per chart, built with the same library as the accounts export (`lib/accounts-export.ts`, exceljs, server-only). Accounts export stays as it is.
 
 That is 11 charts on Summary and 18 across the subpages: 29 in Finance. Charts built on ledger-only data (collector, sorting, founder pay, cash pots, cash counts) start at the 22 Oct 2026 cutover and say so in their text.
 
