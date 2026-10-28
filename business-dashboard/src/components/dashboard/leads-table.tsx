@@ -16,7 +16,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import {
-  createClientAction,
+  convertLeadAction,
   createLeadAction,
   updateLeadAction,
   updateLeadStatusAction,
@@ -720,18 +720,36 @@ function ConvertLeadModal({
 
   if (existing) {
     return (
-      <ModalShell title="Client already exists" onClose={onClose}>
+      <ModalShell title="Link to existing client?" onClose={onClose}>
         <p className="text-sm text-zinc-300 leading-relaxed">
           <span className="font-medium text-white">{existing.Company || existing.Name}</span> already
-          matches this lead, so no new client was created.
+          matches this lead. Link the lead to that client and move the lead&apos;s projects onto it?
         </p>
-        <div className="flex justify-end mt-5">
+        <div className="flex gap-2 justify-end mt-5">
           <button
             type="button"
             onClick={onClose}
             className="text-xs px-4 py-2 rounded-xl border border-[#2a2e34] text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
           >
-            Close
+            Not now
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() =>
+              start(async () => {
+                try {
+                  await convertLeadAction(lead.id, existing.id);
+                  toast.success("Lead linked to client");
+                  onClose();
+                } catch {
+                  toast.error("Failed to link the lead");
+                }
+              })
+            }
+            className="text-xs px-4 py-2 rounded-xl font-semibold bg-[#bfff3a] text-black disabled:opacity-40 transition-colors hover:bg-[#bfff3a]/80"
+          >
+            {pending ? "Linking…" : "Link to client"}
           </button>
         </div>
       </ModalShell>
@@ -743,7 +761,7 @@ function ConvertLeadModal({
       <p className="text-sm text-zinc-300 leading-relaxed">
         Create a client record for{" "}
         <span className="font-medium text-white">{lead["Business Name"] || lead.Name}</span>? Name,
-        business, email and phone are copied across. The lead itself is left as it is.
+        business, email and phone are copied across, the lead is linked to the new client, and its projects move onto it.
       </p>
       <div className="flex gap-2 justify-end mt-5">
         <button
@@ -759,13 +777,7 @@ function ConvertLeadModal({
           onClick={() =>
             start(async () => {
               try {
-                await createClientAction({
-                  Name: lead.Name,
-                  Company: lead["Business Name"] || undefined,
-                  Email: lead.Email || undefined,
-                  Phone: lead["Phone/WhatsApp"] || undefined,
-                  Status: "Active",
-                });
+                await convertLeadAction(lead.id, null);
                 toast.success("Client created");
                 onClose();
               } catch {
