@@ -22,7 +22,7 @@ Six pieces, each shipped as its own PR in this order (piece 4 may ship as two PR
 
 ## 1. Data cleanup and invoice numbering
 
-One migration (`019`) with an up and a down file. It holds both the schema changes and the one-time data fixes, so the whole thing is rehearsed against a local copy, dry-run against production (rolled back), and reviewed as a before/after list before Taylor applies it.
+Two migrations: `019` (schema, tested on an empty database) and `020` (the one-time data fixes, rehearsed on a restored copy of production). Together they are the whole thing is rehearsed against a local copy, dry-run against production (rolled back), and reviewed as a before/after list before Taylor applies it.
 
 ### Schema
 
