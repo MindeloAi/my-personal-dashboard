@@ -21,7 +21,40 @@ import {
   updateProjectStatus,
 } from "@/app/actions";
 import { ModalShell } from "@/components/ui/modal-shell";
-import type { Client, Project } from "@/lib/airtable";
+import type { Client, Lead, Project } from "@/lib/airtable";
+import { ownerFields, ownerValue } from "@/lib/project-owner";
+
+/** "Belongs to": a client, a lead (before there is a client), or internal.
+ *  Named "belongsTo" because both project forms already use "owner" for M/Partner/Both. */
+export function OwnerSelect({
+  clients,
+  leads,
+  defaultValue,
+  className,
+}: {
+  clients: Client[];
+  leads: Lead[];
+  defaultValue: string;
+  className: string;
+}) {
+  const openLeads = leads.filter((l) => l.Status !== "Lost" || defaultValue === `lead:${l.id}`);
+  return (
+    <select name="belongsTo" defaultValue={defaultValue} className={className}>
+      <option value="">— Not assigned</option>
+      <option value="internal">Internal (Mindelo&apos;s own)</option>
+      <optgroup label="Clients">
+        {clients.map((c) => (
+          <option key={c.id} value={`client:${c.id}`}>{c.Company || c.Name}</option>
+        ))}
+      </optgroup>
+      <optgroup label="Leads (not a client yet)">
+        {openLeads.map((l) => (
+          <option key={l.id} value={`lead:${l.id}`}>{l["Business Name"] || l.Name}</option>
+        ))}
+      </optgroup>
+    </select>
+  );
+}
 
 function TrashIcon({ className }: { className?: string }) {
   return (
@@ -72,7 +105,7 @@ const inputCls =
   "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
 const selectCls = inputCls + " cursor-pointer";
 
-type Props = { projects: Project[]; clients?: Client[]; initialClientId?: string | null };
+type Props = { projects: Project[]; clients?: Client[]; leads?: Lead[]; initialClientId?: string | null };
 type Status = "Lead" | "In Progress" | "Review" | "Done";
 type ProjectStatusValue = Status | "Cancelled";
 type PaymentStructureValue =
@@ -190,10 +223,12 @@ function ProjectCard({
 function ProjectDetailModal({
   project,
   clients,
+  leads,
   onClose,
 }: {
   project: Project;
   clients: Client[];
+  leads: Lead[];
   onClose: () => void;
 }) {
   const [editMode, setEditMode] = useState(false);
@@ -213,7 +248,7 @@ function ProjectDetailModal({
     const fd = new FormData(e.currentTarget);
     const totalValue = fd.get("totalValue") as string;
     const depositPct = fd.get("depositPct") as string;
-    const clientId = (fd.get("clientId") as string) || "";
+    const owner = ownerFields((fd.get("belongsTo") as string) || "");
     const status = (fd.get("status") as string) || "";
     const paymentStructureField = (fd.get("paymentStructure") as string) || "";
 
@@ -241,8 +276,7 @@ function ProjectDetailModal({
           Notes: (fd.get("notes") as string) || "",
           Owner: (fd.get("owner") as string) || "",
           "Service Type": (fd.get("serviceType") as string) || "",
-          // The select only renders when there are clients to pick from.
-          Client: clientId ? [clientId] : clients.length ? [] : undefined,
+          ...owner,
         });
         toast.success("Project saved");
         onClose();
@@ -278,23 +312,10 @@ function ProjectDetailModal({
               <label className="text-xs text-zinc-400">Name</label>
               <input name="name" defaultValue={project.Name} className={inputCls} required />
             </div>
-            {clients.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-zinc-400">Client</label>
-                <select
-                  name="clientId"
-                  defaultValue={project.Client?.[0] ?? ""}
-                  className={selectCls}
-                >
-                  <option value="">— None</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.Company || c.Name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-zinc-400">Belongs to</label>
+              <OwnerSelect clients={clients} leads={leads} defaultValue={ownerValue(project)} className={selectCls} />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-zinc-400">Status</label>
@@ -584,7 +605,7 @@ type OptimisticAction =
   | { kind: "status"; id: string; status: Status }
   | { kind: "delete"; id: string };
 
-export function ProjectBoard({ projects, clients = [], initialClientId = null }: Props) {
+export function ProjectBoard({ projects, clients = [], leads = [], initialClientId = null }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [detailProject, setDetailProject] = useState<Project | null>(null);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("All");
@@ -728,6 +749,7 @@ export function ProjectBoard({ projects, clients = [], initialClientId = null }:
         <ProjectDetailModal
           project={detailProject}
           clients={clients}
+          leads={leads}
           onClose={() => setDetailProject(null)}
         />
       )}

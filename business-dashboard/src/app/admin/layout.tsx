@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { QuickActions } from "@/components/dashboard/quick-actions";
-import { getClients, getProjects, getLedgerBasics } from "@/lib/db";
+import { getClients, getProjects, getLeads, getLedgerBasics } from "@/lib/db";
 import { today as tradingDay } from "@/lib/subscriptions";
 import { requireAdminPage } from "@/lib/auth";
 
@@ -33,11 +33,12 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   // Quick Actions' create-invoice / create-project modals need these lists on
-  // every page. Two queries per page rather than the eight the single-page
+  // every page. Three list queries per page rather than the eight the single-page
   // dashboard used to run.
-  const [clients, projects, ledger, admin] = await Promise.all([
+  const [clients, projects, leads, ledger, admin] = await Promise.all([
     getClients(),
     getProjects(),
+    getLeads(),
     getLedgerBasics(tradingDay()),
     requireAdminPage(),
   ]);
@@ -59,7 +60,7 @@ export default async function AppLayout({
               <p className="text-xl font-bold text-[#f5f5f5]">Mindelo Dashboard</p>
               <p className="text-xs text-zinc-500 mt-0.5">{today}</p>
             </div>
-            <QuickActions clients={clients} projects={projects} ledger={ledger} />
+            <QuickActions clients={clients} leads={leads} projects={projects} ledger={ledger} />
           </div>
           {children}
         </div>

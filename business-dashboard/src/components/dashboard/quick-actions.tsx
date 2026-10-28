@@ -11,7 +11,9 @@ import {
 import { SplitPreview } from "@/components/dashboard/record-payment-modal";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { PAID_WITH, paidWithFields, shareError, type SplitRule } from "@/lib/ledger";
-import type { Client, Project } from "@/lib/airtable";
+import type { Client, Lead, Project } from "@/lib/airtable";
+import { OwnerSelect } from "@/components/dashboard/project-board";
+import { ownerFields } from "@/lib/project-owner";
 
 type ModalKind = "invoice" | "expense" | "project" | null;
 
@@ -19,6 +21,7 @@ type LedgerInfo = { cutover: string; rule: SplitRule };
 
 type Props = {
   clients?: Client[];
+  leads?: Lead[];
   projects?: Project[];
   ledger: LedgerInfo;
 };
@@ -367,9 +370,11 @@ function ExpenseModal({ cutover, onClose }: { cutover: string; onClose: () => vo
 
 function ProjectModal({
   clients,
+  leads,
   onClose,
 }: {
   clients: Client[];
+  leads: Lead[];
   onClose: () => void;
 }) {
   const [pending, start] = useTransition();
@@ -385,7 +390,7 @@ function ProjectModal({
     const fd = new FormData(e.currentTarget);
     const totalValue = fd.get("totalValue") as string;
     const depositPct = fd.get("depositPct") as string;
-    const clientId = (fd.get("clientId") as string) || "";
+    const owner = ownerFields((fd.get("belongsTo") as string) || "");
     const status = (fd.get("status") as string) || "Lead";
     const paymentStructureField = (fd.get("paymentStructure") as string) || "";
 
@@ -403,7 +408,7 @@ function ProjectModal({
           Notes: (fd.get("notes") as string) || undefined,
           Owner: (fd.get("owner") as string) || undefined,
           "Service Type": (fd.get("serviceType") as string) || undefined,
-          Client: clientId ? [clientId] : undefined,
+          ...owner,
         });
         toast.success("Project created");
         onClose();
@@ -424,15 +429,8 @@ function ProjectModal({
             required
           />
         </Field>
-        <Field label="Client">
-          <select name="clientId" className={selectCls} defaultValue="">
-            <option value="">— None</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.Company || c.Name}
-              </option>
-            ))}
-          </select>
+        <Field label="Belongs to">
+          <OwnerSelect clients={clients} leads={leads} defaultValue="" className={selectCls} />
         </Field>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Status">
@@ -541,7 +539,7 @@ type PaymentStructureValue =
   | "recurring_monthly"
   | "recurring_custom";
 
-export function QuickActions({ clients = [], projects = [], ledger }: Props) {
+export function QuickActions({ clients = [], leads = [], projects = [], ledger }: Props) {
   const [open, setOpen] = useState<ModalKind>(null);
 
   return (
@@ -569,7 +567,7 @@ export function QuickActions({ clients = [], projects = [], ledger }: Props) {
 
       {open === "invoice" && <InvoiceModal projects={projects} rule={ledger.rule} onClose={() => setOpen(null)} />}
       {open === "expense" && <ExpenseModal cutover={ledger.cutover} onClose={() => setOpen(null)} />}
-      {open === "project" && <ProjectModal clients={clients} onClose={() => setOpen(null)} />}
+      {open === "project" && <ProjectModal clients={clients} leads={leads} onClose={() => setOpen(null)} />}
     </>
   );
 }

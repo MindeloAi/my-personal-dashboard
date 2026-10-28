@@ -7,6 +7,7 @@
 
 import postgres from "postgres";
 import { convertLeadToClient, closeDb } from "../src/lib/db";
+import { ownerFields, ownerValue } from "../src/lib/project-owner";
 
 const url = process.env.DATABASE_URL ?? "";
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) {
@@ -161,6 +162,24 @@ try {
     const [lead2] = await sql`select client_id from leads where id = ${l2.id}`;
     check("  converting onto an existing client links it without creating another",
       reused.clientId === clientId && n === 2 && String(lead2.client_id) === clientId);
+  }
+
+  // 6 — the "Belongs to" select maps onto exactly one of client / lead / internal.
+  {
+    const c = ownerFields("client:abc");
+    const l = ownerFields("lead:def");
+    const i = ownerFields("internal");
+    const none = ownerFields("");
+    check("6 belongs-to select sets exactly one owner",
+      JSON.stringify(c) === JSON.stringify({ Client: ["abc"], Lead: [], Internal: false }) &&
+      JSON.stringify(l) === JSON.stringify({ Client: [], Lead: ["def"], Internal: false }) &&
+      JSON.stringify(i) === JSON.stringify({ Client: [], Lead: [], Internal: true }) &&
+      JSON.stringify(none) === JSON.stringify({ Client: [], Lead: [], Internal: false }));
+    check("  and reads back from a project",
+      ownerValue({ Client: ["abc"], Lead: ["def"] }) === "client:abc" &&
+      ownerValue({ Lead: ["def"] }) === "lead:def" &&
+      ownerValue({ Internal: true }) === "internal" &&
+      ownerValue({}) === "");
   }
 
   await reset();
