@@ -96,6 +96,9 @@ function NavLink({ item, active, onNavigate, large, nested }: {
 
 function NavLinks({ pathname, onNavigate, large }: { pathname: string; onNavigate?: () => void; large?: boolean }) {
   const active = activeItem(pathname);
+  // Frozen at mount: if React re-diffed `open` on navigation, leaving a group
+  // would remove the attribute, collapse it and save "closed" over the choice.
+  const [firstActive] = useState(active);
   const list = useRef<HTMLUListElement>(null);
 
   // Native <details> does the opening and closing. After mount, restore what
@@ -109,6 +112,14 @@ function NavLinks({ pathname, onNavigate, large }: { pathname: string; onNavigat
     });
   }, []);
 
+  // Arriving in a group through an in-page link opens it. Never closes one.
+  useEffect(() => {
+    const group = NAV.find((n) => "items" in n && n.items.includes(active!));
+    if (!group) return;
+    const el = list.current?.querySelector<HTMLDetailsElement>(`details[data-group="${group.label}"]`);
+    if (el) el.open = true;
+  }, [active]);
+
   return (
     <ul ref={list} className="flex flex-col gap-0.5">
       {NAV.map((entry) => {
@@ -119,7 +130,7 @@ function NavLinks({ pathname, onNavigate, large }: { pathname: string; onNavigat
             </li>
           );
         }
-        const holdsCurrent = entry.items.includes(active!);
+        const holdsCurrent = entry.items.includes(firstActive!);
         return (
           <li key={entry.label}>
             <details

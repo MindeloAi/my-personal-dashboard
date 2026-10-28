@@ -68,8 +68,8 @@ with sync_playwright() as p:
     check("renders real figures", has_money)
 
     # 7. Navigating to another protected route stays authenticated.
-    page.goto(f"{BASE}/admin/finance", wait_until="networkidle")
-    check("session persists across navigation", page.url.rstrip("/").endswith("/admin/finance"), page.url)
+    page.goto(f"{BASE}/admin/finance/invoices", wait_until="networkidle")
+    check("session persists across navigation", page.url.rstrip("/").endswith("/admin/finance/invoices"), page.url)
     fin = page.content()
     check("finance page renders invoice data", "Invoice" in fin or "Expenses" in fin)
 

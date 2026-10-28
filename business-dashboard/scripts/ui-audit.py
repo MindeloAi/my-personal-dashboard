@@ -35,7 +35,7 @@ BASE = os.environ.get("AUTH_TEST_BASE", "http://localhost:5622").rstrip("/")
 EMAIL = os.environ.get("AUTH_TEST_EMAIL", "michaeltaylorwalker@mindelo.site")
 PASSWORD = os.environ.get("AUTH_TEST_PASSWORD", "michaelzane1234")
 
-TABS = ["/admin/overview", "/admin/finance", "/admin/projects", "/admin/clients", "/admin/leads"]
+TABS = ["/admin/overview", "/admin/finance/received", "/admin/finance/invoices", "/admin/finance/founder-pay", "/admin/finance/cash", "/admin/finance/expenses", "/admin/finance/recurring", "/admin/finance/export", "/admin/projects", "/admin/projects/internal", "/admin/clients", "/admin/leads"]
 VIEWPORTS = [("phone", 375, 667), ("laptop", 1280, 600)]
 MIN_TAP = 32
 
@@ -146,7 +146,7 @@ with sync_playwright() as p:
 
         # Invoice edit is inside the expanded invoice row.
         try:
-            page.goto(f"{BASE}/admin/finance", wait_until="networkidle")
+            page.goto(f"{BASE}/admin/finance/invoices", wait_until="networkidle")
             page.wait_for_timeout(600)
             page.locator("table tbody tr").first.click(timeout=5000)
             page.wait_for_timeout(350)
@@ -160,7 +160,7 @@ with sync_playwright() as p:
 
         # Expense edit: walk the Edit buttons until one opens the expense modal.
         try:
-            page.goto(f"{BASE}/admin/finance", wait_until="networkidle")
+            page.goto(f"{BASE}/admin/finance/expenses", wait_until="networkidle")
             page.wait_for_timeout(600)
             buttons = page.locator('button:has-text("Edit")')
             found = False
