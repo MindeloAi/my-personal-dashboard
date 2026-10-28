@@ -27,6 +27,8 @@ import {
   ledgerErrorMessage,
   changeBonusShares,
   setCollector,
+  doCollectionStep,
+  undoCollectionStep,
   closeDb,
 } from "../src/lib/db";
 import { holderLine, splitPreview } from "../src/lib/ledger";
@@ -476,6 +478,53 @@ try {
     await createTransfer({ movedAt: TODAY, fromLoc: "zane", toLoc: "mikey", amount: 100, note: null, createdBy: MICHAEL, paymentId: wrongPay });
     const blocked = await setCollector(wrong, "mikey");
     check("   but not once its money has been moved on", !!blocked?.includes("Undo"), String(blocked));
+  }
+
+  // 17 — steps tick what they imply, undo takes what depended on it.
+  // Zane collects 1000 at 50/50: hands over 815, 630 to the safe, 185 each.
+  await reset();
+  {
+    const inv = await invoice(1000, 0.5);
+    const { id } = await pay(inv, 1000, { receivedBy: "zane" });
+    const state = async () => {
+      const l = await getLedger(TODAY);
+      const po = l.payouts.filter((p) => p.paymentId === id);
+      const st = (f: string) => po.find((p) => p.founder === f)?.status;
+      return { cash: l.cash, zane: st("zane"), michael: st("michael"), c: l.collections.find((x) => x.paymentId === id)! };
+    };
+    await doCollectionStep(id, "handover", TODAY, MICHAEL);
+    let s = await state();
+    check("17 handing over also ticks Zane keeping his share",
+      s.c.handoverDue === 0 && s.zane === "paid_out" && s.michael === "due" && s.cash.zane === 0 && s.cash.mikey === 2015,
+      JSON.stringify(s));
+    await doCollectionStep(id, "business", TODAY, MICHAEL);
+    s = await state();
+    check("   putting the business share in the safe also ticks Mikey keeping his",
+      s.c.businessDue === 0 && s.michael === "paid_out" && s.cash.business === 630 && s.cash.mikey === 1200, JSON.stringify(s));
+    await undoCollectionStep(id, "handover");
+    s = await state();
+    check("   undoing the handover undoes everything after it",
+      s.zane === "due" && s.michael === "due" && s.cash.zane === 1000 && s.cash.mikey === 1200 && s.cash.business === 0,
+      JSON.stringify(s));
+
+    await doCollectionStep(id, "handover", TODAY, MICHAEL);
+    await doCollectionStep(id, "business", TODAY, MICHAEL);
+    await undoCollectionStep(id, "business");
+    s = await state();
+    check("   undoing the safe deposit also undoes Mikey's share, not the handover",
+      s.zane === "paid_out" && s.michael === "due" && s.c.handoverDue === 0 && s.cash.business === 0, JSON.stringify(s));
+    const [hand] = await sql`select id from cash_movements where payment_id = ${id} and to_loc = 'mikey'`;
+    await deleteTransfer(String(hand.id));
+    s = await state();
+    check("   deleting the handover transfer from the cash panel does the same as undo", s.zane === "due" && s.cash.zane === 1000, JSON.stringify(s));
+
+    const mine = await invoice(500, 0.5);
+    const { id: mineId } = await pay(mine, 500);
+    await doCollectionStep(mineId, "business", TODAY, MICHAEL);
+    const po = await sql`select founder, status from payouts where payment_id = ${mineId} order by founder`;
+    check("   money Mikey collected: Zane's share is never assumed given",
+      po.find((r) => r.founder === "michael")?.status === "paid_out" && po.find((r) => r.founder === "zane")?.status === "due",
+      JSON.stringify(po));
   }
 
   // 16 — changing the split after payment (017). The real slip: INV-0016-B was

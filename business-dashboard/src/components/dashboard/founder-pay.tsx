@@ -12,7 +12,9 @@ import { today } from "@/lib/subscriptions";
 const inputCls = "w-full bg-[#0b0d10] border border-[#2a2e34] rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors";
 const selectCls = inputCls + " cursor-pointer";
 
-const DEFAULT_FROM: Holder = "mikey";
+/** Where the money for this payout is: Zane keeps his share of what he collected. */
+const defaultFrom = (p: Payout): Holder =>
+  p.receivedBy === "business" ? "business" : p.receivedBy === "zane" && p.founder === "zane" ? "zane" : "mikey";
 
 type FounderFilter = "all" | Founder;
 type StatusFilter = "all" | Payout["status"];
@@ -102,7 +104,7 @@ function PaidOutModal({ payout, onClose }: { payout: Payout; onClose: () => void
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="payout-from" className="text-xs text-zinc-400">{back ? "Paid back to" : "Paid from"}</label>
-            <select id="payout-from" name="from" defaultValue={DEFAULT_FROM} className={selectCls}>
+            <select id="payout-from" name="from" defaultValue={defaultFrom(payout)} className={selectCls}>
               {HOLDERS.map((h) => (
                 <option key={h} value={h}>{HOLDER_LABEL[h]}</option>
               ))}

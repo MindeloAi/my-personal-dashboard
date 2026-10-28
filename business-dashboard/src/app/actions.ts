@@ -34,6 +34,8 @@ import {
   recordPayment,
   changeBonusShares,
   setCollector,
+  doCollectionStep,
+  undoCollectionStep,
   deletePayment,
   markPayoutPaidOut,
   undoPayoutPaidOut,
@@ -345,6 +347,20 @@ export async function recordTransferAction(input: z.infer<typeof TransferForm>):
   const admin = await requireAdmin();
   const t = TransferForm.parse(input);
   return run(() => createTransfer({ ...t, createdBy: admin.email }));
+}
+
+const Step = z.enum(["handover", "business", "zane", "michael"]);
+
+export async function doCollectionStepAction(paymentId: string, step: string): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const id = z.string().uuid().parse(paymentId);
+  return run(() => doCollectionStep(id, Step.parse(step), today(), admin.email));
+}
+
+export async function undoCollectionStepAction(paymentId: string, step: string): Promise<ActionResult> {
+  await requireAdmin();
+  const id = z.string().uuid().parse(paymentId);
+  return run(() => undoCollectionStep(id, Step.parse(step)));
 }
 
 export async function deleteTransferAction(id: string): Promise<ActionResult> {
