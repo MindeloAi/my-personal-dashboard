@@ -23,7 +23,7 @@ export const FREQUENCY_LABEL: Record<Frequency, string> = {
 };
 
 /** Months between invoices. Unset frequency is treated as monthly. */
-function periodMonths(sub: Subscription): number {
+export function periodMonths(sub: Subscription): number {
   return FREQUENCY_MONTHS[(sub.Frequency ?? "monthly") as Frequency] ?? 1;
 }
 

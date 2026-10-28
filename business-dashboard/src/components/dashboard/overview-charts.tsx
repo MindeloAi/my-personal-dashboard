@@ -1,71 +1,16 @@
 "use client";
 
 import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell, PieChart, Pie,
+  ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
 } from "recharts";
-import { ChartCard, type ChartTable } from "./chart-card";
+import { ChartCard } from "./chart-card";
+import {
+  SERIES, INK, GRID, short, pct, axis, tooltip, height, clickDot, clickBar, Legend,
+  RankedBars, Donut, type Recs,
+} from "./chart-kit";
 import { tt } from "@/lib/ledger";
 import type { MonthRow, Slice } from "@/lib/overview-data";
-
-// Validated categorical order (dataviz reference palette, light mode): blue,
-// orange, aqua, yellow, magenta. The lighter three sit under 3:1 on white, so
-// every chart also prints its values (legend rows, labels, the enlarged table).
-const SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6"];
-const INK = "#1B2533";
-const MUTED = "#5A6678";
-const GRID = "#EEF1F5";
-
-const short = (n: number) => {
-  const a = Math.abs(n);
-  const s = a >= 1000 ? `${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k` : `${Math.round(a)}`;
-  return `${n < 0 ? "-" : ""}TT$${s}`;
-};
-const pct = (v: number, total: number) => (total ? `${Math.round((v / total) * 100)}%` : "0%");
-const axis = { stroke: GRID, tick: { fill: MUTED, fontSize: 12 }, tickLine: false } as const;
-const tooltip = {
-  formatter: (v: unknown) => tt(Number(v)),
-  contentStyle: { border: "1px solid #DCE1E8", borderRadius: 4, fontSize: 12, color: INK },
-  cursor: { fill: "#0E1A2B0D", stroke: "#94A3B8" },
-} as const;
-const height = (large: boolean) => (large ? 420 : 220);
-
-type Recs = { records?: (key: string) => ChartTable };
-// Clicks go on each dot and bar, not the chart: the chart only knows which
-// month is under the pointer after a hover, which a tap on a phone never gives.
-type DotProps = { cx?: number; cy?: number; index?: number; payload?: { month?: string } };
-/** A visible 8px dot inside a larger invisible hit circle that selects its month. */
-const clickDot = (color: string, select: (key: string) => void) =>
-  function ClickDot({ cx, cy, index, payload }: DotProps) {
-    if (cx == null || cy == null) return <g key={index} />;
-    return (
-      <g key={index} onClick={(e) => { e.stopPropagation(); if (payload?.month) select(payload.month); }} style={{ cursor: "pointer" }}>
-        <circle cx={cx} cy={cy} r={12} fill="transparent" />
-        <circle cx={cx} cy={cy} r={4} fill={color} stroke="#fff" strokeWidth={2} />
-      </g>
-    );
-  };
-/** Bar click: recharts passes the bar's data row. */
-const clickBar = (select: (key: string) => void, field: "month" | "name") =>
-  (bar: { payload?: Record<string, unknown> }, _i: number, e: React.MouseEvent) => {
-    e?.stopPropagation?.();
-    const key = bar?.payload?.[field];
-    if (key != null) select(String(key));
-  };
-
-function Legend({ items }: { items: { name: string; color: string; value?: string }[] }) {
-  return (
-    <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-[#334155]">
-      {items.map((i) => (
-        <li key={i.name} className="flex items-center gap-1.5">
-          <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-[2px]" style={{ background: i.color }} />
-          {i.name}
-          {i.value && <span className="font-semibold text-[#1B2533]">{i.value}</span>}
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export function MonthlyMoneyChart({ data, records }: { data: MonthRow[] } & Recs) {
   const lines = [
@@ -151,34 +96,6 @@ export function ProfitBarsChart({ data, records }: { data: MonthRow[] } & Recs) 
   );
 }
 
-/** Horizontal bars for a ranked list of named amounts. */
-function RankedBars({ title, description, data, valueLabel, records }: { title: string; description: string; data: Slice[]; valueLabel: string } & Recs) {
-  const total = data.reduce((s, d) => s + d.value, 0);
-  return (
-    <ChartCard
-      title={title}
-      description={description}
-      table={{ columns: ["Name", valueLabel, "Share"], rows: [...data.map((d) => [d.name, tt(d.value), pct(d.value, total)]), ["Total", tt(total), "100%"]] }}
-      records={records}
-      chart={(large, select) =>
-        data.length === 0 ? (
-          <p className="py-10 text-center text-sm text-[#5A6678]">Nothing to show yet.</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={Math.max(large ? 320 : 160, data.length * (large ? 44 : 32) + 24)}>
-            <BarChart data={data} layout="vertical" margin={{ top: 0, right: 72, left: 0, bottom: 0 }}>
-              <XAxis type="number" hide />
-              <YAxis type="category" dataKey="name" {...axis} axisLine={false} width={large ? 180 : 120} />
-              <Tooltip {...tooltip} />
-              <Bar dataKey="value" name={valueLabel} fill={SERIES[0]} radius={[0, 4, 4, 0]} maxBarSize={22} isAnimationActive={false} onClick={clickBar(select, "name")} style={{ cursor: "pointer" }}
-                label={{ position: "right", fill: INK, fontSize: 12, formatter: (v: unknown) => short(Number(v)) }} />
-            </BarChart>
-          </ResponsiveContainer>
-        )
-      }
-    />
-  );
-}
-
 export function OwedByClientChart({ data, records }: { data: Slice[] } & Recs) {
   return (
     <RankedBars
@@ -222,57 +139,6 @@ export function LeadsByStageChart({ data, records }: { data: Slice[] } & Recs) {
               label={{ position: "top", fill: INK, fontSize: 12 }} />
           </BarChart>
         </ResponsiveContainer>
-      )}
-    />
-  );
-}
-
-/** Donut with a value legend beside it. */
-function Donut({ title, description, data, centre, records }: { title: string; description: string; data: Slice[]; centre: string } & Recs) {
-  const total = data.reduce((s, d) => s + d.value, 0);
-  return (
-    <ChartCard
-      title={title}
-      description={description}
-      table={{ columns: ["Name", "Amount", "Share"], rows: [...data.map((d) => [d.name, tt(d.value), pct(d.value, total)]), ["Total", tt(total), "100%"]] }}
-      records={records}
-      chart={(large, select) => (
-        <div className={`flex flex-col items-center gap-4 ${large ? "sm:flex-row" : ""}`}>
-          <div className="relative shrink-0" style={{ width: large ? 320 : 170, height: large ? 320 : 170 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={data} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="100%" stroke="#fff" strokeWidth={2} startAngle={90} endAngle={-270} isAnimationActive={false} onClick={(d: { name?: string }, _i: number, e: React.MouseEvent) => { e?.stopPropagation?.(); if (d?.name) select(d.name); }} style={{ cursor: "pointer" }}>
-                  {data.map((d, i) => <Cell key={d.name} fill={SERIES[i % SERIES.length]} />)}
-                </Pie>
-                <Tooltip {...tooltip} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[11px] text-[#5A6678]">{centre}</span>
-              <span className={`${large ? "text-2xl" : "text-base"} font-semibold text-[#1B2533]`}>{short(total)}</span>
-            </div>
-          </div>
-          <ul className="w-full space-y-2 text-sm">
-            {data.map((d, i) => (
-              <li key={d.name} className="border-b border-[#EEF1F5]">
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); select(d.name); }}
-                  className="flex min-h-9 w-full items-center justify-between gap-3 text-left hover:bg-[#F7F8FA]"
-                >
-                  <span className="flex items-center gap-2 text-[#334155]">
-                    <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-[2px]" style={{ background: SERIES[i % SERIES.length] }} />
-                    {d.name}
-                  </span>
-                  <span className="text-right">
-                    <span className="font-semibold text-[#1B2533]">{tt(d.value)}</span>
-                    <span className="ml-2 text-xs text-[#5A6678]">{pct(d.value, total)}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
     />
   );

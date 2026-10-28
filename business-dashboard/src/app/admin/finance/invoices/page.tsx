@@ -1,9 +1,10 @@
 import { requireAdminPage } from "@/lib/auth";
-import { getClients, getProjects, getInvoices, getSubscriptions, getLedger } from "@/lib/db";
+import { getClients, getProjects, getInvoices, getSubscriptions, getLedger, getFinanceHistory } from "@/lib/db";
 import { today } from "@/lib/subscriptions";
 import type { InvoiceStatusFilter } from "@/components/dashboard/invoices-table";
 import { InvoicesView } from "./invoices-view";
 import { PageHeader } from "@/components/dashboard/explain";
+import { FinanceCharts } from "@/components/dashboard/finance-charts";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -20,12 +21,13 @@ export default async function InvoicesPage({
   const { status, client } = await searchParams;
 
   await requireAdminPage();
-  const [clients, projects, invoices, subscriptions, ledger] = await Promise.all([
+  const [clients, projects, invoices, subscriptions, ledger, history] = await Promise.all([
     getClients(),
     getProjects(),
     getInvoices(),
     getSubscriptions(),
     getLedger(today()),
+    getFinanceHistory(),
   ]);
 
   const initialStatus = STATUSES.includes(status as InvoiceStatusFilter)
@@ -44,6 +46,7 @@ export default async function InvoicesPage({
       initialStatus={initialStatus}
       initialClientId={client ?? null}
     />
+      <FinanceCharts page="invoices" history={history} ledger={ledger} invoices={invoices} clients={clients} projects={projects} />
     </>
   );
 }
