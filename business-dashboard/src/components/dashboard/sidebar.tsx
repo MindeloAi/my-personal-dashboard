@@ -26,6 +26,7 @@ const NAV: (NavItem | NavGroup)[] = [
       { href: "/admin/finance/cash", label: "Cash & safe" },
       { href: "/admin/finance/expenses", label: "Expenses" },
       { href: "/admin/finance/recurring", label: "Recurring" },
+      { href: "/admin/finance/analytics", label: "Analytics" },
       { href: "/admin/finance/export", label: "Export" },
     ],
   },

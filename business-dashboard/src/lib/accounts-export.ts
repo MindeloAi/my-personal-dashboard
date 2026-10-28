@@ -5,11 +5,9 @@
 import ExcelJS from "exceljs";
 import { zipSync, strToU8 } from "fflate";
 import type { AccountsExport } from "@/lib/db";
+import { csvField, type Cell } from "@/lib/csv";
 import { HOLDERS, HOLDER_LABEL, FOUNDER_LABEL, type Holder, type Founder } from "@/lib/ledger";
 
-type Kind = "text" | "money" | "date";
-type Cell = string | number | null;
-type Table = { name: string; columns: { header: string; kind: Kind; width?: number }[]; rows: Cell[][] };
 
 const holder = (v: string | null) => (v ? (HOLDER_LABEL[v as Holder] ?? v) : null);
 const founder = (v: string | null) => (v ? (FOUNDER_LABEL[v as Founder] ?? v) : null);
@@ -133,9 +131,17 @@ function tables(d: AccountsExport): Table[] {
 const excelDate = (v: string) => new Date(`${v}T00:00:00Z`);
 
 export async function toXlsx(d: AccountsExport): Promise<Uint8Array> {
+  return writeWorkbook(tables(d));
+}
+
+export type Table = { name: string; columns: { header: string; kind: Kind; width?: number }[]; rows: Cell[][] };
+export type Kind = "text" | "money" | "date";
+
+/** Any set of tables as one workbook, a sheet each. Also used by the Analytics downloads. */
+export async function writeWorkbook(sheets: Table[]): Promise<Uint8Array> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Mindelo Dashboard";
-  for (const t of tables(d)) {
+  for (const t of sheets) {
     const ws = wb.addWorksheet(t.name, { views: [{ state: "frozen", ySplit: 1 }] });
     ws.columns = t.columns.map((c) => ({
       header: c.header,
@@ -151,13 +157,7 @@ export async function toXlsx(d: AccountsExport): Promise<Uint8Array> {
   return new Uint8Array(await wb.xlsx.writeBuffer());
 }
 
-/** RFC 4180 field, with a leading ' on text Excel would run as a formula. */
-export function csvField(v: Cell): string {
-  if (v == null) return "";
-  if (typeof v === "number") return String(v);
-  const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
-  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-}
+export { csvField };
 
 export function toCsvZip(d: AccountsExport): Uint8Array {
   const files: Record<string, Uint8Array> = {};

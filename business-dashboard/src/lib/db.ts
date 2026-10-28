@@ -2,6 +2,7 @@ import postgres from "postgres";
 import { z } from "zod";
 import type { Holder, Founder, PaymentMethod, SplitRule } from "@/lib/ledger";
 import { effectiveStatus, type EffectiveStatus } from "@/lib/invoices";
+import { isAllowed, TIME, type AnalyticsQuery, type AnalyticsRow, type Breakdown, type Measure } from "@/lib/analytics";
 
 // ─── Postgres data layer ──────────────────────────────────────────────────────
 //
@@ -2222,4 +2223,91 @@ export async function getFinanceHistory(today: string): Promise<FinanceHistory> 
     counts: counts.map((r) => ({ day: r.day, location: r.location, counted: r.counted, expected: r.expected, variance: r.variance })),
     payouts: payouts.map((r) => ({ month: r.month, founder: r.founder, base: r.base, bonus: r.bonus, paidOut: r.paid_out, due: r.due })),
   };
+}
+
+// ─── Analytics chart builder ───────────────────────────────────────────────
+// One query per (measure, breakdown, split, date range), assembled ONLY from
+// the fixed text below; the dates are bound parameters. isAllowed() rejects
+// any combination the menu does not offer, so no input reaches the SQL text.
+
+const CLIENT = "coalesce(nullif(c.company, ''), c.name)";
+const SERVICE = "coalesce(nullif(pr.service_type, ''), 'Unspecified')";
+const JOIN_INVOICE = "left join projects pr on pr.id = i.project_id left join clients c on c.id = coalesce(i.client_id, pr.client_id)";
+
+// Every measure as rows of (d, amount, client, project, service, category, founder, collector).
+const COLLECTED = `
+  select p.paid_at as d, p.amount, ${CLIENT} as client, pr.name as project, ${SERVICE} as service,
+         null::text as category, null::text as founder, p.received_by::text as collector
+    from payments p join invoices i on i.id = p.invoice_id ${JOIN_INVOICE}
+  union all
+  select i.paid_date, i.amount, ${CLIENT}, pr.name, ${SERVICE}, null, null, 'before'
+    from invoices i ${JOIN_INVOICE}, ledger_settings s
+   where i.status = 'Paid' and i.paid_date < s.cutover_date
+     and not exists (select 1 from payments p where p.invoice_id = i.id)`;
+const EXPENSES = `
+  select e.date as d, coalesce(e.amount, 0) as amount, null::text as client, null::text as project, null::text as service,
+         coalesce(e.category, 'Other') as category, null::text as founder,
+         coalesce(e.paid_from::text, 'personal_' || e.paid_personally_by::text, 'unrecorded') as collector
+    from expenses e`;
+const FACTS: Record<Measure, string> = {
+  collected: COLLECTED,
+  invoiced: `
+    select i.issue_date as d, i.amount, ${CLIENT} as client, pr.name as project, ${SERVICE} as service,
+           null::text as category, null::text as founder, null::text as collector
+      from invoices i ${JOIN_INVOICE} where i.status in ('Sent', 'Overdue', 'Paid')`,
+  outstanding: `
+    select coalesce(i.due_date, i.issue_date) as d, o.remaining as amount, ${CLIENT} as client, pr.name as project,
+           ${SERVICE} as service, null::text as category, null::text as founder, null::text as collector
+      from owed_to_us o join invoices i on i.id = o.invoice_id ${JOIN_INVOICE}`,
+  expenses: EXPENSES,
+  profit: `select d, amount, client, project, service, category, founder, collector from (${COLLECTED}) c
+           union all select d, -amount, client, project, service, category, founder, collector from (${EXPENSES}) e`,
+  founder_pay: `
+    select pm.paid_at as d, po.total as amount, ${CLIENT} as client, pr.name as project, ${SERVICE} as service,
+           null::text as category, po.founder::text as founder, pm.received_by::text as collector
+      from payouts po join payments pm on pm.id = po.payment_id join invoices i on i.id = po.invoice_id ${JOIN_INVOICE}`,
+  cash: `
+    select f.on_date as d, f.amount, null::text as client, null::text as project, null::text as service,
+           null::text as category, null::text as founder, f.location::text as collector
+      from cash_flows f`,
+};
+
+const DIM: Record<Breakdown, string> = {
+  month: "to_char(d, 'YYYY-MM')",
+  quarter: "to_char(d, 'YYYY-\"Q\"Q')",
+  year: "to_char(d, 'YYYY')",
+  client: "coalesce(client, 'No client')",
+  project: "coalesce(project, 'No project')",
+  service: "coalesce(service, 'Unspecified')",
+  category: "coalesce(category, 'Other')",
+  founder: "coalesce(founder, 'none')",
+  collector: "coalesce(collector, 'unrecorded')",
+};
+
+export async function getAnalytics(q: AnalyticsQuery): Promise<AnalyticsRow[]> {
+  if (!isAllowed(q)) throw new Error("That combination is not in the menu.");
+  const key = DIM[q.breakdown];
+  const series = q.split ? DIM[q.split] : "''";
+  const facts = FACTS[q.measure];
+  // Cash is a balance, not a flow: a running total up to each period (time
+  // breakdowns), or the balance on the To date (by holder).
+  const text =
+    q.measure !== "cash"
+      ? `with facts as (${facts})
+         select ${key} as key, ${series} as series, sum(amount)::float8 as value
+           from facts where d between $1::date and $2::date
+          group by 1, 2 order by 1, 2`
+      : TIME.includes(q.breakdown)
+        ? `with facts as (${facts}),
+           per as (select ${key} as key, ${series} as series, sum(amount) as a from facts where d <= $2::date group by 1, 2)
+           select key, series, value from (
+             select key, series, (sum(a) over (partition by series order by key))::float8 as value from per
+           ) running where key >= (select ${key.replace(/\bd\b/g, () => "$1::date")}) order by 1, 2`
+        : // The balance on the To date; $1 is bound but unused, so give it a type.
+          `with facts as (${facts})
+           select ${key} as key, ${series} as series, sum(amount)::float8 as value
+             from facts where d <= $2::date and $1::date is not null group by 1, 2 order by 1, 2`;
+  const sql = getSql();
+  const rows = await sql.begin("read only", (tx) => tx.unsafe(text, [q.from, q.to]));
+  return (rows as unknown as { key: string; series: string; value: number }[]).map((r) => ({ key: r.key, series: r.series, value: r.value }));
 }

@@ -4,7 +4,7 @@
 // axes and tooltips, one click rule. Each chart sits in a ChartCard (title,
 // explanation, enlarge, numbers table, records behind a clicked mark).
 import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell, PieChart, Pie,
+  ResponsiveContainer, LineChart, Line, AreaChart, Area, BarChart, Bar, Cell, PieChart, Pie,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
 } from "recharts";
 import { ChartCard, type ChartTable } from "./chart-card";
@@ -85,13 +85,13 @@ export type Series = { key: string; name: string; color?: string };
  * dot opens the records behind its row; `records` gets the row's label.
  */
 export function SeriesChart({
-  title, description, rows, series, kind, format = "money", records, signColors, signNames = ["Above zero", "Below zero"], total, shortTicks,
+  title, description, rows, series, kind, format = "money", records, signColors, signNames = ["Above zero", "Below zero"], total, shortTicks, labelHeader = "Period",
 }: {
   title: string;
   description: string;
   rows: SeriesRow[];
   series: Series[];
-  kind: "bar" | "stacked" | "line";
+  kind: "bar" | "stacked" | "line" | "area";
   format?: Format;
   /** Single-series bars: colour negative values with the second colour (loss, shortfall). */
   signColors?: [string, string];
@@ -101,12 +101,14 @@ export function SeriesChart({
   total?: boolean;
   /** Category labels too long for the axis: show only their first two words there. */
   shortTicks?: boolean;
+  /** Heading of the table's first column. */
+  labelHeader?: string;
 } & Recs) {
   const f = FMT[format];
   const color = (i: number, s: Series) => s.color ?? SERIES[i % SERIES.length];
   const num = (r: SeriesRow, k: string) => Number(r[k] ?? 0);
   const table: ChartTable = {
-    columns: ["", ...series.map((s) => s.name), ...(total ? ["Total"] : [])],
+    columns: [labelHeader, ...series.map((s) => s.name), ...(total ? ["Total"] : [])],
     rows: rows.map((r) => [
       r.label,
       ...series.map((s) => f.full(num(r, s.key))),
@@ -126,7 +128,19 @@ export function SeriesChart({
         ) : (
           <>
             <ResponsiveContainer width="100%" height={height(large)}>
-              {kind === "line" ? (
+              {kind === "area" ? (
+                <AreaChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke={GRID} vertical={false} />
+                  <XAxis dataKey="label" {...axis} />
+                  <YAxis {...axis} axisLine={false} tickFormatter={f.tick} width={f.width} />
+                  {hasNegative && <ReferenceLine y={0} stroke="#CBD5E1" />}
+                  <Tooltip {...tooltip} formatter={(v: unknown) => f.full(Number(v))} />
+                  {series.map((s, i) => (
+                    <Area key={s.key} dataKey={s.key} name={s.name} stroke={color(i, s)} fill={color(i, s)} fillOpacity={0.15} strokeWidth={2}
+                      stackId={series.length > 1 ? "a" : undefined} dot={clickDot(color(i, s), select, "label")} activeDot={false} isAnimationActive={false} />
+                  ))}
+                </AreaChart>
+              ) : kind === "line" ? (
                 <LineChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke={GRID} vertical={false} />
                   <XAxis dataKey="label" {...axis} />
