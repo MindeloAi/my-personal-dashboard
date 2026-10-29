@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useOptimistic, useState, useSyncExternalStore, useTransition } from "react";
+import { Fragment, useEffect, useOptimistic, useState, useSyncExternalStore, useTransition } from "react";
 import { createPortal } from "react-dom";
 import {
   DndContext,
@@ -23,8 +23,9 @@ import {
   deleteLeadAction,
 } from "@/app/actions";
 import { ModalShell } from "@/components/ui/modal-shell";
-import type { Client, Lead } from "@/lib/airtable";
+import type { Client, Lead, Project, Invoice } from "@/lib/airtable";
 import { Explain } from "./explain";
+import { LinkedRecords } from "./linked-records";
 
 const STATUSES = ["New", "Contacted", "Proposal Sent", "Won", "Lost"] as const;
 type LeadStatus = (typeof STATUSES)[number];
@@ -467,12 +468,23 @@ function LeadBoard({
 }
 
 // ─── Pipeline ──────────────────────────────────────────────────────────────────
-type Props = { leads: Lead[]; clients: Client[] };
+type Props = { leads: Lead[]; clients: Client[]; projects?: Project[]; invoices?: Invoice[] };
 type View = "list" | "kanban";
 
-export function LeadsTable({ leads, clients }: Props) {
+export function LeadsTable({ leads, clients, projects = [], invoices = [] }: Props) {
   const [view, setView] = useState<View>("list");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // A link to /admin/leads#lead-<id> opens that lead's details (after load, so
+  // the server and browser render the same HTML first).
+  useEffect(() => {
+    const open = () => {
+      if (window.location.hash.startsWith("#lead-")) setExpandedId(window.location.hash.slice(6));
+    };
+    open();
+    window.addEventListener("hashchange", open);
+    return () => window.removeEventListener("hashchange", open);
+  }, []);
+  const graph = { clients, leads, projects, invoices };
   const [newOpen, setNewOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Lead | null>(null);
@@ -563,8 +575,9 @@ export function LeadsTable({ leads, clients }: Props) {
                         return (
                           <Fragment key={lead.id}>
                             <tr
+                              id={`lead-${lead.id}`}
                               onClick={() => setExpandedId(isExpanded ? null : lead.id)}
-                              className="hover:bg-white/[0.02] transition-colors cursor-pointer"
+                              className="scroll-mt-24 hover:bg-[#F7F8FA] target:bg-[#EFF4FF] transition-colors cursor-pointer"
                             >
                               <td className="py-3 pr-3">
                                 <p className="font-medium text-[#1B2533] leading-tight">{lead.Name}</p>
@@ -621,6 +634,7 @@ export function LeadsTable({ leads, clients }: Props) {
                                       </span>
                                     )}
                                   </div>
+                                  <LinkedRecords kind="lead" id={lead.id} graph={graph} hide={["lead"]} className="mt-2" />
                                   {lead.Message && (
                                     <p className="mt-2 text-xs text-[#334155] leading-relaxed">
                                       <span className="text-[#6B7789] mr-1">Message</span>

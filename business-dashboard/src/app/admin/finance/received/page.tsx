@@ -1,5 +1,5 @@
 import { requireAdminPage } from "@/lib/auth";
-import { getLedger, getFinanceHistory, getInvoices, getClients, getProjects } from "@/lib/db";
+import { getLedger, getFinanceHistory, getInvoices, getClients, getProjects, getLeads } from "@/lib/db";
 import { today } from "@/lib/subscriptions";
 import { MoneyReceived } from "@/components/dashboard/money-received";
 import { PageHeader } from "@/components/dashboard/explain";
@@ -10,13 +10,13 @@ export const revalidate = 0;
 
 export default async function MoneyReceivedPage() {
   await requireAdminPage();
-  const [ledger, history, invoices, clients, projects] = await Promise.all([
-    getLedger(today()), getFinanceHistory(today()), getInvoices(), getClients(), getProjects(),
+  const [ledger, history, invoices, clients, projects, leads] = await Promise.all([
+    getLedger(today()), getFinanceHistory(today()), getInvoices(), getClients(), getProjects(), getLeads(),
   ]);
   return (
     <>
       <PageHeader title="Money received" purpose="Every payment collected from clients, who has the money now, and the steps left to sort it into the safe and founder pay." />
-      <MoneyReceived ledger={ledger} />
+      <MoneyReceived ledger={ledger} graph={{ clients, leads, projects, invoices }} />
       <FinanceCharts page="received" history={history} ledger={ledger} invoices={invoices} clients={clients} projects={projects} />
     </>
   );
