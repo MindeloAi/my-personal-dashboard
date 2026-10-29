@@ -11,23 +11,27 @@ const BASE = "https://mindelo.site";
 // here because the port brief asked for them; the `noindex` is left as it was
 // found because changing it is a content decision, not a migration one. Resolve
 // one way or the other before this sitemap is submitted anywhere.
-const ROUTES: Array<{ path: string; priority: number }> = [
-  { path: "/", priority: 1.0 },
-  { path: "/services", priority: 0.9 },
-  { path: "/voice-receptionist", priority: 0.9 },
-  { path: "/portfolio", priority: 0.8 },
-  { path: "/contact", priority: 0.8 },
-  { path: "/demo", priority: 0.7 },
-  { path: "/demo/aisl-quote-followup", priority: 0.6 },
-  { path: "/demo/hyline-job-tracker", priority: 0.6 },
-  { path: "/about", priority: 0.7 },
-  { path: "/links", priority: 0.5 },
+//
+// lastModified is the date the page's content last changed, not the date of
+// its last commit: a nav or footer link is not a content change.
+const ROUTES: Array<{ path: string; priority: number; lastModified: string }> = [
+  { path: "/", priority: 1.0, lastModified: "2026-08-28" },
+  { path: "/services", priority: 0.9, lastModified: "2026-08-28" },
+  { path: "/voice-receptionist", priority: 0.9, lastModified: "2026-08-28" },
+  { path: "/portfolio", priority: 0.8, lastModified: "2026-08-28" },
+  { path: "/portfolio/websites", priority: 0.8, lastModified: "2026-10-07" },
+  { path: "/contact", priority: 0.8, lastModified: "2026-08-28" },
+  { path: "/demo", priority: 0.7, lastModified: "2026-08-28" },
+  { path: "/demo/aisl-quote-followup", priority: 0.6, lastModified: "2026-08-28" },
+  { path: "/demo/hyline-job-tracker", priority: 0.6, lastModified: "2026-08-28" },
+  { path: "/about", priority: 0.7, lastModified: "2026-08-28" },
+  { path: "/links", priority: 0.5, lastModified: "2026-09-21" },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return ROUTES.map(({ path, priority }) => ({
+  return ROUTES.map(({ path, priority, lastModified }) => ({
     url: BASE + path,
-    lastModified: new Date("2026-08-28"),
+    lastModified: new Date(lastModified),
     changeFrequency: "monthly" as const,
     priority,
   }));
