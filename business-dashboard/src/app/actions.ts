@@ -139,12 +139,54 @@ export async function updateProjectStatus(
   revalidatePath("/", "layout");
 }
 
-export async function createInvoiceAction(data: InvoiceWrite): Promise<ActionResult> {
+// The New Invoice form can bill a client or lead that does not exist yet, and
+// put the invoice on a new project. billTo: "client:<id>" | "lead:<id>" |
+// "new-client" | "new-lead" | ""; project: "<id>" | "new" | "".
+const InvoiceLinks = z.object({
+  billTo: z.string(),
+  newName: z.string().trim().optional(),
+  project: z.string(),
+  newProject: z.string().trim().optional(),
+});
+export type InvoiceLinksInput = z.infer<typeof InvoiceLinks>;
+
+export async function createInvoiceAction(data: InvoiceWrite, linksInput?: InvoiceLinksInput): Promise<ActionResult> {
   await requireAdmin();
   rejectDirectPaid(data);
   const bad = checkShares(data);
   if (bad) return { error: bad };
-  return run(() => createInvoice(data));
+  if (!linksInput) return run(() => createInvoice(data));
+
+  const links = InvoiceLinks.parse(linksInput);
+  const isNew = links.billTo === "new-client" || links.billTo === "new-lead";
+  if (isNew && !links.newName) return { error: "Enter a name for the new client or lead." };
+  if (links.project === "new" && !links.newProject) return { error: "Enter a name for the new project." };
+  const [kind, existingId] = links.billTo.split(":");
+  if (existingId) Id.parse(existingId);
+  if (links.project && links.project !== "new") Id.parse(links.project);
+
+  // ponytail: sequential creates, not one transaction. Validation above runs
+  // first, so a failure here is a DB fault; worst case is a stray new record.
+  return run(async () => {
+    let clientId = kind === "client" ? existingId : undefined;
+    let leadId = kind === "lead" ? existingId : undefined;
+    if (links.billTo === "new-client") clientId = (await createClientRow({ Name: links.newName, Status: "Active" })).id;
+    if (links.billTo === "new-lead") leadId = (await createLead({ Name: links.newName, Status: "New" })).id;
+
+    let projectId = links.project && links.project !== "new" ? links.project : undefined;
+    if (links.project === "new") {
+      projectId = (await createProject({
+        Name: links.newProject,
+        Status: "In Progress",
+        ...(clientId ? { Client: [clientId] } : leadId ? { Lead: [leadId] } : {}),
+      })).id;
+    }
+    await createInvoice({
+      ...data,
+      Project: projectId ? [projectId] : undefined,
+      Client: clientId ? [clientId] : undefined,
+    });
+  });
 }
 
 export async function createExpenseAction(data: ExpenseWrite): Promise<ActionResult> {

@@ -71,16 +71,31 @@ function SubmitRow({
 }
 
 function InvoiceModal({
+  clients,
+  leads,
   projects,
   rule,
   onClose,
 }: {
+  clients: Client[];
+  leads: Lead[];
   projects: Project[];
   rule: SplitRule;
   onClose: () => void;
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [billTo, setBillTo] = useState("");
+  const [project, setProject] = useState("");
+  const [kind, billId] = billTo.split(":");
+  const newBillTo = billTo === "new-client" || billTo === "new-lead";
+  // Billing someone specific: only their projects. Someone new has none yet.
+  const projectChoices = newBillTo
+    ? []
+    : billId
+      ? projects.filter((p) => (kind === "client" ? p.Client : p.Lead)?.[0] === billId)
+      : projects;
+  const openLeads = leads.filter((l) => l.Status !== "Lost");
   const [amount, setAmount] = useState("");
   const [michael, setMichael] = useState("");
   const [zane, setZane] = useState("");
@@ -96,7 +111,6 @@ function InvoiceModal({
       return;
     }
     const fd = new FormData(e.currentTarget);
-    const projectId = (fd.get("projectId") as string) || "";
     const invoiceType = (fd.get("invoiceType") as string) || "";
     const status = (fd.get("status") as string) || "Draft";
     setError(null);
@@ -109,9 +123,13 @@ function InvoiceModal({
           "Issue Date": (fd.get("issueDate") as string) || undefined,
           "Due Date": (fd.get("dueDate") as string) || undefined,
           Notes: (fd.get("notes") as string) || undefined,
-          Project: projectId ? [projectId] : undefined,
           "Michael Bonus Share": parseFloat(michael) / 100,
           "Zane Bonus Share": parseFloat(zane) / 100,
+        }, {
+          billTo,
+          newName: (fd.get("newName") as string) || undefined,
+          project,
+          newProject: (fd.get("newProject") as string) || undefined,
         });
         if (res.error) {
           setError(res.error);
@@ -130,16 +148,51 @@ function InvoiceModal({
   return (
     <ModalShell title="New Invoice" onClose={onClose}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <Field label="Bill to">
+          <select
+            value={billTo}
+            onChange={(e) => {
+              setBillTo(e.target.value);
+              setProject("");
+            }}
+            className={selectCls}
+          >
+            <option value="">— From the project</option>
+            <option value="new-client">+ New client…</option>
+            <option value="new-lead">+ New lead…</option>
+            <optgroup label="Clients">
+              {clients.map((c) => (
+                <option key={c.id} value={`client:${c.id}`}>{c.Company || c.Name}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Leads (not a client yet)">
+              {openLeads.map((l) => (
+                <option key={l.id} value={`lead:${l.id}`}>{l["Business Name"] || l.Name}</option>
+              ))}
+            </optgroup>
+          </select>
+        </Field>
+        {newBillTo && (
+          <Field label={billTo === "new-client" ? "New client name" : "New lead name"}>
+            <input name="newName" required placeholder="e.g. Acme Ltd" className={inputCls} />
+          </Field>
+        )}
         <Field label="Project">
-          <select name="projectId" className={selectCls} defaultValue="">
+          <select value={project} onChange={(e) => setProject(e.target.value)} className={selectCls}>
             <option value="">— None</option>
-            {projects.map((p) => (
+            <option value="new">+ New project…</option>
+            {projectChoices.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.Name}
               </option>
             ))}
           </select>
         </Field>
+        {project === "new" && (
+          <Field label="New project name">
+            <input name="newProject" required placeholder="e.g. Website build" className={inputCls} />
+          </Field>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Invoice Number">
             <p className={inputCls + " text-[#5A6678]"}>Assigned automatically when sent</p>
@@ -565,7 +618,7 @@ export function QuickActions({ clients = [], leads = [], projects = [], ledger }
         </button>
       </div>
 
-      {open === "invoice" && <InvoiceModal projects={projects} rule={ledger.rule} onClose={() => setOpen(null)} />}
+      {open === "invoice" && <InvoiceModal clients={clients} leads={leads} projects={projects} rule={ledger.rule} onClose={() => setOpen(null)} />}
       {open === "expense" && <ExpenseModal cutover={ledger.cutover} onClose={() => setOpen(null)} />}
       {open === "project" && <ProjectModal clients={clients} leads={leads} onClose={() => setOpen(null)} />}
     </>
