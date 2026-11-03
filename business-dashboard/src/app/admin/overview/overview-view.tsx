@@ -110,7 +110,7 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
         <StatTile label="All money held" value={tt(cash.total)} note={`Safe plus unsorted money: Zane ${tt(cash.zane)}, Mikey ${tt(cash.mikey)}.`} />
         <StatTile label="Owed to us" value={tt(owedToUs.total)} note={`Unpaid balance on ${owedToUs.count} sent invoices.`} tone="text-[#B45309]" />
         <StatTile label="Overdue" value={tt(d.split.overdue)} note={`${d.split.overdueCount} invoices past their due date.`} tone="text-[#B23A0A]" />
-        <StatTile label={`This month's net (${since})`} value={tt(month.net)} note={`${tt(month.payments)} in, ${tt(month.expenses)} expenses, ${tt(month.payoutsPaidOut)} founder pay.`} />
+        <StatTile label={`This month's net (${since})`} value={tt(month.net)} note={`${tt(month.payments)} in, minus ${tt(month.expenses)} expenses.`} />
         <StatTile label="Monthly recurring revenue" value={tt(d.monthly)} note="What live retainers and subscriptions bring in each month." />
       </div>
 
@@ -123,7 +123,7 @@ export function OverviewView({ clients, projects, invoices, expenses, subscripti
             <strong className="text-[#1B2533]">Owed to us:</strong> {tt(owedToUs.total)} on {owedToUs.count} invoices, of which {tt(d.split.overdue)} on {d.split.overdueCount} is overdue.
             {d.owed[0] && ` The largest balance is ${d.owed[0].name} at ${tt(d.owed[0].value)}.`}
           </li>
-          <li><strong className="text-[#1B2533]">This month ({since}):</strong> {tt(month.payments)} came in, {tt(month.expenses)} went on expenses and {tt(month.payoutsPaidOut)} was paid to founders, leaving {tt(month.net)}.</li>
+          <li><strong className="text-[#1B2533]">This month ({since}):</strong> {tt(month.payments)} came in and {tt(month.expenses)} went on expenses, leaving {tt(month.net)} profit ({tt(month.payoutsPaidOut)} of founder pay was handed out).</li>
           <li><strong className="text-[#1B2533]">Last 12 months:</strong> {tt(d.year)} revenue{d.best?.revenue ? `; the best month was ${d.best.month} at ${tt(d.best.revenue)}` : ""}.</li>
           <li><strong className="text-[#1B2533]">Sales:</strong> {leads.length} leads: {stage("New")} new, {stage("Contacted")} contacted, {stage("Proposal Sent")} with a proposal out, {stage("Won")} won and {stage("Lost")} lost.</li>
           <li><strong className="text-[#1B2533]">Recurring:</strong> {tt(d.monthly)} a month from retainers and subscriptions ({tt(d.monthly * 12)} a year).</li>

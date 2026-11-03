@@ -55,7 +55,7 @@ export default async function FinanceSummary({
         <StatTile label="Outstanding" value={tt(owedToUs.total)} note={`Unpaid balance on ${owedToUs.count} sent invoices.`} tone="text-[#B45309]" />
         <StatTile label="Overdue" value={tt(split.overdue)} note={`${split.overdueCount} invoices past their due date.`} tone="text-[#B23A0A]" />
         <StatTile label="Business cash (safe)" value={tt(cash.business)} note={`Counted money in the safe. All money held: ${tt(cash.total)}.`} />
-        <StatTile label={`Net (${since})`} value={tt(month.net)} note={`Collected, minus ${tt(month.expenses)} expenses and ${tt(month.payoutsPaidOut)} founder pay paid out.`} />
+        <StatTile label={`Net (${since})`} value={tt(month.net)} note={`Collected, minus ${tt(month.expenses)} expenses. Founder pay is a share of this profit, not a cost.`} />
         <StatTile label="Monthly recurring revenue" value={tt(mrr(subscriptions))} note="What live retainers and subscriptions bring in each month." />
       </div>
       <FinanceCharts
