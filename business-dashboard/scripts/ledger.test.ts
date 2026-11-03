@@ -325,6 +325,11 @@ try {
     const month = (await getLedger(TODAY)).month;
     check("   this month net: from cutover to today only", month.payments === 2000 && month.expenses === 100 &&
       month.payoutsPaidOut === 0 && month.net === 1900, JSON.stringify(month));
+    const [z] = await sql`select id from payouts where founder = 'zane' and status = 'due' order by number limit 1`;
+    await markPayoutPaidOut(String(z.id), TODAY, "mikey");
+    const after = (await getLedger(TODAY)).month;
+    check("   founder pay is profit shared out, so paying it does not change net",
+      after.payoutsPaidOut > 0 && after.net === 1900, JSON.stringify(after));
   }
 
   // A new split rule applies from its effective date only.

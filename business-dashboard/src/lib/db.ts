@@ -1504,7 +1504,8 @@ export async function getLedger(today: string): Promise<Ledger> {
     sql`select * from payments order by paid_at desc, created_at desc`,
     sql`select * from cash_movements order by moved_at desc, created_at desc`,
     sql`
-      select m.*, m.payments - m.expenses - m.payouts as net
+      -- Founder pay is the profit being shared out, not a cost, so net leaves it in.
+      select m.*, m.payments - m.expenses as net
         from ledger_settings s,
         lateral (select greatest(${monthStart}::date, s.cutover_date) as since) w,
         lateral (select
