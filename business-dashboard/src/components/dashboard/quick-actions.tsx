@@ -229,7 +229,7 @@ function ExpenseModal({ cutover, onClose }: { cutover: string; onClose: () => vo
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
-  const [paidWith, setPaidWith] = useState("");
+  const [paidWith, setPaidWith] = useState("cash:business");
   const paidWithRequired = date !== "" && date >= cutover;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

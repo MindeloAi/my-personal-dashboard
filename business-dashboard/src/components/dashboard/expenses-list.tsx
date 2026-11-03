@@ -209,7 +209,7 @@ function EditModal({ expense, cutover, onClose }: { expense: Expense; cutover: s
             <select
               id="expense-paid-with"
               name="paidWith"
-              defaultValue={paidWithValue(expense)}
+              defaultValue={paidWithValue(expense) || "cash:business"}
               disabled={reimbursed}
               onChange={() => setPaidWithError(false)}
               aria-invalid={paidWithError}
