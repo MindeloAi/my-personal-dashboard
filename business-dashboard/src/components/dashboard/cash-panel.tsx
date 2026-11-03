@@ -311,7 +311,7 @@ export function CashPanel({ ledger }: { ledger: Ledger }) {
           className="mt-3"
           shows="Where all the business's money physically is: the safe (business cash) and money Mikey or Zane is holding that has not been sorted yet."
           read="Each balance is every payment collected, plus transfers in, minus transfers out, expenses and founder pay paid from that place. Record a transfer whenever money changes hands."
-          watch="A balance should never go below zero. Money sitting with a founder for long should be handed over or put in the safe."
+          watch="Mikey and Zane can never go below zero. Business cash can: expenses always come out of it, and a negative safe means it needs topping up. Money sitting with a founder for long should be handed over or put in the safe."
         />
 
         <div className="mt-4 space-y-1.5">

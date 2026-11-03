@@ -8,7 +8,7 @@
 //   docker exec ledger-pg psql -U postgres -c "create role anon; create role authenticated;"
 //   docker exec -i ledger-pg psql -U postgres < scripts/schema.sql
 //   DIRECT_URL=postgres://postgres:pg@localhost:55432/postgres node scripts/run-migration.mjs scripts/migrations/011_founder_ledger.up.sql
-//   (then 012, 013, 015, 016, 017, 018 the same way)
+//   (then 012, 013, 015, 016, 017, 018, 021 the same way)
 //   DATABASE_URL=postgres://postgres:pg@localhost:55432/postgres bun scripts/ledger.test.ts
 
 import postgres from "postgres";
@@ -425,6 +425,10 @@ try {
       createTransfer({ movedAt: TODAY, fromLoc: "zane", toLoc: "mikey", amount: 1, note: null, createdBy: MICHAEL }),
     );
     check("   a transfer out of an empty pot is refused", !!tooMuch?.includes("Zane"), String(tooMuch));
+    // 021: business cash is the exception, expenses always come out of it.
+    await sql`insert into expenses (name, amount, date, paid_from) values ('Rent', 99999, ${TODAY}, 'business')`;
+    const [{ balance }] = await sql`select balance from cash_by_location where location = 'business'`;
+    check("   an expense may take business cash below zero (021)", balance < 0, String(balance));
   }
 
   // 15 — collections (016, 018): Zane collects, keeps his 185, hands Mikey
