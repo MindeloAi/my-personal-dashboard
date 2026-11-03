@@ -53,10 +53,15 @@ export function isActive(sub: Subscription, on = today()): boolean {
   return !end || end >= on;
 }
 
-/** Active, but its start date is still ahead — signed, not yet earning. */
-export function startsLater(sub: Subscription, on = today()): boolean {
-  const start = sub["Start Date"];
-  return sub.Status === "Active" && !!start && start > on;
+/**
+ * Counts toward MRR: Active, has a start date, not past its end date. A start
+ * date still ahead counts too, Taylor's rule: setting a start date is what
+ * makes a retainer live. isActive() stays dated for MRR history and billing.
+ */
+export function isLive(sub: Subscription, on = today()): boolean {
+  if (sub.Status !== "Active" || !sub["Start Date"]) return false;
+  const end = sub["End Date"];
+  return !end || end >= on;
 }
 
 /** One subscription's amount as a per-month figure: monthly, /3, or /12. */
@@ -66,7 +71,7 @@ export function monthlyAmount(sub: Subscription): number {
 
 /** Monthly recurring revenue: each live subscription's amount, per month. */
 export function mrr(subs: Subscription[], on = today()): number {
-  return subs.filter((s) => isActive(s, on)).reduce((sum, s) => sum + monthlyAmount(s), 0);
+  return subs.filter((s) => isLive(s, on)).reduce((sum, s) => sum + monthlyAmount(s), 0);
 }
 
 /** Everything the MRR / ARR blocks show, so every block agrees. */
@@ -75,8 +80,7 @@ export function recurringStats(subs: Subscription[], on = today()) {
   return {
     mrr: monthly,
     arr: monthly * 12,
-    live: subs.filter((s) => isActive(s, on)).length,
-    upcoming: subs.filter((s) => startsLater(s, on)).length,
+    live: subs.filter((s) => isLive(s, on)).length,
   };
 }
 

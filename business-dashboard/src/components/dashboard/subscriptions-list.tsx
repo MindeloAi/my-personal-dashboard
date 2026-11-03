@@ -123,7 +123,7 @@ export function SubscriptionsList({ subscriptions, invoices, clients, projects }
             </p>
           </div>
           <p className="text-xs text-[#5A6678]">
-            {stats.live} live · {stats.upcoming} starting later
+            {stats.live} live
           </p>
         </div>
         <button
