@@ -5,7 +5,7 @@
 import { addMonths, differenceInCalendarDays, format, parseISO } from "date-fns";
 import type { Client, Project, Invoice, Expense, Subscription, FinanceHistory, Ledger } from "@/lib/db";
 import { isOverdue } from "@/lib/invoices";
-import { isActive, monthlyAmount, nextInvoiceDate, periodMonths } from "@/lib/subscriptions";
+import { isActive, isLive, monthlyAmount, nextInvoiceDate, periodMonths } from "@/lib/subscriptions";
 import { names, OTHER, revenueByClient, topWithOther, type RecordTable, type Slice } from "@/lib/overview-data";
 import { FOUNDER_LABEL, HOLDER_LABEL } from "@/lib/ledger";
 
@@ -87,6 +87,8 @@ export function buildFinance(
     return out;
   });
   const endOf = (key: string) => format(addMonths(parseISO(`${key}-01`), 1).getTime() - 86400000, "yyyy-MM-dd");
+  // Past months: only what had started by then. This month: same rule as the MRR figure.
+  const liveIn = (s: Subscription, key: string) => (endOf(key) >= todayIso ? isLive(s, todayIso) : isActive(s, endOf(key)));
 
   // Expenses by who paid.
   const payer = (e: Expense) =>
@@ -100,7 +102,7 @@ export function buildFinance(
   });
 
   const clientsTop = topWithOther(revenueByClient(invoices, projects, clients), 10);
-  const recurringByClient = [...subscriptions.filter((s) => isActive(s, todayIso)).reduce((m, s) => {
+  const recurringByClient = [...subscriptions.filter((s) => isLive(s, todayIso)).reduce((m, s) => {
       const c = clients.find((x) => x.id === s.Client?.[0]);
       const n = c ? c.Company || c.Name : s.Name;
       return m.set(n, (m.get(n) ?? 0) + monthlyAmount(s));
@@ -138,7 +140,7 @@ export function buildFinance(
       label: dayLabel(day),
       ...Object.fromEntries(history.cash.filter((c) => c.day === day).map((c) => [c.location, c.balance])),
     })) as Row[],
-    mrr: byMonth(months, (k) => ({ mrr: subscriptions.filter((s) => isActive(s, endOf(k))).reduce((t, s) => t + monthlyAmount(s), 0) })),
+    mrr: byMonth(months, (k) => ({ mrr: subscriptions.filter((s) => liveIn(s, k)).reduce((t, s) => t + monthlyAmount(s), 0) })),
     daysToPaid: byMonth(months, (k) => {
       const xs = paid.filter((i) => inMonth(i["Paid Date"], k) && i["Issue Date"]);
       return { days: xs.length ? sum(xs, (i) => differenceInCalendarDays(parseISO(i["Paid Date"]!), parseISO(i["Issue Date"]!))) / xs.length : 0 };
@@ -315,7 +317,7 @@ export function buildFinance(
           const shown = topWithOther(recurringByClient, 5).map((x) => x.name);
           return {
             columns: ["Subscription", "Amount", "Per month", "Started"],
-            rows: subscriptions.filter((s) => isActive(s, todayIso) && (name === OTHER ? !shown.includes(owner(s)) : owner(s) === name))
+            rows: subscriptions.filter((s) => isLive(s, todayIso) && (name === OTHER ? !shown.includes(owner(s)) : owner(s) === name))
               .map((s) => [s.Name, money(s.Amount ?? 0), money(monthlyAmount(s)), s["Start Date"] ?? ""]),
           };
         },
@@ -325,7 +327,7 @@ export function buildFinance(
         }),
         mrrMonth: (label: string): RecordTable => ({
           columns: ["Subscription", "Per month"],
-          rows: subscriptions.filter((s) => isActive(s, endOf(monthKeyOf(label)))).map((s) => [s.Name, money(monthlyAmount(s))]),
+          rows: subscriptions.filter((s) => liveIn(s, monthKeyOf(label))).map((s) => [s.Name, money(monthlyAmount(s))]),
         }),
         daysToPaid: (label: string): RecordTable => ({
           columns: ["Invoice", "Client", "Issued", "Paid", "Days"],

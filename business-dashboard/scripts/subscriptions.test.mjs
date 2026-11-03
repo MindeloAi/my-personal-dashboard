@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 import {
   isActive,
+  isLive,
   mrr,
   recurringStats,
   nextInvoiceDate,
@@ -74,9 +75,10 @@ test("a TT$6,000 yearly plan adds 500 to MRR and 6,000 to ARR", () => {
   assert.equal(s.arr, 6000);
 });
 
-test("a future start is excluded from MRR/ARR and counted as upcoming", () => {
-  const subs = [sub(), sub({ id: "s2", Amount: 6000, "Start Date": "2026-10-01" })];
-  assert.deepEqual(recurringStats(subs, TODAY), { mrr: 1200, arr: 14400, live: 1, upcoming: 1 });
+test("a start date makes it live, even one still ahead; no start date never counts", () => {
+  const subs = [sub(), sub({ id: "s2", Amount: 6000, "Start Date": "2026-10-01" }), sub({ id: "s3", "Start Date": undefined })];
+  assert.deepEqual(recurringStats(subs, TODAY), { mrr: 7200, arr: 86400, live: 2 });
+  assert.equal(isLive(sub({ "End Date": "2026-09-02" }), TODAY), false);
 });
 
 // ─── mrr ────────────────────────────────────────────────────────────────────
