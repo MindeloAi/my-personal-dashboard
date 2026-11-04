@@ -2686,6 +2686,20 @@ Commit: `fix(documents): review findings on PDF layout, dates and storage`.
 
 ---
 
+### Task 12b: Fixes from the Tasks 10-12 security review (after Task 14, same files)
+
+1. **`safeNext` dot-segment open redirect**: `/..//evil.com` normalises to `//evil.com`. After computing `out = u.pathname + u.search`, return null if `out.startsWith("//")` (or re-parse and compare origin). Tests: `/..//evil.com`, `/.//evil.com`, `/a/..//evil.com`, `/%2e%2e//evil.com` → null.
+2. **No framing**: `next.config.ts` `headers()` adds `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'` for `/oauth/:path*`, `/login` and `/admin/:path*`.
+3. **`get_client_context` drops `Michael Bonus Share` and `Zane Bonus Share`** from invoices (founder pay is out of the connector's reach, reads included).
+4. **`save_draft`**: an unknown `clientId` is a `DocumentRuleError`; when both `clientId` and `projectId` are given and the project belongs to another client, refuse ("That project belongs to a different client").
+5. **`save_deal`** ignores `reference` when the deal already exists (description: "The reference is set once, when the deal is created.").
+6. **`money`** gets `.max(1e9)`.
+7. Tests for 3 to 6 in `connector-tools.test.ts`.
+
+Commit: `fix(connector): review findings on login redirect, framing and tool inputs`.
+
+---
+
 ### Task 14: Receipts we issue to clients
 
 Added 4 November at Michael and Zane's request. A receipt is a document of type `receipt` built from **one recorded payment** (the `payments` table, migration 011), so it can never disagree with Finance. Claude can draft and finalise one on request; the dashboard has a "Make receipt" button per payment.
