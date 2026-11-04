@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getAdminProfile } from "@/lib/db";
+import { STEP_PATH, nextStep, type Step } from "@/lib/mfa";
 
 // ─── Authentication ───────────────────────────────────────────────────────────
 //
@@ -51,7 +52,9 @@ export async function createClient() {
 export type AdminUser = { id: string; email: string };
 
 /**
- * The signed-in admin, or null.
+ * The signed-in admin and the sign-in step they are at, or null when there is no
+ * admin session at all. Only the login, setup and code pages may use this: it does
+ * NOT require the authenticator code. Everything else uses getAdmin().
  *
  * Uses getUser() rather than getSession(): getSession() reads the cookie without
  * verifying it against the auth server, so it can be spoofed. getUser() validates
@@ -60,7 +63,7 @@ export type AdminUser = { id: string; email: string };
  * Having a valid session is not sufficient. The user must also hold a row in
  * `profiles`, which only the seeding script can create.
  */
-export async function getAdmin(): Promise<AdminUser | null> {
+export async function getPendingAdmin(): Promise<{ admin: AdminUser; step: Step } | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -70,7 +73,19 @@ export async function getAdmin(): Promise<AdminUser | null> {
   const profile = await getAdminProfile(user.id);
   if (!profile) return null;
 
-  return profile;
+  // getUser() above has validated this same session, so its aal claim can be trusted.
+  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error) return null;
+  return { admin: profile, step: nextStep(data) };
+}
+
+/**
+ * The signed-in admin, or null. Requires the password AND the authenticator code
+ * (session assurance level aal2). Every admin page, action and route goes through here.
+ */
+export async function getAdmin(): Promise<AdminUser | null> {
+  const p = await getPendingAdmin();
+  return p?.step === "done" ? p.admin : null;
 }
 
 /**
@@ -92,7 +107,9 @@ export async function requireAdmin(): Promise<AdminUser> {
  * a page segment without re-running its layout.
  */
 export async function requireAdminPage(): Promise<AdminUser> {
-  const admin = await getAdmin();
-  if (!admin) redirect("/login?error=unauthorised");
-  return admin;
+  const p = await getPendingAdmin();
+  if (p?.step === "done") return p.admin;
+  // Password given but not the code (or no authenticator yet): finish signing in.
+  if (p) redirect(STEP_PATH[p.step]);
+  redirect("/login?error=unauthorised");
 }
