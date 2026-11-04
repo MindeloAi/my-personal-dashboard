@@ -138,6 +138,10 @@ begin
   if old.status in ('signed','void') and new.status is distinct from old.status then
     raise exception 'a % document cannot change status', old.status;
   end if;
+  if old.status in ('signed','void') and (new.draft, new.title, new.type, new.client_id, new.project_id, new.deal_id, new.invoice_id)
+       is distinct from (old.draft, old.title, old.type, old.client_id, old.project_id, old.deal_id, old.invoice_id) then
+    raise exception 'a % document cannot be changed', old.status;
+  end if;
   return new;
 end $$;
 

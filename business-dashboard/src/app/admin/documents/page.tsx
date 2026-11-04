@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { z } from "zod";
 import { requireAdminPage } from "@/lib/auth";
 import { getClients, getProjects } from "@/lib/db";
 import { listDocuments } from "@/lib/documents-db";
@@ -17,7 +18,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
   await requireAdminPage();
   const type = DOC_TYPES.includes(sp.type as DocType) ? (sp.type as DocType) : undefined;
   const status = DOC_STATUSES.includes(sp.status as DocStatus) ? (sp.status as DocStatus) : undefined;
-  const clientId = sp.client && /^[0-9a-f-]{36}$/.test(sp.client) ? sp.client : undefined;
+  const clientId = z.uuid().safeParse(sp.client).success ? sp.client : undefined;
   const [docs, clients, projects] = await Promise.all([listDocuments({ type, status, clientId }), getClients(), getProjects()]);
   const names: Record<string, string> = Object.fromEntries([
     ...clients.map((c) => [c.id, c.Company || c.Name]),

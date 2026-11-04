@@ -9,12 +9,11 @@ import {
   addAttachment,
   deleteAttachment,
   finaliseDocument,
-  getAttachment,
   saveDeal,
   setDocumentStatus,
 } from "@/lib/documents-db";
 import { ATTACHABLE, DOC_STATUSES, FILE_KINDS, PAYEES } from "@/lib/documents";
-import { MAX_FILE_BYTES, exists, removeFile, signedDownload, signedUpload } from "@/lib/storage";
+import { MAX_FILE_BYTES, exists, removeFile, signedUpload } from "@/lib/storage";
 
 type Result<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -47,9 +46,19 @@ const DealForm = z.object({
   payeeDefault: z.enum(PAYEES).nullable(),
 });
 
+/** Money is stored to the cent. Only numbers are rounded, so anything else still fails validation as itself. */
+const cents = (x: unknown) => (typeof x === "number" ? Math.round(x * 100) / 100 : x);
+
 export async function saveDealAction(input: z.input<typeof DealForm>): Promise<Result> {
   const admin = await requireAdmin();
-  const parsed = DealForm.safeParse(input);
+  const parsed = DealForm.safeParse({
+    ...input,
+    priceTotal: cents(input.priceTotal),
+    paymentSchedule: Array.isArray(input.paymentSchedule)
+      ? input.paymentSchedule.map((l) => ({ ...l, amount: cents(l?.amount) }))
+      : input.paymentSchedule,
+    carePlan: input.carePlan ? { ...input.carePlan, monthlyAmount: cents(input.carePlan.monthlyAmount) } : input.carePlan,
+  });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form" };
   try {
     await saveDeal(parsed.data, admin.email);
@@ -134,25 +143,19 @@ export async function finishUploadAction(input: z.input<typeof UploadDone>): Pro
   }
 }
 
-export async function fileUrlAction(id: string): Promise<Result<{ url: string }>> {
-  await requireAdmin();
-  if (!z.uuid().safeParse(id).success) return { ok: false, error: "Unknown file" };
-  try {
-    const att = await getAttachment(id);
-    if (!att) return { ok: false, error: "That file no longer exists" };
-    return { ok: true, data: { url: await signedDownload(att.storagePath, att.filename) } };
-  } catch (e) {
-    return fail(e);
-  }
-}
-
 export async function deleteFileAction(id: string): Promise<Result> {
   const admin = await requireAdmin();
   if (!z.uuid().safeParse(id).success) return { ok: false, error: "Unknown file" };
   try {
     const path = await deleteAttachment(id, admin.email);
     // The record goes first: a file left behind in Storage is harmless; a record pointing at nothing is not.
-    if (path) await removeFile(path);
+    if (path) {
+      try {
+        await removeFile(path);
+      } catch (e) {
+        console.error("File record removed but its Storage object was not", path, e);
+      }
+    }
     revalidatePath("/", "layout");
     return { ok: true, data: undefined };
   } catch (e) {

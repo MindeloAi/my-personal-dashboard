@@ -36,7 +36,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   ]);
   const client = clients.find((c) => c.id === project.Client?.[0]);
   const clientName = client ? client.Company || client.Name : project.Name;
-  const suggestedReference = nextReference(suggestPrefix(clientName), Number(today().slice(0, 4)), references);
+  let suggestedReference = "";
+  try { suggestedReference = nextReference(suggestPrefix(clientName), Number(today().slice(0, 4)), references); } catch { /* no usable prefix, or this year is used up: the founder types one */ }
   const names: Record<string, string> = { [id]: project.Name, ...(client ? { [client.id]: clientName } : {}) };
 
   return (

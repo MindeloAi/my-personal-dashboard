@@ -14,6 +14,7 @@ import {
   getClientActivity,
   getDealByProject,
   getDocument,
+  getEntityActivity,
   listAttachments,
   listDocuments,
   saveDeal,
@@ -92,6 +93,9 @@ try {
   await rejects("schedule that does not add up is refused", () =>
     saveDeal({ ...deal, projectId, paymentSchedule: [{ label: "P1", amount: 100, trigger: "x" }] }, ME), /add up/);
   await rejects("bad reference is refused", () => saveDeal({ ...deal, projectId, reference: "nope" }, ME), /reference/i);
+  const [second] = await sql`insert into projects (name, client_id) values ('TEST Second', ${client.id}) returning id`;
+  await rejects("a reference used by another deal is refused", () =>
+    saveDeal({ ...deal, projectId: String(second.id) }, ME), /already used/);
 
   // Documents
   const doc = await createDocument({
@@ -134,6 +138,7 @@ try {
 
   // Attachments: a signed copy on a sent document marks it signed
   await setDocumentStatus(doc.id, "sent", ME);
+  await rejects("signed cannot be set directly", () => setDocumentStatus(doc.id, "signed", ME), /signed copy/);
   const att = await addAttachment({
     entityType: "document", entityId: doc.id, storagePath: `document/${doc.id}/a1`,
     filename: "signed.pdf", contentType: "application/pdf", size: 1234, kind: "signed_copy",
@@ -142,9 +147,16 @@ try {
   check("signed copy marks the document signed", full?.status === "signed");
   await rejects("signed document cannot be edited", () =>
     saveDraftSections(doc.id, [{ key: "fees", heading: "Fees", body: "x" }], ME), /signed/);
+  await rejects("a signed document cannot be changed in the database", () =>
+    sql`update documents set title = 'x' where id = ${doc.id}`, /cannot be changed/);
   check("listAttachments finds it", (await listAttachments("document", [doc.id])).length === 1);
   const removedPath = await deleteAttachment(att.id, ME);
   check("deleteAttachment returns the storage path", removedPath === `document/${doc.id}/a1`);
+  await addAttachment({
+    entityType: "project", entityId: projectId, storagePath: `project/${projectId}/a2`,
+    filename: "brief.pdf", contentType: "application/pdf", size: 10, kind: "other",
+  }, ME);
+  check("attaching a file logs against the owning record", (await getEntityActivity("project", projectId)).length >= 1);
 
   // Lists and activity
   check("listDocuments by client", (await listDocuments({ clientId })).length === 2);

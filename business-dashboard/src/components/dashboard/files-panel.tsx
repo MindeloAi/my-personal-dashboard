@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createClient } from "@supabase/supabase-js";
-import { deleteFileAction, fileUrlAction, finishUploadAction, startUploadAction } from "@/app/documents-actions";
+import { deleteFileAction, finishUploadAction, startUploadAction } from "@/app/documents-actions";
 import { FILE_KINDS, FILE_KIND_LABEL, type Attachable, type FileKind } from "@/lib/documents";
 import type { Attachment } from "@/lib/documents-db";
 import { selectCls } from "@/components/dashboard/clients-list";
@@ -49,13 +49,6 @@ export function FilesPanel({ entityType, entityId, files, defaultKind = "other" 
     }
   }
 
-  const open = (id: string) =>
-    start(async () => {
-      const r = await fileUrlAction(id);
-      if (r.ok) window.open(r.data.url, "_blank", "noopener");
-      else toast.error(r.error);
-    });
-
   const remove = (f: Attachment) => {
     if (!confirm(`Remove ${f.filename}? This deletes the file.`)) return;
     start(async () => {
@@ -95,9 +88,9 @@ export function FilesPanel({ entityType, entityId, files, defaultKind = "other" 
         <ul className="mt-3 divide-y divide-[#EEF1F5] text-sm">
           {files.map((f) => (
             <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <button type="button" onClick={() => open(f.id)} className="min-h-11 sm:min-h-0 text-left font-medium text-[#1D4ED8] hover:underline">
+              <a href={`/admin/files/${f.id}`} target="_blank" rel="noopener" className="min-h-11 sm:min-h-0 text-left font-medium text-[#1D4ED8] hover:underline">
                 {f.filename}
-              </button>
+              </a>
               <span className="flex items-center gap-3 text-xs text-[#5A6678]">
                 {FILE_KIND_LABEL[f.kind]} · {kb(f.size)} · {f.created.slice(0, 10)}
                 <button type="button" disabled={busy} onClick={() => remove(f)} className="min-h-11 sm:min-h-0 text-[#B23A0A] hover:underline disabled:opacity-40">Remove</button>

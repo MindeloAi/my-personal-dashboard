@@ -1,7 +1,7 @@
 // Deals, documents, versions, attachments and activity (migration 022).
 // Plain SQL, snake_case rows mapped once, like timeline-db.ts. The rules live
 // in lib/documents.ts; this file applies them inside transactions.
-import type { Sql, TransactionSql } from "postgres";
+import postgres, { type Sql, type TransactionSql } from "postgres";
 import { getSql } from "./db";
 import {
   REFERENCE_RE,
@@ -203,9 +203,8 @@ async function clientOf(tx: Db, entityType: string, id: string): Promise<string 
   return row ? str(row.c) : null;
 }
 
-async function log(tx: Db, a: { entityType: string; entityId: string; action: string; summary: string; actor: string; via: Via; clientEntity?: { type: string; id: string } }) {
-  const target = a.clientEntity ?? { type: a.entityType, id: a.entityId };
-  const clientId = await clientOf(tx, target.type, target.id);
+async function log(tx: Db, a: { entityType: string; entityId: string; action: string; summary: string; actor: string; via: Via }) {
+  const clientId = await clientOf(tx, a.entityType, a.entityId);
   await tx`
     insert into activity (entity_type, entity_id, client_id, action, summary, actor, via)
     values (${a.entityType}, ${a.entityId}, ${clientId}, ${a.action}, ${a.summary}, ${a.actor}, ${a.via})`;
@@ -253,36 +252,43 @@ export async function saveDeal(input: DealInput, actor: string, via: Via = "dash
   const problem = scheduleProblem(input.priceTotal, input.paymentSchedule);
   if (problem) throw new DocumentRuleError(problem);
   const sql = getSql();
-  return sql.begin(async (tx) => {
-    const [row] = await tx`
-      insert into deals (project_id, reference, scope, price_total, payment_schedule, care_plan, deadline, goals, notes,
-                         payee_default, created_by, updated_by, updated_via)
-      values (${input.projectId}, ${input.reference}, ${input.scope}, ${input.priceTotal},
-              ${tx.json(input.paymentSchedule)}, ${input.carePlan ? tx.json(input.carePlan) : null},
-              ${input.deadline}, ${input.goals}, ${input.notes}, ${input.payeeDefault}, ${actor}, ${actor}, ${via})
-      on conflict (project_id) do update set
-        reference = excluded.reference, scope = excluded.scope, price_total = excluded.price_total,
-        payment_schedule = excluded.payment_schedule, care_plan = excluded.care_plan, deadline = excluded.deadline,
-        goals = excluded.goals, notes = excluded.notes, payee_default = excluded.payee_default,
-        updated_by = excluded.updated_by, updated_via = excluded.updated_via, updated = now()
-      returning *, (xmax = 0) as inserted`;
-    const deal = toDeal(row);
-    await log(tx, {
-      entityType: "deal", entityId: deal.id, action: row.inserted ? "created" : "updated",
-      summary: `${row.inserted ? "Deal created" : "Deal updated"}: ${deal.reference}`, actor, via,
+  try {
+    return await sql.begin(async (tx) => {
+      const [row] = await tx`
+        insert into deals (project_id, reference, scope, price_total, payment_schedule, care_plan, deadline, goals, notes,
+                           payee_default, created_by, updated_by, updated_via)
+        values (${input.projectId}, ${input.reference}, ${input.scope}, ${input.priceTotal},
+                ${tx.json(input.paymentSchedule)}, ${input.carePlan ? tx.json(input.carePlan) : null},
+                ${input.deadline}, ${input.goals}, ${input.notes}, ${input.payeeDefault}, ${actor}, ${actor}, ${via})
+        on conflict (project_id) do update set
+          reference = excluded.reference, scope = excluded.scope, price_total = excluded.price_total,
+          payment_schedule = excluded.payment_schedule, care_plan = excluded.care_plan, deadline = excluded.deadline,
+          goals = excluded.goals, notes = excluded.notes, payee_default = excluded.payee_default,
+          updated_by = excluded.updated_by, updated_via = excluded.updated_via, updated = now()
+        returning *, (xmax = 0) as inserted`;
+      const deal = toDeal(row);
+      await log(tx, {
+        entityType: "deal", entityId: deal.id, action: row.inserted ? "created" : "updated",
+        summary: `${row.inserted ? "Deal created" : "Deal updated"}: ${deal.reference}`, actor, via,
+      });
+      return deal;
     });
-    return deal;
-  });
+  } catch (e) {
+    if (e instanceof postgres.PostgresError && e.code === "23505" && e.constraint_name === "deals_reference_key")
+      throw new DocumentRuleError(`${input.reference} is already used by another deal`);
+    throw e;
+  }
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────
 
-export async function listDocuments(f: { clientId?: string; projectId?: string; type?: DocType; status?: DocStatus } = {}): Promise<Doc[]> {
+export async function listDocuments(f: { clientId?: string; projectId?: string; invoiceId?: string; type?: DocType; status?: DocStatus } = {}): Promise<Doc[]> {
   const sql = getSql();
   const rows = await sql`
     select * from documents
      where (${f.clientId ?? null}::uuid is null or client_id = ${f.clientId ?? null}::uuid)
        and (${f.projectId ?? null}::uuid is null or project_id = ${f.projectId ?? null}::uuid)
+       and (${f.invoiceId ?? null}::uuid is null or invoice_id = ${f.invoiceId ?? null}::uuid)
        and (${f.type ?? null}::text is null or type = ${f.type ?? null}::text)
        and (${f.status ?? null}::text is null or status = ${f.status ?? null}::text)
      order by updated desc`;
@@ -362,9 +368,10 @@ export async function finaliseDocument(id: string, actor: string, via: Via = "da
   });
 }
 
-/** Sent, accepted, declined, signed or void. Draft and finalised only happen through editing and finalising. */
+/** Sent, accepted, declined or void. Draft and finalised only happen through editing and finalising; signed only by attaching the signed copy. */
 export async function setDocumentStatus(id: string, to: DocStatus, actor: string, via: Via = "dashboard"): Promise<Doc> {
   if (to === "draft" || to === "finalised") throw new DocumentRuleError("Edit or finalise the document instead");
+  if (to === "signed") throw new DocumentRuleError("Attach the signed copy to mark it signed");
   const sql = getSql();
   return sql.begin(async (tx) => {
     const doc = await lockDoc(tx, id);
@@ -409,8 +416,7 @@ export async function addAttachment(
       returning *`;
     const att = toAttachment(row);
     await log(tx, {
-      entityType: "attachment", entityId: att.id, action: "attached", summary: `${att.filename} attached`, actor, via,
-      clientEntity: { type: a.entityType, id: a.entityId },
+      entityType: a.entityType, entityId: a.entityId, action: "attached", summary: `${att.filename} attached`, actor, via,
     });
     if (a.entityType === "document" && a.kind === "signed_copy") {
       const doc = await lockDoc(tx, a.entityId);
@@ -431,8 +437,7 @@ export async function deleteAttachment(id: string, actor: string, via: Via = "da
     if (!row) return null;
     const att = toAttachment(row);
     await log(tx, {
-      entityType: "attachment", entityId: att.id, action: "removed", summary: `${att.filename} removed`, actor, via,
-      clientEntity: { type: att.entityType, id: att.entityId },
+      entityType: att.entityType, entityId: att.entityId, action: "removed", summary: `${att.filename} removed`, actor, via,
     });
     return att.storagePath;
   });

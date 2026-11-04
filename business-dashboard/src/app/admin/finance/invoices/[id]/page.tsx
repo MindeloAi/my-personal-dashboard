@@ -25,7 +25,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
   const [invoices, clients, leads, projects, ledger, files, activity, docs] = await Promise.all([
     getInvoices(), getClients(), getLeads(), getProjects(), getLedger(today()),
-    listAttachments("invoice", [id]), getEntityActivity("invoice", id), listDocuments({ type: "invoice" }),
+    listAttachments("invoice", [id]), getEntityActivity("invoice", id), listDocuments({ type: "invoice", invoiceId: id }),
   ]);
   const inv = invoices.find((i) => i.id === id);
   if (!inv) notFound();
@@ -34,7 +34,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const paid = paidOn(inv);
   const balance = Math.max(0, (inv.Amount ?? 0) - paid);
   const payments = ledger.payments.filter((p) => p.invoiceId === id).sort((a, b) => b.paidAt.localeCompare(a.paidAt));
-  const pdf = docs.find((d) => d.invoiceId === id);
+  const [pdf] = docs;
 
   return (
     <div className="space-y-3">

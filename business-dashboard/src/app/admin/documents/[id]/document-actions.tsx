@@ -14,7 +14,8 @@ export function DocumentActions({ id, status, missing }: { id: string; status: D
       if (r.ok) toast.success(done);
       else toast.error(r.error);
     });
-  const moves = TRANSITIONS[status].filter((s) => s !== "draft" && s !== "finalised");
+  // Signed happens by attaching the signed copy in Files, never by a button.
+  const moves = TRANSITIONS[status].filter((s) => s !== "draft" && s !== "finalised" && s !== "signed");
   const btn = "min-h-11 sm:min-h-0 rounded-[4px] px-3 py-2 text-xs font-semibold disabled:opacity-50";
 
   return (
