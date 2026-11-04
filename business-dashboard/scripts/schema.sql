@@ -568,3 +568,11 @@ alter table attachments add constraint attachments_entity_type_check
 alter table activity drop constraint if exists activity_entity_type_check;
 alter table activity add constraint activity_entity_type_check
   check (entity_type in ('client','project','deal','document','invoice','attachment','expense'));
+
+-- ─── 026: agreements, care plans, change requests ───
+alter table clients add column if not exists address text;
+alter table clients add column if not exists signatory_name text;
+alter table clients add column if not exists signatory_title text;
+alter table documents add column if not exists subscription_id uuid references subscriptions(id) on delete set null;
+alter table documents add constraint documents_subscription_only_on_care_plans check (type = 'care_plan' or subscription_id is null);
+create unique index if not exists documents_one_retainer_per_care_plan on documents (subscription_id) where subscription_id is not null;
