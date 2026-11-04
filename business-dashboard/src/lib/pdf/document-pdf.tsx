@@ -23,6 +23,16 @@ export type PdfData = {
   deal: { priceTotal: number | null; currency: string; paymentSchedule: ScheduleLine[]; carePlan: CarePlan | null } | null;
   invoice: { number: string | null; issueDate: string | null; dueDate: string | null; amount: number | null } | null;
   bank: { accountName: string; bankName: string; branch: string | null; accountNumber: string; accountType: string | null } | null;
+  /** Receipts only: the one payment it is for, and where the invoice stood once it was paid. */
+  receipt: {
+    number: string | null;
+    paidAt: string;
+    method: string | null;
+    amount: number;
+    invoiceNumber: string | null;
+    invoiceTotal: number;
+    paidToDate: number;
+  } | null;
 };
 
 // Next traces these into the function bundle via next.config's outputFileTracingIncludes (Task 6).
@@ -43,6 +53,7 @@ Font.registerHyphenationCallback((word) => (word.length > 35 ? word.match(/.{1,3
 let logo: { data: Buffer; format: "png" } | null = null;
 const getLogo = () => (logo ??= { data: readFileSync(path.join(ASSETS, "mindelo-logo-ink.png")), format: "png" });
 
+const ADDRESS = "4 Warren Street, Port of Spain";
 const NAVY = "#0E1A2B";
 const MUTED = "#5A6678";
 const RULE = "#DCE1E8";
@@ -122,6 +133,32 @@ function carePlanLine(c: CarePlan, currency: string): string {
   return `Care plan: ${formatMoney(c.monthlyAmount, currency)} a month, for a minimum of ${c.minimumMonths} months, then month to month until either side gives ${c.noticeDays} days' notice.`;
 }
 
+function Receipt({ r, currency }: { r: NonNullable<PdfData["receipt"]>; currency: string }) {
+  const balance = Math.round((r.invoiceTotal - r.paidToDate) * 100) / 100;
+  const line = (label: string, value: string, bold = false) => (
+    <View style={s.total}>
+      <Text style={[s.cellGrow, bold ? s.bold : { color: MUTED }]}>{label}</Text>
+      <Text style={[s.cellAmt, bold ? s.bold : {}]}>{value}</Text>
+    </View>
+  );
+  return (
+    <View wrap={false}>
+      <View style={s.table}>
+        <View style={s.row}>
+          <Text style={s.cellGrow}>Payment towards {r.invoiceNumber ?? "your invoice"}</Text>
+          <Text style={[s.cellAmt, s.bold]}>{formatMoney(r.amount, currency)}</Text>
+        </View>
+      </View>
+      <Text style={[s.p, { color: MUTED, marginTop: 6 }]}>Paid on {r.paidAt}{r.method ? ` by ${r.method}` : ""}</Text>
+      <View style={{ marginTop: 6, borderTopWidth: 1, borderColor: RULE }}>
+        {line("Invoice total", formatMoney(r.invoiceTotal, currency))}
+        {line("Paid to date", formatMoney(r.paidToDate, currency))}
+        {line("Balance", balance <= 0 ? "Paid in full" : formatMoney(balance, currency), true)}
+      </View>
+    </View>
+  );
+}
+
 function Pdf({ d }: { d: PdfData }) {
   const currency = d.deal?.currency ?? "TTD";
   const items = d.sections.find((x) => x.key === "items");
@@ -137,7 +174,7 @@ function Pdf({ d }: { d: PdfData }) {
           <Image style={s.logo} src={getLogo()} />
           <View style={s.meta}>
             <Text style={s.kind}>{DOC_TYPE_LABEL[d.type].toUpperCase()}</Text>
-            {d.invoice?.number && <Text>{d.invoice.number}</Text>}
+            {d.type === "receipt" ? d.receipt?.number && <Text>{d.receipt.number}</Text> : d.invoice?.number && <Text>{d.invoice.number}</Text>}
             {d.reference && <Text>{d.reference}</Text>}
             <Text>{d.date}</Text>
             {d.version === 0 ? <Text style={s.draft}>DRAFT, not for sending</Text> : <Text style={{ color: MUTED }}>Version {d.version}</Text>}
@@ -147,7 +184,7 @@ function Pdf({ d }: { d: PdfData }) {
 
         <View style={s.parties}>
           <View>
-            <Text style={s.label}>{d.type === "invoice" ? "BILL TO" : "PREPARED FOR"}</Text>
+            <Text style={s.label}>{d.type === "invoice" ? "BILL TO" : d.type === "receipt" ? "RECEIVED FROM" : "PREPARED FOR"}</Text>
             {d.client?.company && <Text style={s.bold}>{d.client.company}</Text>}
             {d.client && <Text>{d.client.name}</Text>}
             {d.client?.email && <Text>{d.client.email}</Text>}
@@ -158,12 +195,15 @@ function Pdf({ d }: { d: PdfData }) {
             <Text style={s.label}>FROM</Text>
             <Text style={s.bold}>Mindelo</Text>
             <Text>MINDELOAI LIMITED</Text>
-            {d.invoice?.issueDate && <Text>Issued {d.invoice.issueDate}</Text>}
-            {d.invoice?.dueDate && <Text style={s.bold}>Due {d.invoice.dueDate}</Text>}
+            <Text>{ADDRESS}</Text>
+            {d.type === "invoice" && d.invoice?.issueDate && <Text>Issued {d.invoice.issueDate}</Text>}
+            {d.type === "invoice" && d.invoice?.dueDate && <Text style={s.bold}>Due {d.invoice.dueDate}</Text>}
           </View>
         </View>
 
         <Text style={s.title}>{d.title}</Text>
+
+        {d.type === "receipt" && d.receipt && <Receipt r={d.receipt} currency={currency} />}
 
         {items && parsed.length > 0 && (
           <>
@@ -211,6 +251,8 @@ function Pdf({ d }: { d: PdfData }) {
             {d.invoice?.number && <Text style={{ color: MUTED }}>Please use {d.invoice.number} as the payment reference.</Text>}
           </View>
         )}
+
+        {d.type === "receipt" && <Text style={[s.p, s.bold, { marginTop: 14 }]}>Received with thanks.</Text>}
 
         <View style={s.footer} fixed>
           <Text>Mindelo is a trading name of MINDELOAI LIMITED</Text>

@@ -12,6 +12,7 @@ import { PageHeader, StatTile } from "@/components/dashboard/explain";
 import { LinkedRecords } from "@/components/dashboard/linked-records";
 import { FilesPanel } from "@/components/dashboard/files-panel";
 import { ActivityList } from "@/components/dashboard/activity-list";
+import { MakeReceipt } from "./make-receipt";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +24,10 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   await requireAdminPage();
   if (!z.uuid().safeParse(id).success) notFound();
 
-  const [invoices, clients, leads, projects, ledger, files, activity, docs] = await Promise.all([
+  const [invoices, clients, leads, projects, ledger, files, activity, docs, receipts] = await Promise.all([
     getInvoices(), getClients(), getLeads(), getProjects(), getLedger(today()),
     listAttachments("invoice", [id]), getEntityActivity("invoice", id), listDocuments({ type: "invoice", invoiceId: id }),
+    listDocuments({ type: "receipt", invoiceId: id }),
   ]);
   const inv = invoices.find((i) => i.id === id);
   if (!inv) notFound();
@@ -35,6 +37,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const balance = Math.max(0, (inv.Amount ?? 0) - paid);
   const payments = ledger.payments.filter((p) => p.invoiceId === id).sort((a, b) => b.paidAt.localeCompare(a.paidAt));
   const [pdf] = docs;
+  const receiptFor = new Map(receipts.filter((d) => d.status !== "void" && d.paymentId).map((d) => [d.paymentId!, d]));
 
   return (
     <div className="space-y-3">
@@ -56,20 +59,28 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
       <section className="space-y-2">
         <h2 className="text-[15px] font-semibold text-[#1B2533]">Payments</h2>
         <div className="overflow-x-auto border border-[#DCE1E8] bg-white">
-          <table className="w-full min-w-[380px] border-collapse text-sm">
-            <thead><tr className="bg-[#F7F8FA]"><th className={th}>Paid on</th><th className={th}>Received by</th><th className={`${th} text-right`}>Amount</th></tr></thead>
+          <table className="w-full min-w-[480px] border-collapse text-sm">
+            <thead><tr className="bg-[#F7F8FA]"><th className={th}>Paid on</th><th className={th}>Received by</th><th className={`${th} text-right`}>Amount</th><th className={th}>Receipt</th></tr></thead>
             <tbody>
-              {payments.length === 0 && <tr><td className={td} colSpan={3}>{inv.Status === "Paid" ? `Paid before the ledger began${inv["Paid Date"] ? `, on ${inv["Paid Date"]}` : ""}.` : "No payments yet."}</td></tr>}
+              {payments.length === 0 && <tr><td className={td} colSpan={4}>{inv.Status === "Paid" ? `Paid before the ledger began${inv["Paid Date"] ? `, on ${inv["Paid Date"]}` : ""}.` : "No payments yet."}</td></tr>}
               {payments.map((p) => (
                 <tr key={p.id}>
                   <td className={td}>{p.paidAt.slice(0, 10)}</td>
                   <td className={td}>{HOLDER_LABEL[p.receivedBy]}</td>
                   <td className={`${td} text-right whitespace-nowrap`}>{tt(p.amount)}</td>
+                  <td className={td}>
+                    {(() => {
+                      const rct = receiptFor.get(p.id);
+                      if (!rct) return <MakeReceipt paymentId={p.id} />;
+                      return <Link className="font-medium text-[#1D4ED8] hover:underline" href={href.document(rct.id)}>{rct.receiptNumber ? `Receipt ${rct.receiptNumber}` : "Receipt (draft)"}</Link>;
+                    })()}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <p className="max-w-3xl text-xs text-[#4A5568]">Make receipt drafts a receipt for that payment for the client; finalise it on the next page to give it its RCT number and PDF. A receipt link opens the one already made. You can also ask Claude: &quot;she paid, make a receipt&quot;.</p>
         <p className="text-xs"><Link className="font-medium text-[#1D4ED8] hover:underline" href="/admin/finance/received">Record or change payments in Money received</Link></p>
       </section>
       {pdf && <p className="text-xs">Invoice document: <Link className="font-medium text-[#1D4ED8] hover:underline" href={href.document(pdf.id)}>{pdf.title}</Link></p>}

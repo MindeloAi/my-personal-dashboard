@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth";
 import {
   DocumentRuleError,
   addAttachment,
+  createReceiptForPayment,
   deleteAttachment,
   finaliseDocument,
   saveDeal,
@@ -85,6 +86,19 @@ export async function finaliseDocumentAction(id: string): Promise<Result<{ versi
       console.error("[finalise] PDF", e);
       return { ok: true, data: { version: v.version, pdfError: "Finalised, but the PDF could not be made yet. Open it again from the version list." } };
     }
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Draft a receipt for one recorded payment. Returns the new document's id. */
+export async function createReceiptAction(paymentId: string): Promise<Result<{ id: string }>> {
+  const admin = await requireAdmin();
+  if (!z.uuid().safeParse(paymentId).success) return { ok: false, error: "Unknown payment" };
+  try {
+    const doc = await createReceiptForPayment(paymentId, admin.email);
+    revalidatePath("/", "layout");
+    return { ok: true, data: { id: doc.id } };
   } catch (e) {
     return fail(e);
   }

@@ -68,6 +68,12 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           )}
         </div>
       )}
+      {doc.type === "receipt" && (
+        <p className="border border-[#DCE1E8] bg-white p-3 text-xs text-[#4A5568]">
+          {doc.receiptNumber ? `Receipt ${doc.receiptNumber}. ` : ""}This receipt shows one payment recorded in Finance, so its amount and date always match it. Finalise it to give it its RCT number and PDF, then send the PDF to the client.
+          {!doc.paymentId && <span className="text-[#B23A0A]"> The payment it was for has been deleted, so it cannot be finalised.</span>}
+        </p>
+      )}
       {doc.status === "draft" && missing.length > 0 && (
         <p className="border border-[#B23A0A]/30 bg-[#B23A0A]/5 p-3 text-sm text-[#B23A0A]">Still missing before it can be finalised: {missing.join(", ")}.</p>
       )}

@@ -40,6 +40,14 @@ export async function loadPdfData(documentId: string, version: number): Promise<
   }
   const bank = doc.type === "invoice" && doc.payee ? await getPayeeAccount(doc.payee) : null;
   const day = (x: unknown) => (x ? String(x instanceof Date ? x.toISOString() : x).slice(0, 10) : null);
+  // A receipt shows its payment, and what had been paid on the invoice up to and including it.
+  const [pay] = doc.type === "receipt" && doc.payment_id
+    ? await sql`
+        select p.amount, p.paid_at, p.method,
+               (select sum(q.amount) from payments q
+                 where q.invoice_id = p.invoice_id and (q.paid_at, q.created_at) <= (p.paid_at, p.created_at)) as paid_to_date
+          from payments p where p.id = ${doc.payment_id}`
+    : [];
   return {
     type: doc.type,
     title,
@@ -59,6 +67,17 @@ export async function loadPdfData(documentId: string, version: number): Promise<
       : null,
     invoice: doc.invoice_id
       ? { number: doc.invoice_number, issueDate: day(doc.issue_date), dueDate: day(doc.due_date), amount: doc.amount == null ? null : Number(doc.amount) }
+      : null,
+    receipt: pay
+      ? {
+          number: doc.receipt_number ?? null,
+          paidAt: day(pay.paid_at)!,
+          method: pay.method ?? null,
+          amount: Number(pay.amount),
+          invoiceNumber: doc.invoice_number ?? null,
+          invoiceTotal: Number(doc.amount ?? 0),
+          paidToDate: Number(pay.paid_to_date),
+        }
       : null,
     bank: bank && { accountName: bank.accountName, bankName: bank.bankName, branch: bank.branch, accountNumber: bank.accountNumber, accountType: bank.accountType },
   };

@@ -49,13 +49,22 @@ export async function getClientContext(clientId: string) {
     listDocuments({ clientId }),
     getClientActivity(clientId, 15),
   ]);
+  const clientInvoices = invoices.filter((i) => i.Client?.[0] === clientId);
+  const ids = clientInvoices.map((i) => i.id);
+  // Recorded payments, so a receipt can be made for one. Never received_by or note: those are internal.
+  const sql = getSql();
+  const payments = ids.length
+    ? (await sql`select id, invoice_id, amount, paid_at, method from payments where invoice_id in ${sql(ids)} order by paid_at desc, created_at desc`)
+        .map((p) => ({ id: String(p.id), invoiceId: String(p.invoice_id), amount: Number(p.amount), paidAt: new Date(p.paid_at).toISOString().slice(0, 10), method: p.method ?? null }))
+    : [];
   return {
     client,
     projects: projects
       .filter((p) => p.Client?.[0] === clientId)
       .map((p) => ({ ...p, deal: deals.find((d) => d.projectId === p.id) ?? null })),
     documents: documents.map(({ draft: _draft, ...d }) => d), // eslint-disable-line @typescript-eslint/no-unused-vars
-    invoices: invoices.filter((i) => i.Client?.[0] === clientId),
+    invoices: clientInvoices,
+    payments,
     activity,
   };
 }

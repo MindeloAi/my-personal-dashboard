@@ -31,6 +31,14 @@ const base: PdfData = {
   },
   invoice: null,
   bank: null,
+  receipt: null,
+};
+
+const receipt: PdfData = {
+  ...base, type: "receipt", title: "Receipt: INV-0042 2026-11-04", deal: null,
+  sections: [{ key: "notes", heading: "Notes", body: "Thank you for your payment." }],
+  invoice: { number: "INV-0042", issueDate: "2026-11-01", dueDate: "2026-11-15", amount: 6500 },
+  receipt: { number: "RCT-0001", paidAt: "2026-11-04", method: "Bank", amount: 3250, invoiceNumber: "INV-0042", invoiceTotal: 6500, paidToDate: 3250 },
 };
 
 const docs: Record<string, PdfData> = {
@@ -49,6 +57,9 @@ const docs: Record<string, PdfData> = {
     bank: { accountName: "Example Name", bankName: "Example Bank", branch: "Port of Spain", accountNumber: "123456", accountType: "Chequing" },
   },
   draft: { ...base, version: 0 },
+  receipt,
+  // The last payment: the balance reads "Paid in full". A draft has no number yet.
+  receiptFull: { ...receipt, version: 0, receipt: { ...receipt.receipt!, number: null, method: null, paidToDate: 6500 } },
   // A long unbroken URL in an item, a schedule label and prose must wrap, not run into the amounts.
   overflow: { ...base, type: "quote", title: "Quote with long links", sections: [
     { key: "items", heading: "Items", body: `Hosting at https://example.com/a/very/long/path/that/never/breaks/for/anything/at/all/and/then/keeps/going/further | 1,200\nSetup | 300` },

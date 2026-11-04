@@ -2,7 +2,7 @@
 // the dashboard pages, documents-db.ts and, from Phase 2, the connector.
 // Checked by scripts/documents.test.ts.
 
-export const DOC_TYPES = ["proposal", "quote", "service_agreement", "care_plan", "change_request", "invoice", "sop"] as const;
+export const DOC_TYPES = ["proposal", "quote", "service_agreement", "care_plan", "change_request", "invoice", "sop", "receipt"] as const;
 export type DocType = (typeof DOC_TYPES)[number];
 export const DOC_TYPE_LABEL: Record<DocType, string> = {
   proposal: "Proposal",
@@ -12,6 +12,7 @@ export const DOC_TYPE_LABEL: Record<DocType, string> = {
   change_request: "Change request",
   invoice: "Invoice",
   sop: "SOP",
+  receipt: "Receipt",
 };
 
 export const DOC_STATUSES = ["draft", "finalised", "sent", "accepted", "signed", "declined", "void"] as const;

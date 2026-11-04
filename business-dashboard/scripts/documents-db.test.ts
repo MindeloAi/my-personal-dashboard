@@ -10,6 +10,7 @@ import {
   addAttachment,
   createInvoiceFromDeal,
   createDocument,
+  createReceiptForPayment,
   deleteAttachment,
   finaliseDocument,
   getClientActivity,
@@ -28,6 +29,7 @@ import {
   DocumentRuleError,
 } from "../src/lib/documents-db";
 import { closeDb } from "../src/lib/db";
+import { loadPdfData } from "../src/lib/pdf/store";
 
 const url = process.env.DATABASE_URL ?? "";
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) {
@@ -61,6 +63,7 @@ async function reset() {
     await tx`delete from document_versions`;
     await tx`delete from documents`;
     await tx`delete from deals`;
+    await tx`delete from payments where invoice_id in (select i.id from invoices i join projects p on p.id = i.project_id where p.name like 'TEST %')`;
     await tx`delete from invoices where project_id in (select id from projects where name like 'TEST %')`;
     await tx`delete from payee_accounts`;
     await tx`delete from projects where name like 'TEST %'`;
@@ -236,6 +239,46 @@ try {
   const feed = await getClientActivity(clientId);
   check("activity recorded against the client", feed.length >= 6 && feed.every((a) => a.actor === ME));
   await rejects("activity is append-only", () => sql`delete from activity`, /append-only/);
+
+  // Receipts (Task 14). Payments are test setup only: the app never writes them.
+  {
+    const [ri] = await sql`
+      insert into invoices (project_id, amount, status, invoice_number, michael_bonus_share, zane_bonus_share)
+      values (${projectId}, 1000, 'Sent', 'INV-9001', 0.5, 0.5) returning id`;
+    const [p1] = await sql`insert into payments (invoice_id, amount, paid_at, received_by, method) values (${ri.id}, 400, '2026-11-01', 'business', 'Bank') returning id`;
+    const [p2] = await sql`insert into payments (invoice_id, amount, paid_at, received_by) values (${ri.id}, 600, '2026-11-02', 'business') returning id`;
+    const paymentsBefore = await sql`select id, invoice_id, amount, paid_at, received_by, method, note from payments order by id`;
+    const r1 = await createReceiptForPayment(String(p1.id), ME);
+    check("receipt drafted for a payment", r1.type === "receipt" && r1.paymentId === String(p1.id) && r1.invoiceId === String(ri.id)
+      && r1.clientId === clientId && r1.title === "Receipt: INV-9001 2026-11-01" && r1.receiptNumber === null, JSON.stringify(r1));
+    await rejects("a second live receipt for the same payment is refused", () => createReceiptForPayment(String(p1.id), ME), /already exists/);
+    await rejects("a receipt cannot be made through createDocument", () =>
+      createDocument({ type: "receipt", title: "TEST r", clientId, projectId: null, dealId: null, invoiceId: null, sections: [] }, ME), /recorded payment/);
+    await finaliseDocument(r1.id, ME);
+    check("finalising gives RCT-0001", (await getDocument(r1.id))?.receiptNumber === "RCT-0001");
+    const r2 = await createReceiptForPayment(String(p2.id), ME);
+    await finaliseDocument(r2.id, ME);
+    check("the next payment's receipt is RCT-0002", (await getDocument(r2.id))?.receiptNumber === "RCT-0002");
+    await saveDraftSections(r1.id, [{ key: "notes", heading: "Notes", body: "Thanks again." }], ME);
+    await finaliseDocument(r1.id, ME);
+    const again = await getDocument(r1.id);
+    check("re-finalising keeps the number", again?.receiptNumber === "RCT-0001" && again.currentVersion === 2);
+    await rejects("the receipt number cannot be changed by SQL", () => sql`update documents set receipt_number = 'RCT-0999' where id = ${r1.id}`, /already has its number/);
+    await rejects("the payment link cannot be repointed once void", async () => {
+      await setDocumentStatus(r2.id, "void", ME);
+      await sql`update documents set payment_id = ${p1.id} where id = ${r2.id}`;
+    }, /cannot be changed/);
+    const r3 = await createReceiptForPayment(String(p2.id), ME);
+    check("after voiding, a new receipt for the payment is allowed", r3.paymentId === String(p2.id) && r3.id !== r2.id);
+    const pdf1 = (await loadPdfData(r1.id, 1))?.receipt;
+    check("receipt PDF data: first payment, paid to date counts only up to it", pdf1?.number === "RCT-0001" && pdf1.amount === 400
+      && pdf1.paidToDate === 400 && pdf1.invoiceTotal === 1000 && pdf1.method === "Bank" && pdf1.paidAt === "2026-11-01", JSON.stringify(pdf1));
+    const pdf3 = (await loadPdfData(r3.id, 0))?.receipt;
+    check("receipt PDF data: last payment reaches the invoice total", pdf3?.paidToDate === 1000 && pdf3.number === null && pdf3.invoiceNumber === "INV-9001", JSON.stringify(pdf3));
+    const paymentsAfter = await sql`select id, invoice_id, amount, paid_at, received_by, method, note from payments order by id`;
+    check("no documents-db function wrote a payment", JSON.stringify(paymentsAfter) === JSON.stringify(paymentsBefore));
+    await rejects("no receipt for a payment that does not exist", () => createReceiptForPayment("00000000-0000-4000-8000-000000000000", ME), /No recorded payment/);
+  }
 
   check("DocumentRuleError is exported", typeof DocumentRuleError === "function");
 } finally {

@@ -74,6 +74,9 @@ export type Doc = {
   projectId: string | null;
   dealId: string | null;
   invoiceId: string | null;
+  /** Receipts only: the recorded payment it is for, and its RCT number once first finalised. */
+  paymentId: string | null;
+  receiptNumber: string | null;
   payee: Payee | null;
   title: string;
   status: DocStatus;
@@ -140,6 +143,8 @@ function toDoc(r: Row): Doc {
     projectId: str(r.project_id),
     dealId: str(r.deal_id),
     invoiceId: str(r.invoice_id),
+    paymentId: str(r.payment_id),
+    receiptNumber: r.receipt_number ?? null,
     payee: r.payee ?? null,
     title: r.title,
     status: r.status,
@@ -314,6 +319,7 @@ export async function createDocument(
   via: Via = "dashboard",
 ): Promise<Doc> {
   if (!input.title.trim()) throw new DocumentRuleError("A document needs a title");
+  if (input.type === "receipt") throw new DocumentRuleError("A receipt is made from a recorded payment (Make receipt on the invoice)");
   const sql = getSql();
   return sql.begin(async (tx) => {
     const [row] = await tx`
@@ -374,6 +380,17 @@ async function checkTemplate(tx: Db, doc: Doc): Promise<void> {
   if (p) throw new DocumentRuleError(p);
 }
 
+/** A receipt gets the next RCT number the first time it is finalised, and keeps it (migration 025). */
+async function numberReceipt(tx: Db, doc: Doc): Promise<void> {
+  if (!doc.paymentId) throw new DocumentRuleError("The payment for this receipt was deleted");
+  if (doc.receiptNumber) return;
+  await tx`select pg_advisory_xact_lock(hashtext('documents.receipt_number'))`;
+  const [n] = await tx`
+    select coalesce(max(substring(upper(receipt_number) from '^RCT-([0-9]+)$')::int), 0) + 1 as n from documents`;
+  const next = String(n.n);
+  await tx`update documents set receipt_number = ${`RCT-${next.padStart(4, "0")}`} where id = ${doc.id}`;
+}
+
 /** Freeze the draft as the next version. Refused while any {{missing: …}} remains. */
 export async function finaliseDocument(id: string, actor: string, via: Via = "dashboard"): Promise<DocumentVersion> {
   const sql = getSql();
@@ -384,6 +401,7 @@ export async function finaliseDocument(id: string, actor: string, via: Via = "da
     const missing = missingFacts(doc.draft);
     if (missing.length) throw new DocumentRuleError(`Still missing: ${missing.join(", ")}`);
     await checkTemplate(tx, doc);
+    if (doc.type === "receipt") await numberReceipt(tx, doc);
     const version = doc.currentVersion + 1;
     const [v] = await tx`
       insert into document_versions (document_id, version, title, sections, finalised_by)
@@ -602,4 +620,42 @@ export async function createInvoiceFromDeal(
     await logActivity(tx, { entityType: "document", entityId: document.id, action: "created", summary: `${title} drafted`, actor, via });
     return { invoiceId, document };
   });
+}
+
+/**
+ * Draft a receipt for one recorded payment. It reads the payment and never
+ * writes it: payments are recorded in Finance, and the receipt only reflects them.
+ */
+export async function createReceiptForPayment(paymentId: string, actor: string, via: Via = "dashboard"): Promise<Doc> {
+  const sql = getSql();
+  try {
+    return await sql.begin(async (tx) => {
+      const [p] = await tx`
+        select p.id, p.paid_at, i.id as invoice_id, i.invoice_number, i.project_id,
+               coalesce(i.client_id, pr.client_id) as client_id, d.id as deal_id
+          from payments p
+          join invoices i on i.id = p.invoice_id
+          left join projects pr on pr.id = i.project_id
+          left join deals d on d.project_id = i.project_id
+         where p.id = ${paymentId}`;
+      if (!p) throw new DocumentRuleError("No recorded payment with that id");
+      const [live] = await tx`select id from documents where payment_id = ${paymentId} and type = 'receipt' and status <> 'void'`;
+      if (live) throw new DocumentRuleError(`A receipt for this payment already exists (document ${live.id})`);
+      const paidAt = p.paid_at instanceof Date ? p.paid_at.toISOString().slice(0, 10) : String(p.paid_at).slice(0, 10);
+      const title = `Receipt: ${p.invoice_number ?? "invoice"} ${paidAt}`;
+      const [row] = await tx`
+        insert into documents (type, title, client_id, project_id, deal_id, invoice_id, payment_id, draft, created_by, updated_by, updated_via)
+        values ('receipt', ${title}, ${p.client_id}, ${p.project_id}, ${p.deal_id}, ${p.invoice_id}, ${paymentId},
+                ${tx.json([{ key: "notes", heading: "Notes", body: "Thank you for your payment." }])}, ${actor}, ${actor}, ${via})
+        returning *`;
+      const doc = toDoc(row);
+      await logActivity(tx, { entityType: "document", entityId: doc.id, action: "created", summary: `${title} drafted`, actor, via });
+      return doc;
+    });
+  } catch (e) {
+    // Two clicks at once: the unique index keeps one live receipt per payment.
+    if (e instanceof postgres.PostgresError && e.code === "23505" && e.constraint_name === "documents_one_live_receipt")
+      throw new DocumentRuleError("A receipt for this payment already exists");
+    throw e;
+  }
 }

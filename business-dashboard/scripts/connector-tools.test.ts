@@ -41,6 +41,7 @@ async function reset() {
     await tx`delete from document_versions`;
     await tx`delete from documents`;
     await tx`delete from deals`;
+    await tx`delete from payments where invoice_id in (select i.id from invoices i join projects p on p.id = i.project_id where p.name like 'TEST %')`;
     await tx`delete from invoices where project_id in (select id from projects where name like 'TEST %')`;
     await tx`delete from payee_accounts`;
     await tx`delete from projects where name like 'TEST %'`;
@@ -53,7 +54,7 @@ async function reset() {
 try {
   await reset();
   check("exactly the agreed tools", TOOLS.map((t) => t.name).sort().join(",") ===
-    "create_client_and_project,create_invoice_from_deal,finalise_document,find,get_client_context,get_deal,get_document,list_documents,save_deal,save_draft,set_status");
+    "create_client_and_project,create_invoice_from_deal,create_receipt,finalise_document,find,get_client_context,get_deal,get_document,list_documents,save_deal,save_draft,set_status");
   check("no em dashes in tool text", TOOLS.every((t) => !/\u2014/.test(t.title + t.description)));
   check("every tool input publishes as JSON Schema", TOOLS.every((t) => { try { z.toJSONSchema(t.input, { io: "input" }); return true; } catch { return false; } }));
   const cc = TOOLS.find((t) => t.name === "create_client_and_project")!.input;
@@ -94,8 +95,22 @@ try {
   check("create_invoice_from_deal", inv.document.payee === "zane" && !!inv.invoiceId);
   await refused("create_invoice_from_deal", { projectId: made.projectId, line: 2 }, /payee|Required|invalid/i);
 
+  // A recorded payment (test setup only: no tool records payments).
+  await sql`update invoices set michael_bonus_share = 0.5, zane_bonus_share = 0.5 where id = ${inv.invoiceId}`;
+  const [pay] = await sql`insert into payments (invoice_id, amount, paid_at, received_by, method, note)
+    values (${inv.invoiceId}, 1000, '2026-11-01', 'business', 'Bank', 'internal note') returning id`;
+
   const ctx = await call("get_client_context", { clientId: made.clientId });
   check("get_client_context", ctx.projects[0].deal.reference === made.reference && ctx.documents.length === 2);
+  check("get_client_context lists payments without internal fields", ctx.payments.length === 1 && ctx.payments[0].id === String(pay.id)
+    && ctx.payments[0].amount === 1000 && ctx.payments[0].paidAt === "2026-11-01" && !("note" in ctx.payments[0]) && !("receivedBy" in ctx.payments[0])
+    && !JSON.stringify(ctx).includes("internal note"), JSON.stringify(ctx.payments));
+  const rct = await call("create_receipt", { paymentId: String(pay.id) });
+  check("create_receipt drafts a receipt for the payment", rct.type === "receipt" && rct.paymentId === String(pay.id) && /\/admin\/documents\//.test(rct.url));
+  await refused("create_receipt", { paymentId: String(pay.id) }, /already exists/);
+  await refused("save_draft", { type: "receipt", title: "x", projectId: made.projectId }, /create_receipt/);
+  const rv = await call("finalise_document", { documentId: rct.id });
+  check("finalising the receipt gives it an RCT number", rv.version === 1 && /^RCT-\d{4,}$/.test((await call("get_document", { documentId: rct.id })).receiptNumber));
   check("no tool output carries bank details", !JSON.stringify(ctx).includes("account_number") && !JSON.stringify(inv).includes("accountNumber"));
   check("list_documents filters", (await call("list_documents", { clientId: made.clientId, type: "invoice" })).length === 1);
 } finally {

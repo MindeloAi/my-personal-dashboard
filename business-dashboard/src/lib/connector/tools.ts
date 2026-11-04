@@ -10,6 +10,7 @@ import {
   DocumentRuleError,
   createDocument,
   createInvoiceFromDeal,
+  createReceiptForPayment,
   finaliseDocument,
   getDealByProject,
   getDocument,
@@ -66,7 +67,7 @@ export const TOOLS: AnyTool[] = [
   tool({
     name: "get_client_context",
     title: "Everything about a client",
-    description: "One client with their projects (each with its deal: what was offered, price, payment schedule, care plan, deadline), documents, invoices with amounts paid, and recent activity. Read this before drafting anything for a client.",
+    description: "One client with their projects (each with its deal: what was offered, price, payment schedule, care plan, deadline), documents, invoices with amounts paid, recorded payments (ids for create_receipt), and recent activity. Read this before drafting anything for a client.",
     input: z.object({ clientId: id }),
     run: async ({ clientId }) => {
       const ctx = await getClientContext(clientId);
@@ -169,7 +170,7 @@ export const TOOLS: AnyTool[] = [
   tool({
     name: "save_draft",
     title: "Create a draft or change sections",
-    description: "With documentId: replace the given sections (matched by key; new keys are added) and optionally the payee of an invoice. A finalised or sent document goes back to draft; its versions stay frozen. Without documentId: create a draft of a type, starting from the template's sections when none are given, linked to the project's client and deal. Write {{missing: what}} for any fact you do not have; it blocks finalising. Invoices are created with create_invoice_from_deal, not here.",
+    description: "With documentId: replace the given sections (matched by key; new keys are added) and optionally the payee of an invoice. A finalised or sent document goes back to draft; its versions stay frozen. Without documentId: create a draft of a type, starting from the template's sections when none are given, linked to the project's client and deal. Write {{missing: what}} for any fact you do not have; it blocks finalising. Invoices are created with create_invoice_from_deal and receipts with create_receipt, not here.",
     input: z.object({
       documentId: id.optional(),
       type: z.enum(DOC_TYPES).optional(),
@@ -189,6 +190,7 @@ export const TOOLS: AnyTool[] = [
       }
       if (!a.type || !a.title) throw new DocumentRuleError("A new draft needs a type and a title");
       if (a.type === "invoice") throw new DocumentRuleError("Invoices come from a payment line: use create_invoice_from_deal");
+      if (a.type === "receipt") throw new DocumentRuleError("Receipts come from a recorded payment: use create_receipt");
       const project = a.projectId ? await getProject(a.projectId) : null;
       if (a.projectId && !project) throw new DocumentRuleError("No project with that id");
       const deal = a.projectId ? await getDealByProject(a.projectId) : null;
@@ -239,6 +241,16 @@ export const TOOLS: AnyTool[] = [
     run: async (a, actor) => {
       const r = await createInvoiceFromDeal(a, actor, "claude");
       return { invoiceId: r.invoiceId, document: { ...r.document, url: docUrl(r.document.id), previewUrl: pdfUrl(r.document.id) } };
+    },
+  }),
+  tool({
+    name: "create_receipt",
+    title: "Receipt for a payment",
+    description: "Draft a receipt for one recorded payment (ids are in get_client_context's payments). Payments themselves are recorded in the dashboard, never here. Finalise it to give it its RCT number and PDF.",
+    input: z.object({ paymentId: id }),
+    run: async ({ paymentId }, actor) => {
+      const doc = await createReceiptForPayment(paymentId, actor, "claude");
+      return { ...doc, url: docUrl(doc.id), previewUrl: pdfUrl(doc.id) };
     },
   }),
 ];
