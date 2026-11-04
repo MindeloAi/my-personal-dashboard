@@ -1,7 +1,7 @@
 // oauth-db.test.ts — codes and tokens, against the THROWAWAY local database only.
 //   DATABASE_URL=postgres://postgres:pg@localhost:55433/postgres bun scripts/oauth-db.test.ts
 import postgres from "postgres";
-import { issueCode, redeemCode, refreshTokens, verifyAccessToken } from "../src/lib/oauth-db";
+import { issueCode, redeemCode, refreshTokens, revokeAllForUser, verifyAccessToken } from "../src/lib/oauth-db";
 import { closeDb } from "../src/lib/db";
 
 const url = process.env.DATABASE_URL ?? "";
@@ -53,16 +53,57 @@ try {
 
   const t2 = await refreshTokens({ refreshToken: t!.refreshToken, clientId: CLIENT });
   check("refresh gives a new pair", !!t2 && t2.accessToken !== t!.accessToken);
-  check("a refresh token works once", (await refreshTokens({ refreshToken: t!.refreshToken, clientId: CLIENT })) === null);
   check("refresh for another client is refused", (await refreshTokens({ refreshToken: t2!.refreshToken, clientId: "other" })) === null);
+  check("a refresh token works once", (await refreshTokens({ refreshToken: t!.refreshToken, clientId: CLIENT })) === null);
+  check("replaying a spent refresh token revokes the new access token", (await verifyAccessToken(t2!.accessToken)) === null);
+  check("replaying a spent refresh token revokes the new refresh token", (await refreshTokens({ refreshToken: t2!.refreshToken, clientId: CLIENT })) === null);
+
+  const fresh = async () => redeemCode({
+    code: await issueCode({ userId: USER, clientId: CLIENT, redirectUri: REDIRECT, codeChallenge: CHALLENGE }),
+    clientId: CLIENT, redirectUri: REDIRECT, verifier: VERIFIER,
+  });
 
   await sql`update oauth_tokens set expires_at = now() - interval '1 second' where kind = 'access'`;
-  check("an expired access token is refused", (await verifyAccessToken(t2!.accessToken)) === null);
+  check("an expired access token is refused", (await verifyAccessToken(t!.accessToken)) === null);
 
-  const code4 = await issueCode({ userId: USER, clientId: CLIENT, redirectUri: REDIRECT, codeChallenge: CHALLENGE });
-  const t3 = await redeemCode({ code: code4, clientId: CLIENT, redirectUri: REDIRECT, verifier: VERIFIER });
+  // Housekeeping: rows expired over a day ago are deleted when new ones are issued.
+  await sql`insert into oauth_tokens (token_hash, kind, user_id, client_id, expires_at) values ('old-token', 'access', ${USER}, ${CLIENT}, now() - interval '2 days')`;
+  await sql`insert into oauth_codes (code_hash, user_id, client_id, redirect_uri, code_challenge, expires_at)
+            values ('old-code', ${USER}, ${CLIENT}, ${REDIRECT}, ${CHALLENGE}, now() - interval '2 days')`;
+  await fresh();
+  check("expired tokens are cleaned up", (await sql`select 1 from oauth_tokens where token_hash = 'old-token'`).length === 0);
+  check("expired codes are cleaned up", (await sql`select 1 from oauth_codes where code_hash = 'old-code'`).length === 0);
+
+  // issueCode checks its own input
+  for (const [name, bad] of [
+    ["a redirect off the allow-list", { redirectUri: "https://evil.com/cb", codeChallenge: CHALLENGE }],
+    ["a malformed code challenge", { redirectUri: REDIRECT, codeChallenge: "short" }],
+  ] as const) {
+    let threw = false;
+    try {
+      await issueCode({ userId: USER, clientId: CLIENT, ...bad });
+    } catch {
+      threw = true;
+    }
+    check(`issueCode refuses ${name}`, threw);
+  }
+
+  // A code redeemed four times at once has exactly one winner.
+  const raced = await issueCode({ userId: USER, clientId: CLIENT, redirectUri: REDIRECT, codeChallenge: CHALLENGE });
+  const results = await Promise.all(Array.from({ length: 4 }, () => redeemCode({ code: raced, clientId: CLIENT, redirectUri: REDIRECT, verifier: VERIFIER })));
+  check("four concurrent redeems give one winner", results.filter(Boolean).length === 1, String(results.filter(Boolean).length));
+
+  // Disconnect Claude
+  const a1 = await fresh();
+  const a2 = await fresh();
+  check("revokeAllForUser counts the live tokens it revoked", (await revokeAllForUser(USER)) >= 4);
+  check("after disconnect no access token works", (await verifyAccessToken(a1!.accessToken)) === null && (await verifyAccessToken(a2!.accessToken)) === null);
+  check("after disconnect no refresh token works", (await refreshTokens({ refreshToken: a1!.refreshToken, clientId: CLIENT })) === null);
+
+  const t3 = await fresh();
   await sql`delete from profiles where id = ${USER}`;
   check("a token stops working when the profile goes", (await verifyAccessToken(t3!.accessToken)) === null);
+  check("refresh stops working when the profile goes", (await refreshTokens({ refreshToken: t3!.refreshToken, clientId: CLIENT })) === null);
 
   const stored = await sql`select token_hash from oauth_tokens`;
   check("only hashes are stored", stored.every((r) => /^[0-9a-f]{64}$/.test(r.token_hash)) && !stored.some((r) => r.token_hash === t3!.accessToken));

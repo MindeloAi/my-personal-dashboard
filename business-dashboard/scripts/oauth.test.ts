@@ -15,6 +15,9 @@ assert.ok(!redirectAllowed("https://claude.ai/other"));
 assert.ok(!redirectAllowed("https://localhost/callback"));
 assert.ok(!redirectAllowed("http://localhost.evil.com/callback"));
 assert.ok(!redirectAllowed("not a url"));
+assert.ok(redirectAllowed("http://[::1]:5000/cb"), "IPv6 loopback");
+assert.ok(!redirectAllowed("https://claude.ai/api/mcp/auth_callback?x=1"), "Claude callbacks match exactly");
+assert.ok(!redirectAllowed("https://claude.ai@evil.com/api/mcp/auth_callback"));
 
 // PKCE S256
 const verifier = "a".repeat(43);
@@ -35,5 +38,8 @@ assert.equal(safeNext("//evil.com"), null);
 assert.equal(safeNext("/\\evil.com"), null);
 assert.equal(safeNext("https://evil.com"), null);
 assert.equal(safeNext(undefined), null);
+assert.equal(safeNext("/\t/evil.com"), null, "browsers drop tabs: //evil.com");
+assert.equal(safeNext("/\n/evil.com"), null);
+assert.equal(safeNext("/%2F%2Fevil.com"), "/%2F%2Fevil.com");
 
 console.log("All oauth checks pass");

@@ -2,6 +2,7 @@
 // across records, everything about one client, and a new client or lead with
 // its project and an empty deal. Reuses db.ts and documents-db.ts loaders
 // rather than writing new queries for the same data.
+import postgres from "postgres";
 import { getClientById, getInvoices, getProjects, getSql } from "./db";
 import {
   DocumentRuleError,
@@ -61,8 +62,8 @@ export async function getClientContext(clientId: string) {
 
 /**
  * A new client (or lead) with one project and an empty deal, in one transaction.
- * Refuses a name or company that already exists, so Claude finds it instead of
- * making a duplicate. The project starts at status Lead; founders move it on.
+ * Refuses a name or company that already exists as a client or a lead, so Claude
+ * finds it instead of making a duplicate. The project starts at status Lead; founders move it on.
  */
 export async function createClientAndProject(
   input: { name: string; company: string | null; email: string | null; phone: string | null; asLead: boolean; projectName: string },
@@ -71,41 +72,53 @@ export async function createClientAndProject(
 ): Promise<{ clientId: string | null; leadId: string | null; projectId: string; reference: string }> {
   const name = input.name.trim();
   const company = input.company?.trim() || null;
+  const email = input.email?.trim() || null;
+  const phone = input.phone?.trim() || null;
   const projectName = input.projectName.trim();
   if (!name || !projectName) throw new DocumentRuleError("A name and a project name are needed");
   const sql = getSql();
-  return sql.begin(async (tx) => {
-    const [dupe] = input.asLead
-      ? await tx`select name from leads where lower(name) = lower(${name}) or (${company}::text is not null and lower(business_name) = lower(${company}))`
-      : await tx`select name from clients where lower(name) = lower(${name}) or (${company}::text is not null and lower(company) = lower(${company}))`;
-    if (dupe) throw new DocumentRuleError(`${dupe.name} already exists. Use find to open it.`);
+  try {
+    return await sql.begin(async (tx) => {
+      const [dupe] = await tx`
+        (select 'client' as kind, name from clients
+          where lower(name) = lower(${name}) or (${company}::text is not null and lower(company) = lower(${company})) limit 1)
+        union all
+        (select 'lead', name from leads
+          where lower(name) = lower(${name}) or (${company}::text is not null and lower(business_name) = lower(${company})) limit 1)`;
+      if (dupe) throw new DocumentRuleError(`${dupe.name} already exists as a ${dupe.kind}. Use find to open it.`);
 
-    let clientId: string | null = null;
-    let leadId: string | null = null;
-    if (input.asLead) {
-      const [l] = await tx`
-        insert into leads (name, business_name, email, phone_whatsapp, status, source)
-        values (${name}, ${company}, ${input.email}, ${input.phone}, 'New', 'Claude') returning id`;
-      leadId = String(l.id);
-    } else {
-      const [c] = await tx`
-        insert into clients (name, company, email, phone, status)
-        values (${name}, ${company}, ${input.email}, ${input.phone}, 'Active') returning id`;
-      clientId = String(c.id);
-    }
-    const [p] = await tx`
-      insert into projects (name, client_id, lead_id, status) values (${projectName}, ${clientId}, ${leadId}, 'Lead') returning id`;
-    const projectId = String(p.id);
+      let clientId: string | null = null;
+      let leadId: string | null = null;
+      if (input.asLead) {
+        const [l] = await tx`
+          insert into leads (name, business_name, email, phone_whatsapp, status, source)
+          values (${name}, ${company}, ${email}, ${phone}, 'New', 'Claude') returning id`;
+        leadId = String(l.id);
+      } else {
+        const [c] = await tx`
+          insert into clients (name, company, email, phone, status)
+          values (${name}, ${company}, ${email}, ${phone}, 'Active') returning id`;
+        clientId = String(c.id);
+      }
+      const [p] = await tx`
+        insert into projects (name, client_id, lead_id, status) values (${projectName}, ${clientId}, ${leadId}, 'Lead') returning id`;
+      const projectId = String(p.id);
 
-    const taken = (await tx`select reference from deals`).map((r) => r.reference as string);
-    const reference = nextReference(suggestPrefix(company ?? name), new Date().getFullYear(), taken);
-    const [d] = await tx`
-      insert into deals (project_id, reference, created_by, updated_by, updated_via)
-      values (${projectId}, ${reference}, ${actor}, ${actor}, ${via}) returning id`;
+      const taken = (await tx`select reference from deals`).map((r) => r.reference as string);
+      const reference = nextReference(suggestPrefix(company ?? name), new Date().getFullYear(), taken);
+      const [d] = await tx`
+        insert into deals (project_id, reference, created_by, updated_by, updated_via)
+        values (${projectId}, ${reference}, ${actor}, ${actor}, ${via}) returning id`;
 
-    if (clientId) await logActivity(tx, { entityType: "client", entityId: clientId, action: "created", summary: `${name} added`, actor, via });
-    await logActivity(tx, { entityType: "project", entityId: projectId, action: "created", summary: `${projectName} added`, actor, via });
-    await logActivity(tx, { entityType: "deal", entityId: String(d.id), action: "created", summary: `Deal created: ${reference}`, actor, via });
-    return { clientId, leadId, projectId, reference };
-  });
+      if (clientId) await logActivity(tx, { entityType: "client", entityId: clientId, action: "created", summary: `${name} added`, actor, via });
+      await logActivity(tx, { entityType: "project", entityId: projectId, action: "created", summary: `${projectName} added`, actor, via });
+      await logActivity(tx, { entityType: "deal", entityId: String(d.id), action: "created", summary: `Deal created: ${reference}`, actor, via });
+      return { clientId, leadId, projectId, reference };
+    });
+  } catch (e) {
+    // Two records made at once can pick the same next reference.
+    if (e instanceof postgres.PostgresError && e.code === "23505" && e.constraint_name === "deals_reference_key")
+      throw new DocumentRuleError("Two records were created at once. Try again.");
+    throw e;
+  }
 }

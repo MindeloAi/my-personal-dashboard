@@ -23,8 +23,8 @@ export function redirectAllowed(uri: string): boolean {
     return false;
   }
   if (u.hash) return false;
-  if (u.protocol === "https:" && CLAUDE_CALLBACKS.includes(`${u.origin}${u.pathname}`)) return true;
-  return u.protocol === "http:" && (u.hostname === "localhost" || u.hostname === "127.0.0.1");
+  if (CLAUDE_CALLBACKS.includes(u.href)) return true;
+  return u.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(u.hostname);
 }
 
 export const newSecret = () => randomBytes(32).toString("base64url");
@@ -36,8 +36,9 @@ export function pkceMatches(verifier: string, challenge: string): boolean {
   return createHash("sha256").update(verifier).digest("base64url") === challenge;
 }
 
-/** A same-site path to return to after sign-in, or null. */
+/** A same-site path to return to after sign-in, or null. Parsed the way a browser would (tabs, newlines, backslashes). */
 export function safeNext(next: unknown): string | null {
-  if (typeof next !== "string" || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return null;
-  return next;
+  if (typeof next !== "string" || !next.startsWith("/")) return null;
+  const u = new URL(next, "https://x.invalid");
+  return u.origin === "https://x.invalid" ? u.pathname + u.search : null;
 }

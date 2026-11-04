@@ -23,7 +23,7 @@ async function reset() {
   await sql.begin(async (tx) => {
     await tx`alter table activity disable trigger activity_append_only`;
     await tx`delete from activity`;
-    await tx`delete from deals where reference like 'TB-%' or reference like 'TA-%'`;
+    await tx`delete from deals where reference like 'TB-%' or reference like 'TA-%' or reference like 'TZ-%' or reference like 'TT-%'`;
     await tx`delete from projects where name like 'TEST %'`;
     await tx`delete from leads where name like 'TEST %'`;
     await tx`delete from clients where name like 'TEST %'`;
@@ -55,6 +55,51 @@ try {
   const [leadRow] = await sql`select status from leads where id = ${lead.leadId}`;
   const [leadProject] = await sql`select lead_id, client_id, status from projects where id = ${lead.projectId}`;
   check("a lead gets a lead, a project on the lead, and a deal", leadRow?.status === "New" && String(leadProject.lead_id) === lead.leadId && leadProject.client_id === null && /^TA-\d{4}-01$/.test(lead.reference), lead.reference);
+
+  const refused = async (name: string, fn: () => Promise<unknown>, re: RegExp) => {
+    try {
+      await fn();
+      check(name, false, "did not throw");
+    } catch (e) {
+      check(name, e instanceof DocumentRuleError && re.test(e.message), String(e));
+    }
+  };
+  // Duplicates are checked across clients and leads, and say which one exists.
+  await refused("a lead named like an existing client is refused", () =>
+    createClientAndProject({ name: "TEST Andrea", company: null, email: null, phone: null, asLead: true, projectName: "TEST X" }, ME),
+    /TEST Andrea already exists as a client\. Use find/);
+  await refused("a client with an existing lead's company is refused", () =>
+    createClientAndProject({ name: "TEST Someone", company: "test acme", email: null, phone: null, asLead: false, projectName: "TEST X" }, ME),
+    /TEST Lead Person already exists as a lead\. Use find/);
+
+  // Email and phone are trimmed; blank becomes null.
+  const trimmed = await createClientAndProject(
+    { name: "TEST Trim", company: null, email: "  trim@example.com ", phone: "   ", asLead: false, projectName: "TEST Trim site" },
+    ME,
+  );
+  const [trimRow] = await sql`select email, phone from clients where id = ${trimmed.clientId}`;
+  check("email trimmed and blank phone stored as null", trimRow.email === "trim@example.com" && trimRow.phone === null, JSON.stringify(trimRow));
+
+  // Two records made at once can pick the same reference; the loser gets a plain retry message.
+  {
+    const ref = `TZ-${new Date().getFullYear()}-01`;
+    const [blocker] = await sql`insert into projects (name) values ('TEST blocker') returning id`;
+    let inserted!: () => void;
+    let release!: () => void;
+    const didInsert = new Promise<void>((r) => (inserted = r));
+    const gate = new Promise<void>((r) => (release = r));
+    const held = sql.begin(async (tx) => {
+      await tx`insert into deals (project_id, reference, created_by, updated_by) values (${blocker.id}, ${ref}, ${ME}, ${ME})`;
+      inserted();
+      await gate;
+    });
+    await didInsert;
+    const racing = createClientAndProject({ name: "TEST Zed", company: "TEST Zulu", email: null, phone: null, asLead: false, projectName: "TEST Zulu site" }, ME);
+    await new Promise((r) => setTimeout(r, 300)); // let it read the references and block on the unique index
+    release();
+    await held;
+    await refused("a reference race becomes a retry message", () => racing, /Two records were created at once\. Try again\./);
+  }
 
   const hits = await findRecords("test bit");
   check("find matches clients and projects by name, case-insensitive", hits.some((h) => h.kind === "client" && h.id === made.clientId) && hits.some((h) => h.kind === "project" && h.id === made.projectId));
