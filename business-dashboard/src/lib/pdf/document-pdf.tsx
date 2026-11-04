@@ -17,7 +17,16 @@ export type PdfData = {
   /** 0 renders a draft preview. */
   version: number;
   date: string;
-  client: { name: string; company: string | null; email: string | null; phone: string | null } | null;
+  client: {
+    name: string;
+    company: string | null;
+    email: string | null;
+    phone: string | null;
+    /** Legal details for agreements; null for a lead. */
+    address: string | null;
+    signatoryName: string | null;
+    signatoryTitle: string | null;
+  } | null;
   projectName: string | null;
   sections: Section[];
   deal: { priceTotal: number | null; currency: string; paymentSchedule: ScheduleLine[]; carePlan: CarePlan | null } | null;
@@ -88,6 +97,11 @@ const s = StyleSheet.create({
   bold: { fontWeight: 700 },
   bank: { marginTop: 14, padding: 10, borderWidth: 1, borderColor: RULE, borderRadius: 4, lineHeight: LH },
   draft: { color: ORANGE, fontWeight: 600 },
+  sign: { flexDirection: "row", justifyContent: "space-between", marginTop: 28 },
+  signCol: { width: "46%" },
+  signLine: { flexDirection: "row", alignItems: "flex-end", marginTop: 14 },
+  signLabel: { width: 52, color: MUTED, fontSize: 9 },
+  signValue: { flex: 1, borderBottomWidth: 0.5, borderColor: MUTED, height: 16, paddingBottom: 1 },
   footer: { position: "absolute", bottom: 28, left: 48, right: 48, flexDirection: "row", justifyContent: "space-between", fontSize: 8, color: MUTED },
 });
 
@@ -159,6 +173,29 @@ function Receipt({ r, currency }: { r: NonNullable<PdfData["receipt"]>; currency
   );
 }
 
+// Agreements, care plans and change requests are signed by both sides.
+const SIGNED: DocType[] = ["service_agreement", "care_plan", "change_request"];
+
+function SignatureBlock({ client }: { client: PdfData["client"] }) {
+  const col = (party: string, name: string | null, title: string | null) => (
+    <View style={s.signCol}>
+      <Text style={s.label}>{`FOR ${party.toUpperCase()}`}</Text>
+      {(["Signature", "Name", "Title", "Date"] as const).map((l) => (
+        <View key={l} style={s.signLine}>
+          <Text style={s.signLabel}>{l}</Text>
+          <Text style={s.signValue}>{l === "Name" ? name ?? "" : l === "Title" ? title ?? "" : ""}</Text>
+        </View>
+      ))}
+    </View>
+  );
+  return (
+    <View style={s.sign} wrap={false}>
+      {col("MINDELOAI LIMITED", null, null)}
+      {col(client?.company ?? client?.name ?? "the client", client?.signatoryName ?? null, client?.signatoryTitle ?? null)}
+    </View>
+  );
+}
+
 function Pdf({ d }: { d: PdfData }) {
   const currency = d.deal?.currency ?? "TTD";
   const items = d.sections.find((x) => x.key === "items");
@@ -166,6 +203,10 @@ function Pdf({ d }: { d: PdfData }) {
   const parsed = items ? parseItems(items.body).items : [];
   // A quote with its own items and a deal with no schedule would print the same money twice.
   const showDeal = parsed.length === 0 || (d.deal?.paymentSchedule.length ?? 0) > 0;
+  const signed = SIGNED.includes(d.type);
+  const registeredName = d.client?.company ?? d.client?.name;
+  const signing = [d.client?.signatoryName, d.client?.signatoryTitle].filter(Boolean).join(", ");
+  const monthly = d.type === "care_plan" ? d.deal?.carePlan?.monthlyAmount : undefined;
   return (
     <Document title={d.title} author="Mindelo" creator="Mindelo">
       <Page size="A4" style={s.page}>
@@ -182,26 +223,43 @@ function Pdf({ d }: { d: PdfData }) {
         </View>
         <View style={s.rule} />
 
-        <View style={s.parties}>
-          <View>
-            <Text style={s.label}>{d.type === "invoice" ? "BILL TO" : d.type === "receipt" ? "RECEIVED FROM" : "PREPARED FOR"}</Text>
-            {d.client?.company && <Text style={s.bold}>{d.client.company}</Text>}
-            {d.client && <Text>{d.client.name}</Text>}
-            {d.client?.email && <Text>{d.client.email}</Text>}
-            {d.client?.phone && <Text>{d.client.phone}</Text>}
-            {d.projectName && <Text style={{ color: MUTED }}>{d.projectName}</Text>}
+        {signed ? (
+          <View style={s.parties}>
+            <View style={{ width: "46%" }}>
+              <Text style={s.label}>BETWEEN</Text>
+              <Text style={s.bold}>MINDELOAI LIMITED, trading as Mindelo</Text>
+              <Text>{ADDRESS}</Text>
+            </View>
+            <View style={{ width: "46%", alignItems: "flex-end" }}>
+              <Text style={s.label}>AND</Text>
+              {registeredName && <Text style={[s.bold, { textAlign: "right" }]}>{registeredName}</Text>}
+              {d.client?.address && <Text style={{ textAlign: "right" }}>{d.client.address}</Text>}
+              {signing && <Text style={{ textAlign: "right" }}>Signing: {signing}</Text>}
+            </View>
           </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={s.label}>FROM</Text>
-            <Text style={s.bold}>Mindelo</Text>
-            <Text>MINDELOAI LIMITED</Text>
-            <Text>{ADDRESS}</Text>
-            {d.type === "invoice" && d.invoice?.issueDate && <Text>Issued {d.invoice.issueDate}</Text>}
-            {d.type === "invoice" && d.invoice?.dueDate && <Text style={s.bold}>Due {d.invoice.dueDate}</Text>}
+        ) : (
+          <View style={s.parties}>
+            <View>
+              <Text style={s.label}>{d.type === "invoice" ? "BILL TO" : d.type === "receipt" ? "RECEIVED FROM" : "PREPARED FOR"}</Text>
+              {d.client?.company && <Text style={s.bold}>{d.client.company}</Text>}
+              {d.client && <Text>{d.client.name}</Text>}
+              {d.client?.email && <Text>{d.client.email}</Text>}
+              {d.client?.phone && <Text>{d.client.phone}</Text>}
+              {d.projectName && <Text style={{ color: MUTED }}>{d.projectName}</Text>}
+            </View>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={s.label}>FROM</Text>
+              <Text style={s.bold}>Mindelo</Text>
+              <Text>MINDELOAI LIMITED</Text>
+              <Text>{ADDRESS}</Text>
+              {d.type === "invoice" && d.invoice?.issueDate && <Text>Issued {d.invoice.issueDate}</Text>}
+              {d.type === "invoice" && d.invoice?.dueDate && <Text style={s.bold}>Due {d.invoice.dueDate}</Text>}
+            </View>
           </View>
-        </View>
+        )}
 
-        <Text style={s.title}>{d.title}</Text>
+        <Text style={[s.title, monthly != null ? { marginBottom: 4 } : {}]}>{d.title}</Text>
+        {monthly != null && <Text style={[s.p, s.bold, { marginBottom: 14 }]}>{formatMoney(monthly, currency)} a month</Text>}
 
         {d.type === "receipt" && d.receipt && <Receipt r={d.receipt} currency={currency} />}
 
@@ -253,6 +311,8 @@ function Pdf({ d }: { d: PdfData }) {
         )}
 
         {d.type === "receipt" && <Text style={[s.p, s.bold, { marginTop: 14 }]}>Received with thanks.</Text>}
+
+        {signed && <SignatureBlock client={d.client} />}
 
         <View style={s.footer} fixed>
           <Text>Mindelo is a trading name of MINDELOAI LIMITED</Text>

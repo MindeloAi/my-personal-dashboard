@@ -13,7 +13,7 @@ const base: PdfData = {
   reference: "IB-2026-01",
   version: 1,
   date: "2026-11-04",
-  client: { name: "Andrea Example", company: "Island Bites", email: "andrea@example.com", phone: null },
+  client: { name: "Andrea Example", company: "Island Bites", email: "andrea@example.com", phone: null, address: null, signatoryName: null, signatoryTitle: null },
   projectName: "Island Bites website",
   sections: [
     { key: "summary", heading: "Summary", body: "A fast five-page site with pickup ordering.\n\nBuilt to be found on Google." },
@@ -82,6 +82,30 @@ const docs: Record<string, PdfData> = {
     invoice: { number: null, issueDate: null, dueDate: null, amount: null }, bank: null,
   },
 };
+
+// The three signed types, for a client with full legal details.
+const legal: PdfData["client"] = {
+  name: "Andrea Example", company: "Island Bites Limited", email: "andrea@example.com", phone: null,
+  address: "12 Ariapita Avenue, Woodbrook, Port of Spain", signatoryName: "Andrea Example", signatoryTitle: "Director",
+};
+const clauses = (n: number) => Array.from({ length: n }, (_, i) => ({
+  key: `c${i}`, heading: `${i + 1}. Clause`,
+  body: "Each side keeps the other's confidential information private and uses it only for this work. This continues after the agreement ends.",
+}));
+Object.assign(docs, {
+  "phase3-service_agreement": { ...base, type: "service_agreement", title: "Service agreement", client: legal,
+    sections: [{ key: "scope", heading: "Scope", body: "- Five pages\n- Pickup ordering" }, ...clauses(12)] },
+  "phase3-change_request": { ...base, type: "change_request", title: "Change request IB-2026-01-CR1", reference: "IB-2026-01-CR1", client: legal, sections: [
+    { key: "added", heading: "What is being added", body: "A gift card page and a newsletter signup." },
+    { key: "items", heading: "Items", body: "Gift card page | 1,200\nNewsletter signup | 450" },
+    { key: "approval", heading: "Approval", body: "The total is added to the final payment." },
+  ] },
+  "phase3-care_plan": { ...base, type: "care_plan", title: "Care plan for Island Bites", client: legal,
+    deal: { ...base.deal!, carePlan: { ...base.deal!.carePlan!, monthlyAmount: 750 } },
+    sections: [{ key: "included", heading: "What is included", body: "- Hosting\n- Monthly updates" }, ...clauses(3)] },
+  // A lead has no legal details: the signature lines are left blank.
+  agreementLead: { ...base, type: "service_agreement", title: "Agreement for a lead", version: 0 },
+} satisfies Record<string, PdfData>);
 
 for (const [name, data] of Object.entries(docs)) {
   const pdf = await renderDocumentPdf(data);
