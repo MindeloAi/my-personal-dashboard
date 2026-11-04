@@ -69,6 +69,7 @@ async function reset() {
     await tx`delete from projects where name like 'TEST %'`;
     await tx`delete from clients where name like 'TEST %'`;
     await tx`delete from expenses where name like 'TEST %'`;
+    await tx`delete from leads where name like 'TEST %'`;
     await tx`alter table activity enable trigger activity_append_only`;
     await tx`alter table document_versions enable trigger document_versions_frozen`;
   });
@@ -305,6 +306,15 @@ try {
     check("a file attaches to an expense", (await listAttachments("expense", [String(e.id)])).length === 1);
     check("attaching is logged on the expense", (await getEntityActivity("expense", String(e.id))).some((a) => a.action === "attached"));
     await rejects("a file cannot attach to a made-up expense", () => addAttachment(file("00000000-0000-4000-8000-000000000000"), ME), /no longer exists/);
+  }
+
+  // A quote for a lead (no client record yet) names the lead on its PDF.
+  {
+    const [lead] = await sql`insert into leads (name, business_name, email) values ('TEST Lena', 'TEST Lena Ltd', 'lena@example.com') returning id`;
+    const [lp] = await sql`insert into projects (name, lead_id) values ('TEST Lead site', ${lead.id}) returning id`;
+    const ld = await createDocument({ type: "quote", title: "Q", clientId: null, projectId: String(lp.id), dealId: null, invoiceId: null, sections: [] }, ME);
+    const pdf = await loadPdfData(ld.id, 0);
+    check("a lead's quote is prepared for the lead", pdf?.client?.name === "TEST Lena" && pdf?.client?.company === "TEST Lena Ltd" && pdf?.client?.email === "lena@example.com", JSON.stringify(pdf?.client));
   }
 
   check("DocumentRuleError is exported", typeof DocumentRuleError === "function");

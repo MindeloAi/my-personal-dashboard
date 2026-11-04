@@ -18,12 +18,15 @@ export async function loadPdfData(documentId: string, version: number): Promise<
   const sql = getSql();
   const [doc] = await sql`
     select d.*, p.name as project_name,
-           c.name as client_name, c.company, c.email, c.phone,
+           -- A lead has no client record yet, so its own name and contact stand in.
+           coalesce(c.name, l.name) as client_name, coalesce(c.company, l.business_name) as company,
+           coalesce(c.email, l.email) as email, coalesce(c.phone, l.phone_whatsapp) as phone,
            dl.reference, dl.price_total, dl.currency, dl.payment_schedule, dl.care_plan,
            i.invoice_number, i.issue_date, i.due_date, i.amount
       from documents d
       left join projects p on p.id = d.project_id
       left join clients c on c.id = coalesce(d.client_id, p.client_id)
+      left join leads l on l.id = p.lead_id and c.id is null
       left join deals dl on dl.id = d.deal_id
       left join invoices i on i.id = d.invoice_id
      where d.id = ${documentId}`;
