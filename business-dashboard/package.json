@@ -20,7 +20,8 @@
     "test:connector-db": "bun scripts/connector-db.test.ts",
     "test:oauth": "bun scripts/oauth.test.ts",
     "test:oauth-db": "bun scripts/oauth-db.test.ts",
-    "test:pdf": "bun scripts/pdf.test.tsx"
+    "test:pdf": "bun scripts/pdf.test.tsx",
+    "test:connector-tools": "bun scripts/connector-tools.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.2.0",
