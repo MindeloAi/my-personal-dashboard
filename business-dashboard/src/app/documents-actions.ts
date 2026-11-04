@@ -1,0 +1,161 @@
+"use server";
+
+import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { requireAdmin } from "@/lib/auth";
+import {
+  DocumentRuleError,
+  addAttachment,
+  deleteAttachment,
+  finaliseDocument,
+  getAttachment,
+  saveDeal,
+  setDocumentStatus,
+} from "@/lib/documents-db";
+import { ATTACHABLE, DOC_STATUSES, FILE_KINDS, PAYEES } from "@/lib/documents";
+import { MAX_FILE_BYTES, exists, removeFile, signedDownload, signedUpload } from "@/lib/storage";
+
+type Result<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
+
+/** Rule errors are shown as written; anything else is logged and reported generically. */
+function fail(e: unknown): { ok: false; error: string } {
+  if (e instanceof DocumentRuleError) return { ok: false, error: e.message };
+  console.error(e);
+  return { ok: false, error: "That did not save. Try again, and tell Claude if it keeps happening." };
+}
+
+const ScheduleLine = z.object({ label: z.string().trim().min(1), amount: z.number().positive(), trigger: z.string().trim().min(1) });
+const DealForm = z.object({
+  projectId: z.uuid(),
+  reference: z.string().trim(),
+  scope: z.array(z.string().trim().min(1)),
+  priceTotal: z.number().nonnegative().nullable(),
+  paymentSchedule: z.array(ScheduleLine),
+  carePlan: z
+    .object({
+      monthlyAmount: z.number().nonnegative(),
+      minimumMonths: z.number().int().nonnegative(),
+      noticeDays: z.number().int().nonnegative(),
+      inclusions: z.array(z.string().trim().min(1)),
+      exclusions: z.array(z.string().trim().min(1)),
+    })
+    .nullable(),
+  deadline: z.iso.date().nullable(),
+  goals: z.string().nullable(),
+  notes: z.string().nullable(),
+  payeeDefault: z.enum(PAYEES).nullable(),
+});
+
+export async function saveDealAction(input: z.input<typeof DealForm>): Promise<Result> {
+  const admin = await requireAdmin();
+  const parsed = DealForm.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form" };
+  try {
+    await saveDeal(parsed.data, admin.email);
+    revalidatePath("/", "layout");
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function finaliseDocumentAction(id: string): Promise<Result<{ version: number }>> {
+  const admin = await requireAdmin();
+  if (!z.uuid().safeParse(id).success) return { ok: false, error: "Unknown document" };
+  try {
+    const v = await finaliseDocument(id, admin.email);
+    revalidatePath("/", "layout");
+    return { ok: true, data: { version: v.version } };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function setDocumentStatusAction(id: string, status: string): Promise<Result> {
+  const admin = await requireAdmin();
+  const s = z.enum(DOC_STATUSES).safeParse(status);
+  if (!z.uuid().safeParse(id).success || !s.success) return { ok: false, error: "Unknown document or status" };
+  try {
+    await setDocumentStatus(id, s.data, admin.email);
+    revalidatePath("/", "layout");
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+const UploadStart = z.object({
+  entityType: z.enum(ATTACHABLE),
+  entityId: z.uuid(),
+  size: z.number().int().positive().max(MAX_FILE_BYTES, "Files can be up to 25 MB"),
+});
+
+/** Step 1 of an upload: a one-time signed URL. The key is ids only, never the filename. */
+export async function startUploadAction(input: z.input<typeof UploadStart>): Promise<Result<{ path: string; token: string }>> {
+  await requireAdmin();
+  const parsed = UploadStart.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the file" };
+  try {
+    const { entityType, entityId } = parsed.data;
+    return { ok: true, data: await signedUpload(`${entityType}/${entityId}/${randomUUID()}`) };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+const UploadDone = z.object({
+  entityType: z.enum(ATTACHABLE),
+  entityId: z.uuid(),
+  path: z.string().regex(/^(client|project|invoice|document)\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/),
+  filename: z.string().trim().min(1).max(200),
+  contentType: z.string().min(1).max(120),
+  size: z.number().int().positive().max(MAX_FILE_BYTES),
+  kind: z.enum(FILE_KINDS),
+});
+
+/** Step 2: record the file once it is really in Storage. */
+export async function finishUploadAction(input: z.input<typeof UploadDone>): Promise<Result> {
+  const admin = await requireAdmin();
+  const parsed = UploadDone.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the file" };
+  const a = parsed.data;
+  if (!a.path.startsWith(`${a.entityType}/${a.entityId}/`)) return { ok: false, error: "That upload belongs to another record" };
+  try {
+    if (!(await exists(a.path))) return { ok: false, error: "The upload did not finish. Try again." };
+    await addAttachment(
+      { entityType: a.entityType, entityId: a.entityId, storagePath: a.path, filename: a.filename, contentType: a.contentType, size: a.size, kind: a.kind },
+      admin.email,
+    );
+    revalidatePath("/", "layout");
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function fileUrlAction(id: string): Promise<Result<{ url: string }>> {
+  await requireAdmin();
+  if (!z.uuid().safeParse(id).success) return { ok: false, error: "Unknown file" };
+  try {
+    const att = await getAttachment(id);
+    if (!att) return { ok: false, error: "That file no longer exists" };
+    return { ok: true, data: { url: await signedDownload(att.storagePath, att.filename) } };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function deleteFileAction(id: string): Promise<Result> {
+  const admin = await requireAdmin();
+  if (!z.uuid().safeParse(id).success) return { ok: false, error: "Unknown file" };
+  try {
+    const path = await deleteAttachment(id, admin.email);
+    // The record goes first: a file left behind in Storage is harmless; a record pointing at nothing is not.
+    if (path) await removeFile(path);
+    revalidatePath("/", "layout");
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return fail(e);
+  }
+}
