@@ -18,7 +18,8 @@
     "test:client-data": "bun scripts/client-data.test.ts",
     "test:doc-templates": "bun scripts/doc-templates.test.ts",
     "test:connector-db": "bun scripts/connector-db.test.ts",
-    "test:oauth": "bun scripts/oauth.test.ts"
+    "test:oauth": "bun scripts/oauth.test.ts",
+    "test:oauth-db": "bun scripts/oauth-db.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.2.0",
