@@ -4,11 +4,14 @@
 // scripts/record-graph.test.ts.
 import type { Client, Project, Invoice, Lead } from "@/lib/db";
 
+const at = (base: string) => (id: string) => `${base}/${encodeURIComponent(id)}`;
+
 export const href = {
-  client: (id: string) => `/admin/clients/${encodeURIComponent(id)}`,
+  client: at("/admin/clients"),
   lead: (id: string) => `/admin/leads#lead-${id}`,
-  project: (id: string) => `/admin/projects#project-${id}`,
-  invoice: (id: string) => `/admin/finance/invoices#invoice-${id}`,
+  project: at("/admin/projects"),
+  invoice: at("/admin/finance/invoices"),
+  document: at("/admin/documents"),
 };
 
 export type Graph = { clients: Client[]; leads: Lead[]; projects: Project[]; invoices: Invoice[] };

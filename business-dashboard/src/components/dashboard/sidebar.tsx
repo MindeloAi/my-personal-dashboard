@@ -35,6 +35,7 @@ const NAV: (NavItem | NavGroup)[] = [
     items: [
       { href: "/admin/leads", label: "Leads" },
       { href: "/admin/clients", label: "Clients" },
+      { href: "/admin/documents", label: "Documents" },
     ],
   },
   {
