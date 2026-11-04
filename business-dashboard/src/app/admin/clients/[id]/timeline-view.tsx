@@ -8,6 +8,7 @@ import { EntryModal } from "@/components/dashboard/timeline/entry-modal";
 import { HistoryList } from "@/components/dashboard/timeline/history-list";
 import { OwesList } from "@/components/dashboard/timeline/owes-list";
 import type { Client, Project } from "@/lib/db";
+import { href } from "@/lib/record-graph";
 import type { ClientPromise, Lit, TimelineEntry, UnpaidInvoice } from "@/lib/timeline";
 
 type Props = {
@@ -61,7 +62,9 @@ export function TimelineView({ client, projects, entries, promises, invoices, to
             <ul className="mt-2 flex flex-wrap gap-2">
               {projects.map((p) => (
                 <li key={p.id} className="text-xs px-2 py-1 rounded-[4px] border border-[#DCE1E8] text-[#334155]">
-                  {p.Name}
+                  <Link href={href.project(p.id)} className="font-medium text-[#1D4ED8] hover:underline">
+                    {p.Name}
+                  </Link>
                   {p.Status ? <span className="text-[#5A6678]"> · {p.Status}</span> : null}
                 </li>
               ))}
