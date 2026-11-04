@@ -21,7 +21,7 @@ export type PdfData = {
   projectName: string | null;
   sections: Section[];
   deal: { priceTotal: number | null; currency: string; paymentSchedule: ScheduleLine[]; carePlan: CarePlan | null } | null;
-  invoice: { number: string | null; issueDate: string | null; dueDate: string | null; amount: number } | null;
+  invoice: { number: string | null; issueDate: string | null; dueDate: string | null; amount: number | null } | null;
   bank: { accountName: string; bankName: string; branch: string | null; accountNumber: string; accountType: string | null } | null;
 };
 
@@ -35,9 +35,13 @@ Font.register({
     { src: path.join(ASSETS, "IBMPlexSans-Bold.ttf"), fontWeight: 700 },
   ],
 });
-Font.registerHyphenationCallback((word) => [word]);
+// Words are never hyphenated, but a long unbroken one (a URL) is cut into
+// pieces so it wraps instead of running into the amount column.
+Font.registerHyphenationCallback((word) => (word.length > 35 ? word.match(/.{1,30}/g) ?? [word] : [word]));
 // Passed as bytes: react-pdf reads a Windows path like C:\... as a URL and tries to fetch it.
-const LOGO = { data: readFileSync(path.join(ASSETS, "mindelo-logo-ink.png")), format: "png" as const };
+// Read on first render, so a missing asset cannot break loading every module that imports this one.
+let logo: { data: Buffer; format: "png" } | null = null;
+const getLogo = () => (logo ??= { data: readFileSync(path.join(ASSETS, "mindelo-logo-ink.png")), format: "png" });
 
 const NAVY = "#0E1A2B";
 const MUTED = "#5A6678";
@@ -123,12 +127,14 @@ function Pdf({ d }: { d: PdfData }) {
   const items = d.sections.find((x) => x.key === "items");
   const prose = d.sections.filter((x) => x.key !== "items" && x.body.trim());
   const parsed = items ? parseItems(items.body).items : [];
+  // A quote with its own items and a deal with no schedule would print the same money twice.
+  const showDeal = parsed.length === 0 || (d.deal?.paymentSchedule.length ?? 0) > 0;
   return (
     <Document title={d.title} author="Mindelo" creator="Mindelo">
       <Page size="A4" style={s.page}>
         <View style={s.header}>
           {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop */}
-          <Image style={s.logo} src={LOGO} />
+          <Image style={s.logo} src={getLogo()} />
           <View style={s.meta}>
             <Text style={s.kind}>{DOC_TYPE_LABEL[d.type].toUpperCase()}</Text>
             {d.invoice?.number && <Text>{d.invoice.number}</Text>}
@@ -178,15 +184,19 @@ function Pdf({ d }: { d: PdfData }) {
         ))}
 
         {(d.type === "proposal" || d.type === "quote") && d.deal?.priceTotal != null && (
-          <View wrap={false}>
-            <Text style={s.h}>{parsed.length > 0 ? "Payment schedule" : "Investment"}</Text>
-            <Money
-              rows={d.deal.paymentSchedule.length
-                ? d.deal.paymentSchedule.map((l) => ({ a: l.label, b: l.trigger, amount: l.amount }))
-                : [{ a: "Total", amount: d.deal.priceTotal }]}
-              total={d.deal.paymentSchedule.length ? d.deal.priceTotal : null}
-              currency={currency}
-            />
+          <View>
+            {showDeal && (
+              <>
+                <Text style={s.h} minPresenceAhead={80}>{parsed.length > 0 ? "Payment schedule" : "Investment"}</Text>
+                <Money
+                  rows={d.deal.paymentSchedule.length
+                    ? d.deal.paymentSchedule.map((l) => ({ a: l.label, b: l.trigger, amount: l.amount }))
+                    : [{ a: "Total", amount: d.deal.priceTotal }]}
+                  total={d.deal.paymentSchedule.length ? d.deal.priceTotal : null}
+                  currency={currency}
+                />
+              </>
+            )}
             {d.deal.carePlan && <Text style={[s.p, { marginTop: 8 }]}>{carePlanLine(d.deal.carePlan, currency)}</Text>}
           </View>
         )}

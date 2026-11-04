@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdmin } from "@/lib/auth";
+import { getSql } from "@/lib/db";
 import { ensurePdf, loadPdfData } from "@/lib/pdf/store";
 import { renderDocumentPdf } from "@/lib/pdf/document-pdf";
 import { signedDownload } from "@/lib/storage";
@@ -18,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!z.uuid().safeParse(id).success) return new NextResponse("Not found", { status: 404 });
   const raw = new URL(request.url).searchParams.get("version");
   const version = raw === null ? 0 : Number(raw);
-  if (!Number.isInteger(version) || version < 0) return new NextResponse("Bad version", { status: 400 });
+  if (!Number.isInteger(version) || version < 0 || version > 2147483647) return new NextResponse("Bad version", { status: 400 });
 
   try {
     if (version === 0) {
@@ -28,10 +29,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${slug(data.title)}-draft.pdf"`, "Cache-Control": "no-store" },
       });
     }
-    const data = await loadPdfData(id, version);
-    if (!data) return new NextResponse("Not found", { status: 404 });
-    const path = await ensurePdf(id, version);
-    return NextResponse.redirect(await signedDownload(path, `${slug(data.title)}-v${version}.pdf`), 302);
+    const [v] = await getSql()`select title, pdf_path from document_versions where document_id = ${id} and version = ${version}`;
+    if (!v) return new NextResponse("Not found", { status: 404 });
+    const path = v.pdf_path ?? (await ensurePdf(id, version));
+    return NextResponse.redirect(await signedDownload(path, `${slug(v.title)}-v${version}.pdf`), 302);
   } catch (e) {
     console.error("[documents/pdf]", e);
     return new NextResponse("The PDF could not be made. Try again.", { status: 500 });

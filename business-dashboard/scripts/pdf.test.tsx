@@ -49,6 +49,27 @@ const docs: Record<string, PdfData> = {
     bank: { accountName: "Example Name", bankName: "Example Bank", branch: "Port of Spain", accountNumber: "123456", accountType: "Chequing" },
   },
   draft: { ...base, version: 0 },
+  // A long unbroken URL in an item, a schedule label and prose must wrap, not run into the amounts.
+  overflow: { ...base, type: "quote", title: "Quote with long links", sections: [
+    { key: "items", heading: "Items", body: `Hosting at https://example.com/a/very/long/path/that/never/breaks/for/anything/at/all/and/then/keeps/going/further | 1,200\nSetup | 300` },
+    { key: "notes", heading: "Notes", body: "See https://example.com/another/very/long/link/with/no/spaces/anywhere/in/it/at/all for details." },
+  ], deal: { ...base.deal!, paymentSchedule: [
+    { label: "Deposit per https://example.com/terms/payment/schedule/version/two/final", amount: 3250, trigger: "On acceptance" },
+    { label: "Balance", amount: 3250, trigger: "On handover" },
+  ] } },
+  // 30 payment lines: the schedule breaks across pages with its heading kept on its rows.
+  longSchedule: { ...base, title: "Retainer for Island Bites", deal: { ...base.deal!, priceTotal: 30000, paymentSchedule:
+    Array.from({ length: 30 }, (_, i) => ({ label: `Month ${i + 1}`, amount: 1000, trigger: `Start of month ${i + 1}` })) } },
+  // Own items and a deal with no schedule: no second money table, the care plan line stays.
+  quoteNoSchedule: { ...base, type: "quote", title: "Quote without schedule", sections: [
+    { key: "items", heading: "Items", body: "Website build | 5,000\nOrdering | 1,500" },
+  ], deal: { ...base.deal!, paymentSchedule: [] } },
+  // An invoice with no amount yet (a preview) shows the items sum.
+  invoiceNoAmount: {
+    ...base, type: "invoice", title: "Invoice preview", deal: null, version: 0,
+    sections: [{ key: "items", heading: "Items", body: "Design | 1,000\nBuild | 2,000" }],
+    invoice: { number: null, issueDate: null, dueDate: null, amount: null }, bank: null,
+  },
 };
 
 for (const [name, data] of Object.entries(docs)) {

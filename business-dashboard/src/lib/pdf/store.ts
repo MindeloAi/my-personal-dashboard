@@ -10,6 +10,9 @@ import type { Section } from "../documents";
 import { uploadBytes } from "../storage";
 import { renderDocumentPdf, type PdfData } from "./document-pdf";
 
+// Dates on a PDF are the day in Trinidad, as in activity-list.tsx.
+const trinidadDay = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Port_of_Spain" }).format(d);
+
 /** `version` 0 = the current draft. Null when the document or version does not exist. */
 export async function loadPdfData(documentId: string, version: number): Promise<PdfData | null> {
   const sql = getSql();
@@ -27,13 +30,13 @@ export async function loadPdfData(documentId: string, version: number): Promise<
   if (!doc) return null;
   let title = doc.title as string;
   let sections = doc.draft as Section[];
-  let date = new Date().toISOString().slice(0, 10);
+  let date = trinidadDay(new Date());
   if (version > 0) {
     const [v] = await sql`select * from document_versions where document_id = ${documentId} and version = ${version}`;
     if (!v) return null;
     title = v.title;
     sections = v.sections;
-    date = new Date(v.finalised_at).toISOString().slice(0, 10);
+    date = trinidadDay(new Date(v.finalised_at));
   }
   const bank = doc.type === "invoice" && doc.payee ? await getPayeeAccount(doc.payee) : null;
   const day = (x: unknown) => (x ? String(x instanceof Date ? x.toISOString() : x).slice(0, 10) : null);
@@ -55,7 +58,7 @@ export async function loadPdfData(documentId: string, version: number): Promise<
         }
       : null,
     invoice: doc.invoice_id
-      ? { number: doc.invoice_number, issueDate: day(doc.issue_date), dueDate: day(doc.due_date), amount: Number(doc.amount ?? 0) }
+      ? { number: doc.invoice_number, issueDate: day(doc.issue_date), dueDate: day(doc.due_date), amount: doc.amount == null ? null : Number(doc.amount) }
       : null,
     bank: bank && { accountName: bank.accountName, bankName: bank.bankName, branch: bank.branch, accountNumber: bank.accountNumber, accountType: bank.accountType },
   };
@@ -70,12 +73,8 @@ export async function ensurePdf(documentId: string, version: number): Promise<st
   const data = await loadPdfData(documentId, version);
   if (!data) throw new Error(`Document ${documentId} has no version ${version}`);
   const path = `document/${documentId}/v${version}.pdf`;
-  try {
-    await uploadBytes(path, await renderDocumentPdf(data), "application/pdf");
-  } catch (e) {
-    // A previous attempt stored the file but failed before recording it. Same frozen version, so keep that file.
-    if (!/already exists/i.test(String((e as Error).message))) throw e;
-  }
+  // false = a previous attempt stored the file but failed before recording it. Same frozen version, so keep that file.
+  await uploadBytes(path, await renderDocumentPdf(data), "application/pdf");
   await setVersionPdf(documentId, version, path);
   return path;
 }
