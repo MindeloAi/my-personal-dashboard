@@ -4,6 +4,7 @@ import { getClients, getProjects } from "@/lib/db";
 import { listDocuments } from "@/lib/documents-db";
 import { DOC_STATUSES, DOC_STATUS_LABEL, DOC_TYPES, DOC_TYPE_LABEL, type DocStatus, type DocType } from "@/lib/documents";
 import { PageHeader, Explain } from "@/components/dashboard/explain";
+import { href } from "@/lib/record-graph";
 import { DocumentsTable } from "@/components/dashboard/documents-table";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
         <Link className={chip(!status)} href={qs({ status: undefined })}>Any status</Link>
         {DOC_STATUSES.map((s) => <Link key={s} className={chip(status === s)} href={qs({ status: s })}>{DOC_STATUS_LABEL[s]}</Link>)}
       </div>
-      {clientId && <p className="text-xs text-[#4A5568]">Showing {names[clientId] ?? "one client"} only. <Link className="font-medium text-[#1D4ED8] hover:underline" href={qs({ client: undefined })}>Show all clients</Link></p>}
+      {clientId && <p className="text-xs text-[#4A5568]">Showing {names[clientId] ? <Link className="font-medium text-[#1D4ED8] hover:underline" href={href.client(clientId)}>{names[clientId]}</Link> : "one client"} only. <Link className="font-medium text-[#1D4ED8] hover:underline" href={qs({ client: undefined })}>Show all clients</Link></p>}
       <DocumentsTable docs={docs} names={names} />
     </div>
   );

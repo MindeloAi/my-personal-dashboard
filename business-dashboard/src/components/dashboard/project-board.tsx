@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useOptimistic, useState, useSyncExternalStore, useTransition } from "react";
+import { useMemo, useOptimistic, useState, useSyncExternalStore, useTransition } from "react";
 import { serviceTypeOptions } from "@/lib/service-types";
 import { createPortal } from "react-dom";
 import {
@@ -27,7 +27,8 @@ import { OwnerSelect } from "@/components/dashboard/owner-select";
 import { ownerPatch, ownerValue } from "@/lib/project-owner";
 import { Explain } from "./explain";
 import { LinkedRecords } from "./linked-records";
-import type { Graph } from "@/lib/record-graph";
+import { href, type Graph } from "@/lib/record-graph";
+import Link from "next/link";
 
 function TrashIcon({ className }: { className?: string }) {
   return (
@@ -136,7 +137,16 @@ function ProjectCard({
       } ${onClick ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <p className="text-sm font-medium text-[#1B2533] leading-tight flex-1">{project.Name}</p>
+        <p className="text-sm font-medium text-[#1B2533] leading-tight flex-1">
+          <Link
+            href={href.project(project.id)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="font-medium text-[#1D4ED8] hover:underline"
+          >
+            {project.Name}
+          </Link>
+        </p>
         <div className="flex items-center gap-1 shrink-0">
           {onDelete && (
             <button
@@ -587,18 +597,6 @@ export function ProjectBoard({ projects, clients = [], leads = [], invoices = []
   const [activeId, setActiveId] = useState<string | null>(null);
   const [detailProject, setDetailProject] = useState<Project | null>(null);
   const graph = { clients, leads, projects, invoices };
-  // A link to /admin/projects#project-<id> opens that project (after load, so
-  // the server and browser render the same HTML first).
-  useEffect(() => {
-    const open = () => {
-      const id = window.location.hash.startsWith("#project-") ? window.location.hash.slice(9) : null;
-      const p = id ? projects.find((x) => x.id === id) : undefined;
-      if (p) setDetailProject(p);
-    };
-    open();
-    window.addEventListener("hashchange", open);
-    return () => window.removeEventListener("hashchange", open);
-  }, [projects]);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("All");
   const [clientFilter, setClientFilter] = useState<string | null>(initialClientId);
   const [, startTransition] = useTransition();

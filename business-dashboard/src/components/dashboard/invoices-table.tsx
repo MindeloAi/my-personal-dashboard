@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useEffect, useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
+import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { deletePaymentAction } from "@/app/actions";
@@ -11,6 +12,7 @@ import { HOLDER_LABEL, tt, type Holder } from "@/lib/ledger";
 import type { Client, Invoice, Lead, Ledger, Payment, Project, Subscription } from "@/lib/airtable";
 import { Explain } from "./explain";
 import { LinkedRecords } from "./linked-records";
+import { href } from "@/lib/record-graph";
 
 export type InvoiceStatusFilter = "All" | "Sent" | "Overdue" | "Paid" | "Draft";
 
@@ -141,15 +143,6 @@ export function InvoicesTable({
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const graph = { clients, leads, projects: projects ?? [], invoices };
-  // A link to /admin/finance/invoices#invoice-<id> opens that invoice's details.
-  useEffect(() => {
-    const open = () => {
-      if (window.location.hash.startsWith("#invoice-")) setExpandedId(window.location.hash.slice(9));
-    };
-    open();
-    window.addEventListener("hashchange", open);
-    return () => window.removeEventListener("hashchange", open);
-  }, []);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
 
@@ -185,7 +178,7 @@ export function InvoicesTable({
           <p className="text-xs text-[#5A6678] uppercase tracking-wider">Invoices</p>
           {clientFilter && clientName && (
             <span className="text-[10px] px-2 py-0.5 rounded-[4px] bg-[#1D4ED8]/10 text-[#1D4ED8] border border-[#1D4ED8]/20 font-medium flex items-center gap-1.5">
-              {clientName}
+              <Link href={href.client(clientFilter)} className="hover:underline">{clientName}</Link>
               <button
                 onClick={onClearClientFilter}
                 className="hover:text-[#0E1A2B] transition-colors"
@@ -250,7 +243,9 @@ export function InvoicesTable({
                       className="scroll-mt-24 hover:bg-[#F7F8FA] target:bg-[#EFF4FF] transition-colors cursor-pointer"
                     >
                       <td className="py-3 font-mono text-[#334155] text-xs font-semibold whitespace-nowrap">
-                        {inv["Invoice Number"] ?? "—"}
+                        <Link href={href.invoice(inv.id)} onClick={(e) => e.stopPropagation()} className="font-medium text-[#1D4ED8] hover:underline">
+                          {inv["Invoice Number"] ?? "—"}
+                        </Link>
                         {/* Phones drop the Type column; keep the type under the number. */}
                         <span className="sm:hidden block mt-0.5 font-sans font-normal text-[#5A6678]">
                           {TYPE_LABELS[inv["Invoice Type"] ?? ""] ?? inv["Invoice Type"] ?? "—"}

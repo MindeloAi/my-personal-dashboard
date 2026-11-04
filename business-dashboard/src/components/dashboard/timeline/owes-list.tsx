@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { closePromiseAction, deletePromiseAction, reopenPromiseAction } from "@/app/actions";
 import { PANEL } from "@/components/dashboard/clients-list";
 import { tt } from "@/lib/ledger";
+import { href } from "@/lib/record-graph";
 import {
   dueState,
   formatDay,
@@ -192,12 +193,12 @@ export function OwesList({ side, title, promises, invoices, today, lit, onLight,
                 </span>
               </button>
               <Link
-                href={`/admin/finance/invoices?client=${clientId}`}
+                href={href.invoice(inv.id)}
                 onClick={stop}
-                aria-label={`Open in Finance: invoice ${inv.number}`}
+                aria-label={`Open invoice ${inv.number}`}
                 className="text-xs text-sky-400 hover:underline self-center py-2"
               >
-                Open in Finance
+                Open invoice
               </Link>
             </div>
           );

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { href } from "@/lib/record-graph";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ModalShell } from "@/components/ui/modal-shell";
@@ -94,7 +95,7 @@ export function ClientsList({ clients, invoices, projects, timelineCounts }: Pro
               <li key={client.id} className="py-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <Link
-                    href={`/admin/clients/${encodeURIComponent(client.id)}`}
+                    href={href.client(client.id)}
                     className="flex-1 text-left min-w-0 rounded-[4px] px-1 -mx-1 hover:bg-[#0E1A2B]/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1D4ED8]"
                   >
                     <p className="font-medium text-[#1B2533] leading-tight truncate">
