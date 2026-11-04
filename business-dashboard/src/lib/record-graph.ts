@@ -12,6 +12,7 @@ export const href = {
   project: at("/admin/projects"),
   invoice: at("/admin/finance/invoices"),
   document: at("/admin/documents"),
+  expense: at("/admin/finance/expenses"),
 };
 
 export type Graph = { clients: Client[]; leads: Lead[]; projects: Project[]; invoices: Invoice[] };

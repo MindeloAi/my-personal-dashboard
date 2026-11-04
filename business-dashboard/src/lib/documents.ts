@@ -31,7 +31,7 @@ export const PAYEES = ["michael", "zane", "company"] as const;
 export type Payee = (typeof PAYEES)[number];
 export const PAYEE_LABEL: Record<Payee, string> = { michael: "Michael", zane: "Zane", company: "Company account" };
 
-export const ATTACHABLE = ["client", "project", "invoice", "document"] as const;
+export const ATTACHABLE = ["client", "project", "invoice", "document", "expense"] as const;
 export type Attachable = (typeof ATTACHABLE)[number];
 
 export const FILE_KINDS = ["signed_copy", "proof_of_payment", "asset", "other"] as const;

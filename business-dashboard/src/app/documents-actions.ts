@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth";
 import {
   DocumentRuleError,
   addAttachment,
+  attachableExists,
   createReceiptForPayment,
   deleteAttachment,
   finaliseDocument,
@@ -130,6 +131,7 @@ export async function startUploadAction(input: z.input<typeof UploadStart>): Pro
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the file" };
   try {
     const { entityType, entityId } = parsed.data;
+    if (!(await attachableExists(entityType, entityId))) return { ok: false, error: "That expense no longer exists" };
     return { ok: true, data: await signedUpload(`${entityType}/${entityId}/${randomUUID()}`) };
   } catch (e) {
     return fail(e);
@@ -139,7 +141,7 @@ export async function startUploadAction(input: z.input<typeof UploadStart>): Pro
 const UploadDone = z.object({
   entityType: z.enum(ATTACHABLE),
   entityId: z.uuid(),
-  path: z.string().regex(/^(client|project|invoice|document)\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/),
+  path: z.string().regex(/^(client|project|invoice|document|expense)\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/),
   filename: z.string().trim().min(1).max(200),
   contentType: z.string().min(1).max(120),
   size: z.number().int().positive().max(MAX_FILE_BYTES),

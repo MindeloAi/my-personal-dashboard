@@ -68,6 +68,7 @@ async function reset() {
     await tx`delete from payee_accounts`;
     await tx`delete from projects where name like 'TEST %'`;
     await tx`delete from clients where name like 'TEST %'`;
+    await tx`delete from expenses where name like 'TEST %'`;
     await tx`alter table activity enable trigger activity_append_only`;
     await tx`alter table document_versions enable trigger document_versions_frozen`;
   });
@@ -278,6 +279,16 @@ try {
     const paymentsAfter = await sql`select id, invoice_id, amount, paid_at, received_by, method, note from payments order by id`;
     check("no documents-db function wrote a payment", JSON.stringify(paymentsAfter) === JSON.stringify(paymentsBefore));
     await rejects("no receipt for a payment that does not exist", () => createReceiptForPayment("00000000-0000-4000-8000-000000000000", ME), /No recorded payment/);
+  }
+
+  // Receipts on expenses (Task 15)
+  {
+    const [e] = await sql`insert into expenses (name, amount) values ('TEST Hosting', 120) returning id`;
+    const file = (entityId: string) => ({ entityType: "expense" as const, entityId, storagePath: `expense/${entityId}/x`, filename: "slip.jpg", contentType: "image/jpeg", size: 10, kind: "proof_of_payment" as const });
+    await addAttachment(file(String(e.id)), ME);
+    check("a file attaches to an expense", (await listAttachments("expense", [String(e.id)])).length === 1);
+    check("attaching is logged on the expense", (await getEntityActivity("expense", String(e.id))).some((a) => a.action === "attached"));
+    await rejects("a file cannot attach to a made-up expense", () => addAttachment(file("00000000-0000-4000-8000-000000000000"), ME), /no longer exists/);
   }
 
   check("DocumentRuleError is exported", typeof DocumentRuleError === "function");

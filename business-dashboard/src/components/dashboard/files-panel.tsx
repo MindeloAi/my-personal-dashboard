@@ -16,8 +16,11 @@ const browserStorage = () =>
 const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
 /** Files attached to one record: open, add (including from a phone camera), remove. */
-export function FilesPanel({ entityType, entityId, files, defaultKind = "other" }: {
-  entityType: Attachable; entityId: string; files: Attachment[]; defaultKind?: FileKind;
+export function FilesPanel({
+  entityType, entityId, files, defaultKind = "other", title = "Files",
+  note = "Signed copies, proof of payment and anything else for this record. Private to admins.",
+}: {
+  entityType: Attachable; entityId: string; files: Attachment[]; defaultKind?: FileKind; title?: string; note?: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<FileKind>(defaultKind);
@@ -62,8 +65,8 @@ export function FilesPanel({ entityType, entityId, files, defaultKind = "other" 
     <section className="border border-[#DCE1E8] bg-white p-4 sm:p-5">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-[15px] font-semibold text-[#1B2533]">Files</h2>
-          <p className="mt-0.5 text-xs text-[#4A5568]">Signed copies, proof of payment and anything else for this record. Private to admins.</p>
+          <h2 className="text-[15px] font-semibold text-[#1B2533]">{title}</h2>
+          <p className="mt-0.5 text-xs text-[#4A5568]">{note}</p>
         </div>
         <div className="flex gap-2">
           <select aria-label="Kind of file" value={kind} onChange={(e) => setKind(e.target.value as FileKind)}

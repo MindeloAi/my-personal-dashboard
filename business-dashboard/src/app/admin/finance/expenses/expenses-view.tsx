@@ -6,7 +6,7 @@ import { ExpensesList } from "@/components/dashboard/expenses-list";
 import type { Expense, Ledger } from "@/lib/db";
 
 /** Clicking a category in the breakdown filters the list beside it. */
-export function ExpensesView({ expenses, cutover }: { expenses: Expense[]; cutover: Ledger["cutover"] }) {
+export function ExpensesView({ expenses, cutover, withFiles }: { expenses: Expense[]; cutover: Ledger["cutover"]; withFiles: string[] }) {
   const [category, setCategory] = useState<string | null>(null);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -15,6 +15,7 @@ export function ExpensesView({ expenses, cutover }: { expenses: Expense[]; cutov
         <ExpensesList
           expenses={expenses}
           cutover={cutover}
+          withFiles={withFiles}
           categoryFilter={category}
           onClearCategoryFilter={() => setCategory(null)}
         />

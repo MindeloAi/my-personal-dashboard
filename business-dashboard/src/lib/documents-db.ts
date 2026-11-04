@@ -478,6 +478,13 @@ export async function getAttachment(id: string): Promise<Attachment | null> {
   return row ? toAttachment(row) : null;
 }
 
+/** Expenses are not checked by a foreign key (attachments point at many tables), so check here. */
+export async function attachableExists(entityType: Attachable, entityId: string, tx: Db = getSql()): Promise<boolean> {
+  if (entityType !== "expense") return true;
+  const [row] = await tx`select 1 from expenses where id = ${entityId}`;
+  return !!row;
+}
+
 /**
  * Record a file already uploaded to Storage. A signed copy attached to a
  * finalised, sent or accepted document marks that document signed.
@@ -489,6 +496,7 @@ export async function addAttachment(
 ): Promise<Attachment> {
   const sql = getSql();
   return sql.begin(async (tx) => {
+    if (!(await attachableExists(a.entityType, a.entityId, tx))) throw new DocumentRuleError("That expense no longer exists");
     const [row] = await tx`
       insert into attachments (entity_type, entity_id, storage_path, filename, content_type, size, kind, uploaded_by)
       values (${a.entityType}, ${a.entityId}, ${a.storagePath}, ${a.filename}, ${a.contentType}, ${a.size}, ${a.kind}, ${actor})

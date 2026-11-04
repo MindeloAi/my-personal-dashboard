@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useOptimistic, useState, useTransition } from "react";
+import { Paperclip } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -13,11 +15,14 @@ import { ModalShell } from "@/components/ui/modal-shell";
 import type { Expense } from "@/lib/airtable";
 import { FOUNDER_LABEL, HOLDERS, HOLDER_LABEL, PAID_WITH, paidWithFields, paidWithValue, tt } from "@/lib/ledger";
 import { today } from "@/lib/subscriptions";
+import { href } from "@/lib/record-graph";
 import { Explain } from "./explain";
 
 type Props = {
   expenses: Expense[];
   cutover: string;
+  /** Ids of expenses with at least one file attached. */
+  withFiles?: string[];
   categoryFilter?: string | null;
   onClearCategoryFilter?: () => void;
 };
@@ -247,7 +252,8 @@ function EditModal({ expense, cutover, onClose }: { expense: Expense; cutover: s
   );
 }
 
-export function ExpensesList({ expenses, cutover, categoryFilter, onClearCategoryFilter }: Props) {
+export function ExpensesList({ expenses, cutover, withFiles = [], categoryFilter, onClearCategoryFilter }: Props) {
+  const hasFile = new Set(withFiles);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [reimbursing, setReimbursing] = useState<Expense | null>(null);
   const [, startTransition] = useTransition();
@@ -347,7 +353,8 @@ export function ExpensesList({ expenses, cutover, categoryFilter, onClearCategor
                 return (
                   <tr key={exp.id} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="py-3 text-[#334155] text-xs font-medium">
-                      <span>{exp.Name}</span>
+                      <Link href={href.expense(exp.id)} className="hover:text-[#1D4ED8] hover:underline">{exp.Name}</Link>
+                      {hasFile.has(exp.id) && <Paperclip className="ml-1.5 inline h-3 w-3 text-[#5A6678]" aria-label="Has a receipt" role="img" />}
                       {exp.Recurring && <span className="ml-2 text-[10px] text-[#6B7789]">↻</span>}
                       {exp.Notes && <span className="ml-2 text-[10px] text-[#6B7789] italic">{exp.Notes}</span>}
                       {/* Phones drop the Category column; keep the pill under the name. */}
