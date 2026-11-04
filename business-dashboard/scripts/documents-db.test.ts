@@ -149,6 +149,17 @@ try {
     saveDraftSections(doc.id, [{ key: "fees", heading: "Fees", body: "x" }], ME), /signed/);
   await rejects("a signed document cannot be changed in the database", () =>
     sql`update documents set title = 'x' where id = ${doc.id}`, /cannot be changed/);
+  await rejects("a signed document cannot be moved to another project", () =>
+    sql`update documents set project_id = ${second.id} where id = ${doc.id}`, /cannot be changed/);
+  {
+    // Deleting a linked record still works: ON DELETE SET NULL may clear the link.
+    const [p] = await sql`insert into projects (name, client_id) values ('TEST Gone', ${clientId}) returning id`;
+    const [d] = await sql`insert into documents (type, title, project_id, status, created_by, updated_by)
+                          values ('sop', 'TEST signed', ${p.id}, 'signed', ${ME}, ${ME}) returning id`;
+    await sql`delete from projects where id = ${p.id}`;
+    const [after] = await sql`select project_id from documents where id = ${d.id}`;
+    check("deleting a project clears a signed document's link instead of failing", after.project_id === null);
+  }
   check("listAttachments finds it", (await listAttachments("document", [doc.id])).length === 1);
   const removedPath = await deleteAttachment(att.id, ME);
   check("deleteAttachment returns the storage path", removedPath === `document/${doc.id}/a1`);
