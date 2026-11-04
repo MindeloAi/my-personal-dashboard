@@ -46,3 +46,6 @@ next-env.d.ts
 # Airtable migration snapshot — real client emails and full financials.
 # Doubles as the one-time archive of the base; copy it somewhere durable.
 /scripts/.airtable-export/
+
+# PDFs written by scripts/pdf.test.tsx for a visual check
+/tmp-pdf/

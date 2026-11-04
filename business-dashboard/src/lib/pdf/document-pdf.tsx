@@ -1,0 +1,215 @@
+// The A4 layout for every document type. Pure: it takes PdfData and returns
+// PDF bytes, so it is tested without a database (scripts/pdf.test.tsx).
+// Loading the data and storing the file is lib/pdf/store.ts.
+//
+// Brand: dark-ink logo on white, IBM Plex Sans, Corporate Navy. No em dashes.
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { Document, Font, Image, Page, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
+import type { CarePlan, DocType, ScheduleLine, Section } from "../documents";
+import { DOC_TYPE_LABEL } from "../documents";
+import { formatMoney, parseItems } from "../doc-templates";
+
+export type PdfData = {
+  type: DocType;
+  title: string;
+  reference: string | null;
+  /** 0 renders a draft preview. */
+  version: number;
+  date: string;
+  client: { name: string; company: string | null; email: string | null; phone: string | null } | null;
+  projectName: string | null;
+  sections: Section[];
+  deal: { priceTotal: number | null; currency: string; paymentSchedule: ScheduleLine[]; carePlan: CarePlan | null } | null;
+  invoice: { number: string | null; issueDate: string | null; dueDate: string | null; amount: number } | null;
+  bank: { accountName: string; bankName: string; branch: string | null; accountNumber: string; accountType: string | null } | null;
+};
+
+// Next traces these into the function bundle via next.config's outputFileTracingIncludes (Task 6).
+const ASSETS = path.join(process.cwd(), "src/assets/pdf");
+Font.register({
+  family: "Plex",
+  fonts: [
+    { src: path.join(ASSETS, "IBMPlexSans-Regular.ttf"), fontWeight: 400 },
+    { src: path.join(ASSETS, "IBMPlexSans-SemiBold.ttf"), fontWeight: 600 },
+    { src: path.join(ASSETS, "IBMPlexSans-Bold.ttf"), fontWeight: 700 },
+  ],
+});
+Font.registerHyphenationCallback((word) => [word]);
+// Passed as bytes: react-pdf reads a Windows path like C:\... as a URL and tries to fetch it.
+const LOGO = { data: readFileSync(path.join(ASSETS, "mindelo-logo-ink.png")), format: "png" as const };
+
+const NAVY = "#0E1A2B";
+const MUTED = "#5A6678";
+const RULE = "#DCE1E8";
+const GREEN = "#05C29A";
+const ORANGE = "#B23A0A";
+// Line height in points, set per block. A unitless lineHeight is multiplied by the
+// element's own fontSize (18 when it has none), and any lineHeight on the Page
+// pushes the absolute footer off the sheet.
+const LH = "15pt";
+
+const s = StyleSheet.create({
+  page: { fontFamily: "Plex", fontSize: 10, color: NAVY, paddingTop: 40, paddingBottom: 60, paddingHorizontal: 48 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  logo: { width: 120 },
+  meta: { alignItems: "flex-end", lineHeight: LH },
+  kind: { fontSize: 9, fontWeight: 600, letterSpacing: 1.5, color: MUTED },
+  rule: { height: 2, backgroundColor: GREEN, marginTop: 14, marginBottom: 18, width: 40 },
+  parties: { flexDirection: "row", justifyContent: "space-between", marginBottom: 18, lineHeight: LH },
+  label: { fontSize: 8, fontWeight: 600, color: MUTED, letterSpacing: 1, marginBottom: 2 },
+  title: { fontSize: 20, fontWeight: 700, marginBottom: 14 },
+  h: { fontSize: 11, fontWeight: 600, marginTop: 12, marginBottom: 4 },
+  p: { marginBottom: 6, lineHeight: LH },
+  li: { flex: 1, lineHeight: LH },
+  bullet: { flexDirection: "row", marginBottom: 2 },
+  dot: { width: 10 },
+  table: { borderTopWidth: 1, borderColor: RULE, marginTop: 6 },
+  row: { flexDirection: "row", borderBottomWidth: 1, borderColor: RULE, paddingVertical: 5 },
+  cellGrow: { flex: 1, paddingRight: 8, lineHeight: LH },
+  cellMid: { width: 130, color: MUTED },
+  cellAmt: { width: 90, textAlign: "right" },
+  total: { flexDirection: "row", paddingVertical: 6 },
+  bold: { fontWeight: 700 },
+  bank: { marginTop: 14, padding: 10, borderWidth: 1, borderColor: RULE, borderRadius: 4, lineHeight: LH },
+  draft: { color: ORANGE, fontWeight: 600 },
+  footer: { position: "absolute", bottom: 28, left: 48, right: 48, flexDirection: "row", justifyContent: "space-between", fontSize: 8, color: MUTED },
+});
+
+function Body({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/\n\s*\n/).map((para, i) => {
+        const lines = para.split("\n");
+        if (lines.every((l) => l.trim().startsWith("- ")))
+          return lines.map((l, j) => (
+            <View key={`${i}-${j}`} style={s.bullet}>
+              <Text style={s.dot}>•</Text>
+              <Text style={s.li}>{l.trim().slice(2)}</Text>
+            </View>
+          ));
+        return <Text key={i} style={s.p}>{para.trim()}</Text>;
+      })}
+    </>
+  );
+}
+
+function Money({ rows, total, currency }: { rows: { a: string; b?: string; amount: number }[]; total: number | null; currency: string }) {
+  return (
+    <View style={s.table}>
+      {rows.map((r, i) => (
+        <View key={i} style={s.row} wrap={false}>
+          <Text style={s.cellGrow}>{r.a}</Text>
+          {r.b !== undefined && <Text style={s.cellMid}>{r.b}</Text>}
+          <Text style={s.cellAmt}>{formatMoney(r.amount, currency)}</Text>
+        </View>
+      ))}
+      {total != null && (
+        <View style={s.total}>
+          <Text style={[s.cellGrow, s.bold]}>Total</Text>
+          <Text style={[s.cellAmt, s.bold]}>{formatMoney(total, currency)}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function carePlanLine(c: CarePlan, currency: string): string {
+  return `Care plan: ${formatMoney(c.monthlyAmount, currency)} a month, for a minimum of ${c.minimumMonths} months, then month to month until either side gives ${c.noticeDays} days' notice.`;
+}
+
+function Pdf({ d }: { d: PdfData }) {
+  const currency = d.deal?.currency ?? "TTD";
+  const items = d.sections.find((x) => x.key === "items");
+  const prose = d.sections.filter((x) => x.key !== "items" && x.body.trim());
+  const parsed = items ? parseItems(items.body).items : [];
+  return (
+    <Document title={d.title} author="Mindelo" creator="Mindelo">
+      <Page size="A4" style={s.page}>
+        <View style={s.header}>
+          <Image style={s.logo} src={LOGO} />
+          <View style={s.meta}>
+            <Text style={s.kind}>{DOC_TYPE_LABEL[d.type].toUpperCase()}</Text>
+            {d.invoice?.number && <Text>{d.invoice.number}</Text>}
+            {d.reference && <Text>{d.reference}</Text>}
+            <Text>{d.date}</Text>
+            {d.version === 0 ? <Text style={s.draft}>DRAFT, not for sending</Text> : <Text style={{ color: MUTED }}>Version {d.version}</Text>}
+          </View>
+        </View>
+        <View style={s.rule} />
+
+        <View style={s.parties}>
+          <View>
+            <Text style={s.label}>{d.type === "invoice" ? "BILL TO" : "PREPARED FOR"}</Text>
+            {d.client?.company && <Text style={s.bold}>{d.client.company}</Text>}
+            {d.client && <Text>{d.client.name}</Text>}
+            {d.client?.email && <Text>{d.client.email}</Text>}
+            {d.client?.phone && <Text>{d.client.phone}</Text>}
+            {d.projectName && <Text style={{ color: MUTED }}>{d.projectName}</Text>}
+          </View>
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={s.label}>FROM</Text>
+            <Text style={s.bold}>Mindelo</Text>
+            <Text>MINDELOAI LIMITED</Text>
+            {d.invoice?.issueDate && <Text>Issued {d.invoice.issueDate}</Text>}
+            {d.invoice?.dueDate && <Text style={s.bold}>Due {d.invoice.dueDate}</Text>}
+          </View>
+        </View>
+
+        <Text style={s.title}>{d.title}</Text>
+
+        {items && parsed.length > 0 && (
+          <>
+            <Text style={s.h}>{items.heading}</Text>
+            <Money
+              rows={parsed.map((i) => ({ a: i.description, amount: i.amount }))}
+              total={d.invoice?.amount ?? parsed.reduce((t, i) => t + i.amount, 0)}
+              currency={currency}
+            />
+          </>
+        )}
+
+        {prose.map((sec) => (
+          <View key={sec.key}>
+            <Text style={s.h}>{sec.heading}</Text>
+            <Body text={sec.body} />
+          </View>
+        ))}
+
+        {(d.type === "proposal" || d.type === "quote") && d.deal?.priceTotal != null && (
+          <View wrap={false}>
+            <Text style={s.h}>{parsed.length > 0 ? "Payment schedule" : "Investment"}</Text>
+            <Money
+              rows={d.deal.paymentSchedule.length
+                ? d.deal.paymentSchedule.map((l) => ({ a: l.label, b: l.trigger, amount: l.amount }))
+                : [{ a: "Total", amount: d.deal.priceTotal }]}
+              total={d.deal.paymentSchedule.length ? d.deal.priceTotal : null}
+              currency={currency}
+            />
+            {d.deal.carePlan && <Text style={[s.p, { marginTop: 8 }]}>{carePlanLine(d.deal.carePlan, currency)}</Text>}
+          </View>
+        )}
+
+        {d.type === "invoice" && d.bank && (
+          <View style={s.bank} wrap={false}>
+            <Text style={s.label}>PAYMENT DETAILS</Text>
+            <Text>Account name: {d.bank.accountName}</Text>
+            <Text>Bank: {d.bank.bankName}{d.bank.branch ? `, ${d.bank.branch}` : ""}</Text>
+            <Text>Account number: {d.bank.accountNumber}</Text>
+            {d.bank.accountType && <Text>Account type: {d.bank.accountType}</Text>}
+            {d.invoice?.number && <Text style={{ color: MUTED }}>Please use {d.invoice.number} as the payment reference.</Text>}
+          </View>
+        )}
+
+        <View style={s.footer} fixed>
+          <Text>Mindelo is a trading name of MINDELOAI LIMITED</Text>
+          <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+        </View>
+      </Page>
+    </Document>
+  );
+}
+
+export async function renderDocumentPdf(d: PdfData): Promise<Buffer> {
+  return renderToBuffer(<Pdf d={d} />);
+}

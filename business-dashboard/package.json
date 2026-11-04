@@ -19,7 +19,8 @@
     "test:doc-templates": "bun scripts/doc-templates.test.ts",
     "test:connector-db": "bun scripts/connector-db.test.ts",
     "test:oauth": "bun scripts/oauth.test.ts",
-    "test:oauth-db": "bun scripts/oauth-db.test.ts"
+    "test:oauth-db": "bun scripts/oauth-db.test.ts",
+    "test:pdf": "bun scripts/pdf.test.tsx"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.2.0",
