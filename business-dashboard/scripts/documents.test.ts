@@ -36,6 +36,11 @@ assert.match(scheduleProblem(null, [{ label: "P1", amount: 10, trigger: "x" }]) 
 assert.match(scheduleProblem(10, [{ label: "", amount: 10, trigger: "x" }]) ?? "", /label/);
 assert.match(scheduleProblem(10, [{ label: "P1", amount: 0, trigger: "x" }]) ?? "", /more than zero/);
 
+assert.match(scheduleProblem(20, [
+  { label: "Payment 1", amount: 10, trigger: "x" },
+  { label: " payment 1 ", amount: 10, trigger: "y" },
+]) ?? "", /different label/, "labels must differ (trimmed, any case)");
+
 // Status transitions
 assert.equal(canMove("draft", "finalised"), true);
 assert.equal(canMove("draft", "sent"), false, "must be finalised before it is sent");

@@ -360,6 +360,7 @@ async function checkTemplate(tx: Db, doc: Doc): Promise<void> {
     if (p) throw new DocumentRuleError(p);
   }
   if (doc.type !== "invoice") return;
+  if (!items) throw new DocumentRuleError("An invoice needs an Items section");
   if (!doc.invoiceId) throw new DocumentRuleError("This invoice document is not linked to an invoice");
   if (!doc.payee) throw new DocumentRuleError("Choose who is being paid (Michael, Zane or the company account) first");
   const [acct] = await tx`select 1 from payee_accounts where payee = ${doc.payee}`;
@@ -367,11 +368,10 @@ async function checkTemplate(tx: Db, doc: Doc): Promise<void> {
   const [inv] = await tx`select amount, status from invoices where id = ${doc.invoiceId} for update`;
   if (!inv) throw new DocumentRuleError("The linked invoice no longer exists");
   if (inv.status === "Void") throw new DocumentRuleError("The linked invoice is void");
+  if (inv.status == null) throw new DocumentRuleError("Set the invoice's status in Finance first");
   if (inv.amount == null) throw new DocumentRuleError("The linked invoice has no amount");
-  if (items) {
-    const p = itemsProblem(items.body, Number(inv.amount));
-    if (p) throw new DocumentRuleError(p);
-  }
+  const p = itemsProblem(items.body, Number(inv.amount));
+  if (p) throw new DocumentRuleError(p);
 }
 
 /** Freeze the draft as the next version. Refused while any {{missing: …}} remains. */
@@ -572,8 +572,13 @@ export async function createInvoiceFromDeal(
     const line = deal.paymentSchedule[input.line - 1];
     if (!line) throw new DocumentRuleError(`The deal has no payment line ${input.line} (it has ${deal.paymentSchedule.length})`);
     const title = `Invoice: ${line.label}`;
+    // A voided document still holds its line while its invoice is live.
+    // ponytail: matched on the line's label, so renaming a line after invoicing it lets it be
+    // invoiced again; upgrade path is matching on invoices.notes.
     const [dupe] = await tx`
-      select id from documents where deal_id = ${deal.id} and type = 'invoice' and title = ${title} and status <> 'void'`;
+      select d.id from documents d left join invoices i on i.id = d.invoice_id
+       where d.deal_id = ${deal.id} and d.type = 'invoice' and d.title = ${title}
+         and (d.status <> 'void' or (i.status is not null and i.status <> 'Void'))`;
     if (dupe) throw new DocumentRuleError(`${title} already exists (document ${dupe.id})`);
 
     const issued = today();

@@ -80,6 +80,9 @@ export function scheduleProblem(total: number | null, lines: ScheduleLine[]): st
   if (lines.length === 0) return null;
   if (lines.some((l) => !l.label.trim() || !l.trigger.trim())) return "Every payment needs a label and when it falls due";
   if (lines.some((l) => !(l.amount > 0))) return "Every payment must be more than zero";
+  // Invoices from deals are matched to payment lines by label (documents-db createInvoiceFromDeal).
+  const labels = lines.map((l) => l.label.trim().toLowerCase());
+  if (new Set(labels).size !== labels.length) return "Every payment needs a different label";
   if (total == null) return "Set the total price before splitting it into payments";
   const cents = (n: number) => Math.round(n * 100);
   const sum = lines.reduce((s, l) => s + cents(l.amount), 0);

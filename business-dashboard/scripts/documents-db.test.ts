@@ -207,6 +207,30 @@ try {
   check("setVersionPdf records the path once", (await setVersionPdf(inv.document.id, 1, "document/x/v1.pdf")) === true);
   check("a second setVersionPdf is a no-op", (await setVersionPdf(inv.document.id, 1, "document/x/other.pdf")) === false);
 
+  // Review fixes (Task 3b)
+  await saveDraftSections(inv.document.id, [{ key: "notes", heading: "Notes", body: "Thank you." }], ME);
+  await finaliseDocument(inv.document.id, ME);
+  const sentLogs = (await getEntityActivity("invoice", inv.invoiceId)).filter((a) => a.action === "sent").length;
+  check("re-finalising v2 of a Sent invoice does not log a second sent", sentLogs === 1, String(sentLogs));
+  await setDocumentStatus(inv.document.id, "void", ME);
+  await rejects("voiding the document does not free its line while the invoice is live", () =>
+    createInvoiceFromDeal({ projectId, line: 1, payee: "michael", dueDate: null }, ME), /already/);
+  {
+    const loose = async (status: string | null, sections: { key: string; heading: string; body: string }[]) => {
+      const [i] = await sql`insert into invoices (project_id, amount, status) values (${projectId}, 100, ${status}) returning id`;
+      const d = await createDocument({ type: "invoice", title: "TEST loose", clientId: null, projectId: null, dealId: null, invoiceId: String(i.id), payee: "michael", sections }, ME);
+      return d.id;
+    };
+    const items = [{ key: "items", heading: "Items", body: "Thing | 100" }];
+    await rejects("an invoice that is Void is refused", async () => finaliseDocument(await loose("Void", items), ME), /void/);
+    await rejects("an invoice with no status is refused", async () => finaliseDocument(await loose(null, items), ME), /Set the invoice's status in Finance first/);
+    await rejects("an invoice document needs an Items section", async () =>
+      finaliseDocument(await loose("Draft", [{ key: "notes", heading: "Notes", body: "Hi" }]), ME), /needs an Items section/);
+    const q = await createDocument({ type: "quote", title: "TEST quote", clientId: null, projectId: null, dealId: null, invoiceId: null,
+      sections: [{ key: "items", heading: "Items", body: "Hosting |" }] }, ME);
+    await rejects("a quote with a bad item line is refused", () => finaliseDocument(q.id, ME), /description \| amount/);
+  }
+
   // Lists and activity
   check("listDocuments by client", (await listDocuments({ clientId })).length === 4);
   const feed = await getClientActivity(clientId);

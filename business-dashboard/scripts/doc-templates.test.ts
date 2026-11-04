@@ -18,6 +18,9 @@ assert.deepEqual(parseItems("no amount here").bad, ["no amount here"]);
 assert.deepEqual(parseItems(" | 50").bad, ["| 50"]);
 assert.deepEqual(parseItems("Thing | -5").bad, ["Thing | -5"]);
 assert.equal(parseItems("A | x | 10").items[0].description, "A | x");
+assert.deepEqual(parseItems("Hosting |").bad, ["Hosting |"], "no amount is refused, not zero");
+assert.deepEqual(parseItems("Design | 0x10").bad, ["Design | 0x10"], "hex is not money");
+assert.deepEqual(parseItems("Design | 1.234").bad, ["Design | 1.234"]);
 assert.equal(itemsProblem("A | 0.10\nB | 0.20", 0.3), null); // cents, not floats
 assert.match(itemsProblem("A | 100", 150)!, /add up to TT\$100\.00 but the total is TT\$150\.00/);
 assert.match(itemsProblem("", null)!, /at least one item/);

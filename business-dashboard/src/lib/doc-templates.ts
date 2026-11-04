@@ -40,8 +40,9 @@ export function parseItems(body: string): { items: Item[]; bad: string[] } {
     if (!line) continue;
     const bar = line.lastIndexOf("|");
     const description = bar < 0 ? "" : line.slice(0, bar).trim();
-    const amount = bar < 0 ? NaN : Number(line.slice(bar + 1).replace(/TT\$|\$|,|\s/g, ""));
-    if (!description || !Number.isFinite(amount) || amount < 0) bad.push(line);
+    const text = bar < 0 ? "" : line.slice(bar + 1).replace(/TT\$|\$|,|\s/g, "");
+    const amount = /^\d+(\.\d{1,2})?$/.test(text) ? Number(text) : NaN;
+    if (!description || Number.isNaN(amount)) bad.push(line);
     else items.push({ description, amount: Math.round(amount * 100) / 100 });
   }
   return { items, bad };
