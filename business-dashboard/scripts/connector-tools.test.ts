@@ -138,8 +138,15 @@ try {
   await call("set_status", { documentId: cr1.id, status: "sent" });
   const acc = await call("set_status", { documentId: cr1.id, status: "accepted" });
   check("accepting a change request reports what it added to the deal", acc.status === "accepted" && acc.dealPriceTotal === 7300
-    && acc.dealLastLine?.amount === 4050 && /added TT\$\s?800/.test(acc.dealChange ?? ""), JSON.stringify({ c: acc.dealChange, p: acc.dealPriceTotal, l: acc.dealLastLine }));
-  check("list_documents filters", (await call("list_documents", { clientId: made.clientId, type: "invoice" })).length === 1);
+    && acc.dealLastLine?.amount === 4050 && acc.dealChange?.added === 800 && acc.dealChange?.line === "Payment 2", JSON.stringify({ c: acc.dealChange, p: acc.dealPriceTotal, l: acc.dealLastLine }));
+  await call("create_invoice_from_deal", { projectId: made.projectId, line: 2, payee: "zane" });
+  await call("save_draft", { documentId: cr2.id, sections: [{ key: "items", heading: "Items", body: "Blog | 300" }, { key: "summary", heading: "What", body: "A blog." }, { key: "timeline", heading: "Timeline", body: "One week." }] });
+  await call("finalise_document", { documentId: cr2.id });
+  await call("set_status", { documentId: cr2.id, status: "sent" });
+  const acc2 = await call("set_status", { documentId: cr2.id, status: "accepted" });
+  check("accepting after the final invoice reports the skip", acc2.status === "accepted" && acc2.dealPriceTotal === 7300
+    && acc2.dealChange?.skipped === `${cr2.title} accepted. Not added to the deal: the final invoice already exists. Invoice it separately.`, JSON.stringify(acc2.dealChange));
+  check("list_documents filters", (await call("list_documents", { clientId: made.clientId, type: "invoice" })).length === 2);
 } finally {
   await reset();
   await sql.end();

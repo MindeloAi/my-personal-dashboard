@@ -79,6 +79,8 @@ export type Doc = {
   receiptNumber: string | null;
   /** Care plans only: the retainer it started (migration 026). */
   subscriptionId: string | null;
+  /** Change requests only: what accepting it added to the deal, so it is added once and taken off if voided (migration 026). */
+  appliedToDeal: number | null;
   payee: Payee | null;
   title: string;
   status: DocStatus;
@@ -148,6 +150,7 @@ function toDoc(r: Row): Doc {
     paymentId: str(r.payment_id),
     receiptNumber: r.receipt_number ?? null,
     subscriptionId: str(r.subscription_id),
+    appliedToDeal: num(r.applied_to_deal),
     payee: r.payee ?? null,
     title: r.title,
     status: r.status,
@@ -347,6 +350,8 @@ export async function saveDraftSections(id: string, changes: Section[], actor: s
   const sql = getSql();
   return sql.begin(async (tx) => {
     const doc = await lockDoc(tx, id);
+    if (doc.type === "change_request" && (doc.status === "accepted" || doc.status === "signed"))
+      throw new DocumentRuleError("An accepted change request cannot be edited. Void it and raise a new one.");
     if (doc.status !== "draft" && !canMove(doc.status, "draft"))
       throw new DocumentRuleError(`A ${doc.status} document cannot be edited`);
     const draft = mergeSections(doc.draft, changes);
@@ -369,7 +374,8 @@ async function checkTemplate(tx: Db, doc: Doc): Promise<void> {
     if (p) throw new DocumentRuleError(p);
   }
   if (doc.type === "service_agreement" || doc.type === "care_plan") {
-    const [c] = doc.clientId ? await tx`select address, signatory_name from clients where id = ${doc.clientId}` : [];
+    if (!doc.clientId) throw new DocumentRuleError("Agreements are for clients. Convert the lead to a client first.");
+    const [c] = await tx`select address, signatory_name from clients where id = ${doc.clientId}`;
     if (!c?.address || !c.signatory_name)
       throw new DocumentRuleError("Add the client's address and signatory (client page, Legal details) first");
   }
@@ -452,44 +458,84 @@ async function lineInvoice(tx: Db, dealId: string, label: string): Promise<strin
   return dupe ? String(dupe.id) : null;
 }
 
+/** What a change request did to its deal. */
+export type DealChange = { added: number; line: string } | { skipped: string } | { removed: number; line: string } | null;
+
 /**
  * A change request becoming accepted (or signed, whichever comes first) adds its
- * items to the deal's price and last payment. Throws to roll the status change back.
+ * items to the deal's price and last payment, once: documents.applied_to_deal
+ * records it. If the final invoice already exists the deal is left alone and a
+ * note says so; the status change still goes ahead.
  */
-async function applyAcceptedChange(tx: Db, doc: Doc, actor: string, via: Via): Promise<void> {
-  if (doc.type !== "change_request" || doc.status === "accepted" || doc.status === "signed" || !doc.dealId) return;
+async function applyAcceptedChange(tx: Db, doc: Doc, actor: string, via: Via): Promise<DealChange> {
+  // Accepted then signed is one acceptance: a skipped change is not retried on signing.
+  if (doc.type !== "change_request" || doc.appliedToDeal != null || doc.status === "accepted" || doc.status === "signed" || !doc.dealId) return null;
   const [row] = await tx`select * from deals where id = ${doc.dealId} for update`;
-  if (!row) return;
+  if (!row) return null;
   const deal = toDeal(row);
-  const last = deal.paymentSchedule.at(-1);
-  if (last && (await lineInvoice(tx, deal.id, last.label)))
-    throw new DocumentRuleError("The final invoice already exists. Invoice this change separately.");
   const { items } = parseItems(doc.draft.find((s) => s.key === "items")?.body ?? "");
   const amount = items.reduce((s, i) => s + Math.round(i.amount * 100), 0) / 100;
+  if (amount === 0) return null;
+  const last = deal.paymentSchedule.at(-1);
+  if (last && (await lineInvoice(tx, deal.id, last.label))) {
+    const skipped = `${doc.title} accepted. Not added to the deal: the final invoice already exists. Invoice it separately.`;
+    await logActivity(tx, { entityType: "deal", entityId: deal.id, action: "updated", summary: skipped, actor, via });
+    return { skipped };
+  }
   const next = applyChange(deal.priceTotal, deal.paymentSchedule, amount);
   await tx`
     update deals set price_total = ${next.price}, payment_schedule = ${tx.json(next.schedule)},
            updated_by = ${actor}, updated_via = ${via}, updated = now()
      where id = ${deal.id}`;
+  await tx`update documents set applied_to_deal = ${amount} where id = ${doc.id}`;
+  const line = last ? last.label : "the price";
+  await logActivity(tx, { entityType: "deal", entityId: deal.id, action: "updated", summary: `${doc.title} added ${formatMoney(amount)} to ${line}`, actor, via });
+  return { added: amount, line };
+}
+
+/** Voiding an applied change request takes it off the deal again. Refused once the final invoice includes it. */
+async function reverseAppliedChange(tx: Db, doc: Doc, actor: string, via: Via): Promise<DealChange> {
+  if (doc.type !== "change_request" || doc.appliedToDeal == null || !doc.dealId) return null;
+  const [row] = await tx`select * from deals where id = ${doc.dealId} for update`;
+  if (!row) return null;
+  const deal = toDeal(row);
+  const last = deal.paymentSchedule.at(-1);
+  if (last && (await lineInvoice(tx, deal.id, last.label)))
+    throw new DocumentRuleError("The final invoice already includes this change. Void that invoice first, then void this change request.");
+  const next = applyChange(deal.priceTotal, deal.paymentSchedule, -doc.appliedToDeal);
+  await tx`
+    update deals set price_total = ${next.price}, payment_schedule = ${tx.json(next.schedule)},
+           updated_by = ${actor}, updated_via = ${via}, updated = now()
+     where id = ${deal.id}`;
+  await tx`update documents set applied_to_deal = null where id = ${doc.id}`;
+  const line = last ? last.label : "the price";
   await logActivity(tx, {
-    entityType: "deal", entityId: deal.id, action: "updated",
-    summary: `${doc.title} added ${formatMoney(amount)} to ${last ? last.label : "the price"}`, actor, via,
+    entityType: "deal", entityId: deal.id, action: "updated", summary: `${doc.title} voided. ${formatMoney(doc.appliedToDeal)} taken off ${line}.`, actor, via,
   });
+  return { removed: doc.appliedToDeal, line };
 }
 
 /** Sent, accepted, declined or void. Draft and finalised only happen through editing and finalising; signed only by attaching the signed copy. */
 export async function setDocumentStatus(id: string, to: DocStatus, actor: string, via: Via = "dashboard"): Promise<Doc> {
+  return (await setDocumentStatusWithChange(id, to, actor, via)).doc;
+}
+
+/** setDocumentStatus, also returning what it did to the deal (change requests). */
+export async function setDocumentStatusWithChange(id: string, to: DocStatus, actor: string, via: Via = "dashboard"): Promise<{ doc: Doc; dealChange: DealChange }> {
   if (to === "draft" || to === "finalised") throw new DocumentRuleError("Edit or finalise the document instead");
   if (to === "signed") throw new DocumentRuleError("Attach the signed copy to mark it signed");
   const sql = getSql();
   return sql.begin(async (tx) => {
     const doc = await lockDoc(tx, id);
     if (!canMove(doc.status, to)) throw new DocumentRuleError(`A document cannot go from ${doc.status} to ${to}`);
-    if (to === "accepted") await applyAcceptedChange(tx, doc, actor, via);
+    const dealChange =
+      to === "accepted" ? await applyAcceptedChange(tx, doc, actor, via)
+      : to === "void" ? await reverseAppliedChange(tx, doc, actor, via)
+      : null;
     const [row] = await tx`
       update documents set status = ${to}, updated_by = ${actor}, updated_via = ${via}, updated = now() where id = ${id} returning *`;
     await logActivity(tx, { entityType: "document", entityId: id, action: to, summary: `${doc.title} marked ${to}`, actor, via });
-    return toDoc(row);
+    return { doc: toDoc(row), dealChange };
   });
 }
 
@@ -779,9 +825,19 @@ async function careStartFor(tx: Db, doc: Doc): Promise<CarePlanStart & { clientI
        and i.invoice_type = case when exists (
              select 1 from invoices where project_id = ${projectId} and invoice_type = 'final' and status is distinct from 'Void')
            then 'final' else 'one_off' end`;
-  if (!paid?.paid_on) return no("The project's final payment isn't recorded yet");
+  let paidOn: string | null = paid?.paid_on ?? null;
+  if (!paidOn) {
+    // No paid final invoice (say, deposit and milestone only): every live invoice paid counts as final payment.
+    const [all] = await tx`
+      select count(*)::int as n, bool_and(i.status = 'Paid') as all_paid,
+             (select to_char(max(pay.paid_at), 'YYYY-MM-DD') from payments pay join invoices j on j.id = pay.invoice_id
+               where j.project_id = ${projectId} and j.status is distinct from 'Void') as paid_on
+        from invoices i where i.project_id = ${projectId} and i.status is distinct from 'Void'`;
+    if (all.n > 0 && all.all_paid === true) paidOn = all.paid_on;
+  }
+  if (!paidOn) return no("The project's final payment isn't recorded yet (no paid final invoice, and not every invoice on the project is paid)");
   return {
-    ready: true, amount, finalPaidOn: paid.paid_on, firstInvoice: firstCareInvoice(paid.paid_on), clientName: c.name,
+    ready: true, amount, finalPaidOn: paidOn, firstInvoice: firstCareInvoice(paidOn), clientName: c.name,
     clientId: String(c.id), projectId,
   };
 }

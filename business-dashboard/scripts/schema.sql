@@ -577,3 +577,6 @@ alter table documents add column if not exists subscription_id uuid references s
 alter table documents drop constraint if exists documents_subscription_only_on_care_plans;
 alter table documents add constraint documents_subscription_only_on_care_plans check (type = 'care_plan' or subscription_id is null);
 create unique index if not exists documents_one_retainer_per_care_plan on documents (subscription_id) where subscription_id is not null;
+alter table documents add column if not exists applied_to_deal numeric(12,2);
+alter table documents drop constraint if exists documents_applied_only_on_change_requests;
+alter table documents add constraint documents_applied_only_on_change_requests check (type = 'change_request' or applied_to_deal is null);

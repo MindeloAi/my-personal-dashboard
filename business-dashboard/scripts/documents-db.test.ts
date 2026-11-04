@@ -335,6 +335,8 @@ try {
     // Legal details
     const sa = await createDocument({ type: "service_agreement", title: "TEST SA", clientId: cid, projectId: pid, dealId: null, invoiceId: null, sections: fill("service_agreement") }, ME);
     await rejects("an agreement without legal details is refused", () => finaliseDocument(sa.id, ME), /Legal details/);
+    const leadSa = await createDocument({ type: "service_agreement", title: "TEST SA lead", clientId: null, projectId: null, dealId: null, invoiceId: null, sections: fill("service_agreement") }, ME);
+    await rejects("an agreement with no client is refused", () => finaliseDocument(leadSa.id, ME), /^Agreements are for clients\. Convert the lead to a client first\.$/);
     let det = await saveClientDetails(cid, { address: " 1 Main Street, Port of Spain ", signatoryName: "Kai Lee", signatoryTitle: "Director" }, ME);
     check("legal details saved and trimmed", det.address === "1 Main Street, Port of Spain" && det.signatoryName === "Kai Lee" && det.signatoryTitle === "Director", JSON.stringify(det));
     det = await saveClientDetails(cid, { signatoryTitle: "Owner" }, ME);
@@ -364,17 +366,68 @@ try {
     let d = await getDealByProject(pid);
     check("accepted change adds to the price and the last payment", d?.priceTotal === 5800 && d.paymentSchedule[0].amount === 2500 && d.paymentSchedule[1].amount === 3300, JSON.stringify(d));
     check("the change is logged on the deal", (await getEntityActivity("deal", kdeal.id)).some((a) => a.summary === "KL-2026-01-CR1 added TT$800.00 to Payment 2"));
+    check("the accepted change records what it added", (await getDocument(cr.id))?.appliedToDeal === 800);
+    await rejects("an accepted change request cannot be edited", () => saveDraftSections(cr.id, [{ key: "items", heading: "Items", body: "Gallery | 9000" }], ME),
+      /^An accepted change request cannot be edited\. Void it and raise a new one\.$/);
     await addAttachment({ entityType: "document", entityId: cr.id, storagePath: `document/${cr.id}/s`, filename: "cr.pdf", contentType: "application/pdf", size: 5, kind: "signed_copy" }, ME);
     d = await getDealByProject(pid);
     check("signing an accepted change does not count it twice", (await getDocument(cr.id))?.status === "signed" && d?.priceTotal === 5800 && d.paymentSchedule[1].amount === 3300, JSON.stringify(d));
+    await rejects("a signed change request cannot be edited", () => saveDraftSections(cr.id, [{ key: "items", heading: "Items", body: "Gallery | 9000" }], ME), /cannot be edited/);
 
+    // Voiding an applied change takes it off the deal again.
+    const crv = await createDocument({ type: "change_request", title: "TEST CR void", clientId: cid, projectId: pid, dealId: kdeal.id, invoiceId: null, sections: crSections("Logo | 200") }, ME);
+    await finaliseDocument(crv.id, ME);
+    await setDocumentStatus(crv.id, "sent", ME);
+    await setDocumentStatus(crv.id, "accepted", ME);
+    d = await getDealByProject(pid);
+    check("a second change adds on top", d?.priceTotal === 6000 && d.paymentSchedule[1].amount === 3500, JSON.stringify(d));
+    await setDocumentStatus(crv.id, "void", ME);
+    d = await getDealByProject(pid);
+    check("voiding an applied change reverses the deal", d?.priceTotal === 5800 && d.paymentSchedule[0].amount === 2500 && d.paymentSchedule[1].amount === 3300, JSON.stringify(d));
+    check("voiding clears the marker", (await getDocument(crv.id))?.appliedToDeal === null);
+    check("the reversal is logged on the deal", (await getEntityActivity("deal", kdeal.id)).some((a) => a.summary === "TEST CR void voided. TT$200.00 taken off Payment 2."));
+
+    // An accepted change, then the final invoice is made: voiding the change is refused.
+    const cra = await createDocument({ type: "change_request", title: "TEST CR copy", clientId: cid, projectId: pid, dealId: kdeal.id, invoiceId: null, sections: crSections("Copy | 100") }, ME);
+    await finaliseDocument(cra.id, ME);
+    await setDocumentStatus(cra.id, "sent", ME);
+    await setDocumentStatus(cra.id, "accepted", ME);
     await createInvoiceFromDeal({ projectId: pid, line: 2, payee: "michael", dueDate: null }, ME);
+    await rejects("voiding an applied change after the final invoice exists is refused", () => setDocumentStatus(cra.id, "void", ME),
+      /^The final invoice already includes this change\. Void that invoice first, then void this change request\.$/);
+    d = await getDealByProject(pid);
+    check("the refused void leaves the document and deal alone", (await getDocument(cra.id))?.status === "accepted" && (await getDocument(cra.id))?.appliedToDeal === 100
+      && d?.priceTotal === 5900 && d.paymentSchedule[1].amount === 3400, JSON.stringify(d));
+
+    // Accepting after the final invoice exists: accepted, deal unchanged, a note on the deal.
     const cr2 = await createDocument({ type: "change_request", title: "KL-2026-01-CR2", clientId: cid, projectId: pid, dealId: kdeal.id, invoiceId: null, sections: crSections("Blog | 300") }, ME);
     await finaliseDocument(cr2.id, ME);
     await setDocumentStatus(cr2.id, "sent", ME);
-    await rejects("a change after the final invoice exists is refused", () => setDocumentStatus(cr2.id, "accepted", ME), /The final invoice already exists\. Invoice this change separately\./);
+    await setDocumentStatus(cr2.id, "accepted", ME);
     d = await getDealByProject(pid);
-    check("the refused change leaves the document and deal alone", (await getDocument(cr2.id))?.status === "sent" && d?.priceTotal === 5800, JSON.stringify(d));
+    check("a change after the final invoice is accepted without touching the deal", (await getDocument(cr2.id))?.status === "accepted" && (await getDocument(cr2.id))?.appliedToDeal === null
+      && d?.priceTotal === 5900 && d.paymentSchedule[1].amount === 3400, JSON.stringify(d));
+    check("the skipped change is noted on the deal", (await getEntityActivity("deal", kdeal.id)).some((a) =>
+      a.summary === "KL-2026-01-CR2 accepted. Not added to the deal: the final invoice already exists. Invoice it separately."));
+    const cr3 = await createDocument({ type: "change_request", title: "KL-2026-01-CR3", clientId: cid, projectId: pid, dealId: kdeal.id, invoiceId: null, sections: crSections("Shop | 400") }, ME);
+    await finaliseDocument(cr3.id, ME);
+    await setDocumentStatus(cr3.id, "sent", ME);
+    await addAttachment({ entityType: "document", entityId: cr3.id, storagePath: `document/${cr3.id}/s`, filename: "cr3.pdf", contentType: "application/pdf", size: 5, kind: "signed_copy" }, ME);
+    d = await getDealByProject(pid);
+    check("a signed copy after the final invoice still marks it signed, deal unchanged", (await getDocument(cr3.id))?.status === "signed" && d?.priceTotal === 5900, JSON.stringify(d));
+
+    // A deal with no payment schedule: the change goes on the price only.
+    const [p4] = await sql`insert into projects (name, client_id) values ('TEST Kai shop', ${c3.id}) returning id`;
+    const edeal = await saveDeal({ projectId: String(p4.id), reference: "KL-2026-02", scope: ["Shop"], priceTotal: 1000, paymentSchedule: [],
+      carePlan: null, deadline: null, goals: null, notes: null, payeeDefault: null }, ME);
+    const cre = await createDocument({ type: "change_request", title: "KL-2026-02-CR1", clientId: cid, projectId: String(p4.id), dealId: edeal.id, invoiceId: null, sections: crSections("Extra | 250") }, ME);
+    await finaliseDocument(cre.id, ME);
+    await setDocumentStatus(cre.id, "sent", ME);
+    await setDocumentStatus(cre.id, "accepted", ME);
+    const ed = await getDealByProject(String(p4.id));
+    check("a change on an unscheduled deal adds to the price only", ed?.priceTotal === 1250 && ed.paymentSchedule.length === 0, JSON.stringify(ed));
+    check("it is logged against the price", (await getEntityActivity("deal", edeal.id)).some((a) => a.summary === "KL-2026-02-CR1 added TT$250.00 to the price"));
+    d = await getDealByProject(pid);
 
     // Care plans
     check("carePlanStart: not a care plan", !((await carePlanStart(sa.id)) as { ready: boolean }).ready);
@@ -386,7 +439,7 @@ try {
     await finaliseDocument(cp.id, ME);
     await setDocumentStatus(cp.id, "sent", ME);
     await addAttachment({ entityType: "document", entityId: cp.id, storagePath: `document/${cp.id}/s`, filename: "cp.pdf", contentType: "application/pdf", size: 5, kind: "signed_copy" }, ME);
-    check("carePlanStart: final payment missing", (await why(cp.id)) === "The project's final payment isn't recorded yet", await why(cp.id));
+    check("carePlanStart: final payment missing", (await why(cp.id)) === "The project's final payment isn't recorded yet (no paid final invoice, and not every invoice on the project is paid)", await why(cp.id));
     await rejects("startCarePlan refuses before the final payment", () => startCarePlan(cp.id, ME), /final payment/);
     const [nodeal] = await sql`insert into documents (type, title, client_id, project_id, status, created_by, updated_by)
                                values ('care_plan', 'TEST cp no deal', ${cid}, ${pid}, 'signed', ${ME}, ${ME}) returning id`;
@@ -413,6 +466,22 @@ try {
     check("care start logged on the document", (await getEntityActivity("document", cp.id)).some((a) => a.action === "care_started" && a.summary === "Care plan started: first invoice 2026-11-30"));
     check("carePlanStart: already started", /already started/i.test(await why(cp.id)), await why(cp.id));
     await rejects("a second start is refused", () => startCarePlan(cp.id, ME), /already started/);
+
+    // No final invoice, but every invoice on the project is paid: care can start.
+    const [p5] = await sql`insert into projects (name, client_id) values ('TEST Kai app', ${c3.id}) returning id`;
+    const fdeal = await saveDeal({ projectId: String(p5.id), reference: "KL-2026-03", scope: ["App"], priceTotal: null, paymentSchedule: [],
+      carePlan: { monthlyAmount: 300, minimumMonths: 3, noticeDays: 30, inclusions: [], exclusions: [] }, deadline: null, goals: null, notes: null, payeeDefault: null }, ME);
+    const [fcp] = await sql`insert into documents (type, title, client_id, project_id, deal_id, status, created_by, updated_by)
+                            values ('care_plan', 'TEST cp fallback', ${cid}, ${p5.id}, ${fdeal.id}, 'signed', ${ME}, ${ME}) returning id`;
+    for (const [type, n, paidAt] of [["deposit", "INV-9201", "2026-10-23"], ["milestone", "INV-9202", "2026-10-28"]]) {
+      const [i] = await sql`insert into invoices (project_id, amount, invoice_type, status, invoice_number, michael_bonus_share, zane_bonus_share)
+                            values (${p5.id}, 500, ${type}, 'Sent', ${n}, 0.5, 0.5) returning id`;
+      check(`fallback: not ready while ${type} is unpaid`, (await why(String(fcp.id))) !== "ready");
+      await sql`insert into payments (invoice_id, amount, paid_at, received_by) values (${i.id}, 500, ${paidAt}, 'business')`;
+      await sql`update invoices set status = 'Paid' where id = ${i.id} and status <> 'Paid'`; // test setup only
+    }
+    const fr = await carePlanStart(String(fcp.id));
+    check("carePlanStart: ready when every invoice is paid and none is final", fr.ready && fr.amount === 300 && fr.finalPaidOn === "2026-10-28", JSON.stringify(fr));
   }
 
   check("DocumentRuleError is exported", typeof DocumentRuleError === "function");

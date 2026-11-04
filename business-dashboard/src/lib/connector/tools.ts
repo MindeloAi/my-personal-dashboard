@@ -20,7 +20,7 @@ import {
   saveDeal,
   saveDraftSections,
   setDocumentPayee,
-  setDocumentStatus,
+  setDocumentStatusWithChange,
 } from "../documents-db";
 import { DOC_STATUSES, DOC_TYPES, PAYEES } from "../documents";
 import { DEFAULT_SECTIONS, nextChangeRef } from "../doc-templates";
@@ -259,16 +259,15 @@ export const TOOLS: AnyTool[] = [
   tool({
     name: "set_status",
     title: "Mark sent, accepted, declined or void",
-    description: "Record what happened to a finalised document. Signed is not set here: a founder attaches the signed copy in the dashboard. Only when a founder says it happened.",
+    description: "Record what happened to a finalised document. Signed is not set here: a founder attaches the signed copy in the dashboard. Only when a founder says it happened. For a change request, dealChange says what was added to or taken off the deal, or why it was not added.",
     input: z.object({ documentId: id, status: z.enum(["sent", "accepted", "declined", "void"]) }),
     run: async ({ documentId, status }, actor) => {
       const before = status === "accepted" || status === "declined" ? await getDocument(documentId) : null;
       if (before?.type === "receipt") throw new DocumentRuleError("A receipt can only be marked sent or void");
-      const doc = await setDocumentStatus(documentId, status, actor, "claude");
-      if (status !== "accepted" || doc.type !== "change_request" || !doc.dealId) return doc;
-      const [latest] = await getEntityActivity("deal", doc.dealId, 1);
+      const { doc, dealChange } = await setDocumentStatusWithChange(documentId, status, actor, "claude");
+      if (!dealChange) return doc;
       const deal = doc.projectId ? await getDealByProject(doc.projectId) : null;
-      return { ...doc, dealChange: latest?.summary ?? null, dealPriceTotal: deal?.priceTotal ?? null, dealLastLine: deal?.paymentSchedule.at(-1) ?? null };
+      return { ...doc, dealChange, dealPriceTotal: deal?.priceTotal ?? null, dealLastLine: deal?.paymentSchedule.at(-1) ?? null };
     },
   }),
   tool({

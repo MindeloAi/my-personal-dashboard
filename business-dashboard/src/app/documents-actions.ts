@@ -166,9 +166,9 @@ export async function finishUploadAction(input: z.input<typeof UploadDone>): Pro
     revalidatePath("/", "layout");
     return { ok: true, data: undefined };
   } catch (e) {
-    // A refused attachment (e.g. a change request whose final invoice exists) rolls back,
+    // A refused attachment (e.g. its expense was deleted) rolls back,
     // so the file already in Storage has no record. Remove it rather than orphan it.
-    if (e instanceof DocumentRuleError) await removeFile(a.path).catch(() => {});
+    if (e instanceof DocumentRuleError) await removeFile(a.path).catch((err) => console.error("Could not remove refused upload", a.path, err));
     return fail(e);
   }
 }

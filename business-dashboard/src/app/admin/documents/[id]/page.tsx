@@ -24,7 +24,8 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   if (!doc) notFound();
   const isInvoice = doc.type === "invoice";
   const isCare = doc.type === "care_plan";
-  const changeApplied = doc.type === "change_request" && (doc.status === "accepted" || doc.status === "signed") && !!doc.dealId;
+  // A change accepted after the final invoice existed was not added; the deal's note says why.
+  const changeSkipped = doc.type === "change_request" && (doc.status === "accepted" || doc.status === "signed") && doc.appliedToDeal == null && !!doc.dealId;
   const [client, project, files, activity, accounts, careStart, dealActivity] = await Promise.all([
     doc.clientId ? getClientById(doc.clientId) : null,
     doc.projectId ? getProject(doc.projectId) : null,
@@ -32,9 +33,9 @@ export default async function DocumentPage({ params, searchParams }: { params: P
     getEntityActivity("document", id),
     isInvoice ? getPayeeAccounts() : [],
     isCare && doc.status === "signed" && !doc.subscriptionId ? carePlanStart(id) : null,
-    changeApplied ? getEntityActivity("deal", doc.dealId!) : [],
+    changeSkipped ? getEntityActivity("deal", doc.dealId!) : [],
   ]);
-  const addedToDeal = dealActivity.find((a) => a.summary.startsWith(`${doc.title} added `));
+  const dealNote = dealActivity.find((a) => a.summary.startsWith(`${doc.title} `));
   const savedPayees = new Set(accounts.map((a) => a.payee));
 
   const asked = Number(sp.version);
@@ -93,9 +94,11 @@ export default async function DocumentPage({ params, searchParams }: { params: P
           <p className="mt-1 text-xs text-[#4A5568]">Appears once the care plan is signed. It needs the project&apos;s final payment recorded in Finance first.</p>
         </div>
       )}
-      {addedToDeal && (
-        <p className="border border-[#DCE1E8] bg-white p-3 text-sm text-[#1B2533]">Added to the deal: {addedToDeal.summary}.</p>
-      )}
+      {doc.appliedToDeal != null ? (
+        <p className="border border-[#DCE1E8] bg-white p-3 text-sm text-[#1B2533]">Added to the deal: {formatMoney(doc.appliedToDeal)}</p>
+      ) : dealNote ? (
+        <p className="border border-[#DCE1E8] bg-white p-3 text-sm text-[#1B2533]">{dealNote.summary}</p>
+      ) : null}
       {doc.type === "receipt" && (
         <p className="border border-[#DCE1E8] bg-white p-3 text-xs text-[#4A5568]">
           {doc.receiptNumber ? `Receipt ${doc.receiptNumber}. ` : ""}This receipt shows one payment recorded in Finance, so its amount and date always match it. Finalise it to give it its RCT number and PDF, then send the PDF to the client.
