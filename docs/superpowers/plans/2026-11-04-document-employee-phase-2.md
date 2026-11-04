@@ -24,6 +24,7 @@
 - Bank details are **never** returned by a connector tool. Tools return the payee name only.
 - House style: Corporate Navy (`#0E1A2B` navy, `#1D4ED8` blue, `#1E6B3A` green, `#B23A0A` orange, `#F3F5F8` page, `#DCE1E8` borders, 4px corners), plain English. **No em dashes** in any user-facing text, PDF text or tool description.
 - Every page calls `requireAdminPage()`, every server action `requireAdmin()`, every admin route handler `getAdmin()` (401 when null).
+- **Every new feature carries a short "how to use it" note where it appears in the dashboard** (Michael, 4 November). Use the existing `PageHeader` purpose text / `Explain` pattern from `components/dashboard/explain.tsx`: one or two plain sentences saying what it is for and what to do, no em dashes. This covers the Bank details page, the invoice payee picker, the PDF and Preview PDF links, the "Make receipt" button and receipt links on the invoice page, the expense page's Receipts section, and the Documents page (which should also say documents are drafted by talking to Claude, via `/doc` or the Claude app, and link to how to connect it).
 - Commit after each task, conventional message, ending with:
   `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>`
 
