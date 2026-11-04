@@ -12,7 +12,8 @@
     "db:export": "node --env-file=.env.local scripts/export-airtable.mjs",
     "db:import": "node --env-file=.env.local scripts/import-supabase.mjs",
     "db:verify": "bun --env-file=.env.local scripts/verify-migration.mjs",
-    "test:subscriptions": "bun scripts/subscriptions.test.mjs"
+    "test:subscriptions": "bun scripts/subscriptions.test.mjs",
+    "test:documents": "bun scripts/documents.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.2.0",
