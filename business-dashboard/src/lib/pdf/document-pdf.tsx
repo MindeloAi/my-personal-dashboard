@@ -127,6 +127,7 @@ function Pdf({ d }: { d: PdfData }) {
     <Document title={d.title} author="Mindelo" creator="Mindelo">
       <Page size="A4" style={s.page}>
         <View style={s.header}>
+          {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop */}
           <Image style={s.logo} src={LOGO} />
           <View style={s.meta}>
             <Text style={s.kind}>{DOC_TYPE_LABEL[d.type].toUpperCase()}</Text>

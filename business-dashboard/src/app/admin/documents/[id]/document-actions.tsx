@@ -2,8 +2,9 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { finaliseDocumentAction, setDocumentStatusAction } from "@/app/documents-actions";
-import { DOC_STATUS_LABEL, TRANSITIONS, type DocStatus } from "@/lib/documents";
+import { selectCls } from "@/components/dashboard/clients-list";
+import { finaliseDocumentAction, setDocumentPayeeAction, setDocumentStatusAction } from "@/app/documents-actions";
+import { DOC_STATUS_LABEL, PAYEES, PAYEE_LABEL, TRANSITIONS, type DocStatus, type Payee } from "@/lib/documents";
 
 /** Finalise, and the status moves allowed from here. Editing the text happens through Claude (Phase 2). */
 export function DocumentActions({ id, status, missing }: { id: string; status: DocStatus; missing: string[] }) {
@@ -36,5 +37,24 @@ export function DocumentActions({ id, status, missing }: { id: string; status: D
         </button>
       ))}
     </div>
+  );
+}
+
+/** Who the client pays on an invoice draft. Changes save straight away. */
+export function PayeePicker({ id, payee }: { id: string; payee: Payee | null }) {
+  const [busy, start] = useTransition();
+  return (
+    <select aria-label="Paid to" className={`${selectCls} w-auto min-h-11 sm:min-h-0`} disabled={busy} value={payee ?? ""}
+      onChange={(e) => {
+        const next = e.target.value;
+        start(async () => {
+          const r = await setDocumentPayeeAction(id, next);
+          if (r.ok) toast.success(`Paid to ${PAYEE_LABEL[next as Payee]}`);
+          else toast.error(r.error);
+        });
+      }}>
+      {payee === null && <option value="" disabled>Not chosen</option>}
+      {PAYEES.map((p) => <option key={p} value={p}>{PAYEE_LABEL[p]}</option>)}
+    </select>
   );
 }

@@ -10,6 +10,8 @@ import {
   deleteAttachment,
   finaliseDocument,
   saveDeal,
+  savePayeeAccount,
+  setDocumentPayee,
   setDocumentStatus,
 } from "@/lib/documents-db";
 import { ATTACHABLE, DOC_STATUSES, FILE_KINDS, PAYEES } from "@/lib/documents";
@@ -163,6 +165,41 @@ export async function deleteFileAction(id: string): Promise<Result> {
         console.error("File record removed but its Storage object was not", path, e);
       }
     }
+    revalidatePath("/", "layout");
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+const PayeeForm = z.object({
+  payee: z.enum(PAYEES),
+  accountName: z.string().trim().min(1, "Account name is needed"),
+  bankName: z.string().trim().min(1, "Bank is needed"),
+  branch: z.string().trim().nullable(),
+  accountNumber: z.string().trim().min(1, "Account number is needed"),
+  accountType: z.string().trim().nullable(),
+});
+
+export async function savePayeeAccountAction(input: z.input<typeof PayeeForm>): Promise<Result> {
+  const admin = await requireAdmin();
+  const parsed = PayeeForm.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form" };
+  try {
+    await savePayeeAccount(parsed.data, admin.email);
+    revalidatePath("/admin/settings/payees");
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function setDocumentPayeeAction(id: string, payee: string): Promise<Result> {
+  const admin = await requireAdmin();
+  const p = z.enum(PAYEES).safeParse(payee);
+  if (!z.uuid().safeParse(id).success || !p.success) return { ok: false, error: "Unknown document or payee" };
+  try {
+    await setDocumentPayee(id, p.data, admin.email);
     revalidatePath("/", "layout");
     return { ok: true, data: undefined };
   } catch (e) {

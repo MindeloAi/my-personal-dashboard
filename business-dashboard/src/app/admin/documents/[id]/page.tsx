@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { requireAdminPage } from "@/lib/auth";
 import { getClientById, getProject } from "@/lib/db";
-import { getDocument, getEntityActivity, listAttachments } from "@/lib/documents-db";
-import { DOC_STATUS_LABEL, DOC_TYPE_LABEL, missingFacts } from "@/lib/documents";
+import { getDocument, getEntityActivity, getPayeeAccounts, listAttachments } from "@/lib/documents-db";
+import { DOC_STATUS_LABEL, DOC_TYPE_LABEL, PAYEE_LABEL, missingFacts } from "@/lib/documents";
 import { href } from "@/lib/record-graph";
 import { PageHeader } from "@/components/dashboard/explain";
 import { FilesPanel } from "@/components/dashboard/files-panel";
 import { ActivityList } from "@/components/dashboard/activity-list";
-import { DocumentActions } from "./document-actions";
+import { DocumentActions, PayeePicker } from "./document-actions";
 
 export const dynamic = "force-dynamic";
 const link = "font-medium text-[#1D4ED8] hover:underline";
@@ -20,12 +20,15 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   if (!z.uuid().safeParse(id).success) notFound();
   const doc = await getDocument(id);
   if (!doc) notFound();
-  const [client, project, files, activity] = await Promise.all([
+  const isInvoice = doc.type === "invoice";
+  const [client, project, files, activity, accounts] = await Promise.all([
     doc.clientId ? getClientById(doc.clientId) : null,
     doc.projectId ? getProject(doc.projectId) : null,
     listAttachments("document", [id]),
     getEntityActivity("document", id),
+    isInvoice ? getPayeeAccounts() : [],
   ]);
+  const savedPayees = new Set(accounts.map((a) => a.payee));
 
   const asked = Number(sp.version);
   const shown = doc.versions.find((v) => v.version === asked) ?? (doc.status === "draft" ? null : doc.versions.at(-1) ?? null);
@@ -45,6 +48,26 @@ export default async function DocumentPage({ params, searchParams }: { params: P
         {project && <span>Project <Link className={link} href={href.project(project.id)}>{project.Name}</Link></span>}
         {doc.invoiceId && <span>Invoice <Link className={link} href={href.invoice(doc.invoiceId)}>open</Link></span>}
       </p>
+      {isInvoice && (
+        <div className="border border-[#DCE1E8] bg-white p-3 text-sm text-[#1B2533]">
+          {doc.status === "draft" ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <span>Paid to</span>
+                <PayeePicker id={id} payee={doc.payee} />
+              </div>
+              <p className="mt-1 text-xs text-[#4A5568]">Choose who the client pays. The bank details printed on the PDF come from <Link className={link} href="/admin/settings/payees">Bank details</Link>.</p>
+              {doc.payee && !savedPayees.has(doc.payee) && (
+                <p className="mt-1 text-xs text-[#B23A0A]">
+                  No bank details saved for {PAYEE_LABEL[doc.payee]}. Add them in <Link className="font-medium underline" href="/admin/settings/payees">Bank details</Link>.
+                </p>
+              )}
+            </>
+          ) : (
+            <p>Paid to: {doc.payee ? PAYEE_LABEL[doc.payee] : "Not chosen"}</p>
+          )}
+        </div>
+      )}
       {doc.status === "draft" && missing.length > 0 && (
         <p className="border border-[#B23A0A]/30 bg-[#B23A0A]/5 p-3 text-sm text-[#B23A0A]">Still missing before it can be finalised: {missing.join(", ")}.</p>
       )}
@@ -66,6 +89,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
         </article>
         <aside className="border border-[#DCE1E8] bg-white p-4">
           <h2 className="text-[15px] font-semibold text-[#1B2533]">Versions</h2>
+          <p className="mt-0.5 text-xs text-[#4A5568]">Preview PDF shows the draft as the client would see it. Each finalised version keeps its own PDF, which never changes.</p>
           <ul className="mt-2 space-y-1 text-sm">
             {doc.status === "draft" && <li><Link className={link} href={href.document(id)}>Current draft</Link></li>}
             {[...doc.versions].reverse().map((v) => (

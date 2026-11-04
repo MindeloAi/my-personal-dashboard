@@ -36,6 +36,7 @@ const NAV: (NavItem | NavGroup)[] = [
       { href: "/admin/leads", label: "Leads" },
       { href: "/admin/clients", label: "Clients" },
       { href: "/admin/documents", label: "Documents" },
+      { href: "/admin/settings/payees", label: "Bank details" },
     ],
   },
   {
