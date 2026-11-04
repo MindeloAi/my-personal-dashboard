@@ -16,13 +16,14 @@ import {
   getDocument,
   getEntityActivity,
   listDocuments,
+  saveClientDetails,
   saveDeal,
   saveDraftSections,
   setDocumentPayee,
   setDocumentStatus,
 } from "../documents-db";
 import { DOC_STATUSES, DOC_TYPES, PAYEES } from "../documents";
-import { DEFAULT_SECTIONS } from "../doc-templates";
+import { DEFAULT_SECTIONS, nextChangeRef } from "../doc-templates";
 import { getClientById, getProject } from "../db";
 import { ensurePdf } from "../pdf/store";
 
@@ -35,6 +36,7 @@ const id = z.uuid();
 // Schema, and zod cannot express a transform there. Rounding happens in run().
 const money = z.number().nonnegative().max(1e9);
 const cents = (n: number) => Math.round(n * 100) / 100;
+const MERGED_TYPES = new Set(["service_agreement", "care_plan", "change_request"]);
 const Section = z.object({ key: z.string().trim().min(1), heading: z.string().trim().min(1), body: z.string() });
 const ScheduleLine = z.object({ label: z.string().trim().min(1), amount: money, trigger: z.string().trim().min(1) });
 const CarePlan = z.object({
@@ -73,6 +75,21 @@ export const TOOLS: AnyTool[] = [
       const ctx = await getClientContext(clientId);
       if (!ctx) throw new DocumentRuleError("No client with that id. Use find.");
       return ctx;
+    },
+  }),
+  tool({
+    name: "save_client_details",
+    title: "Client legal details",
+    description: "Save a client's registered address and the person who signs for them, with their job title. Service agreements, care plans and change requests need them. Send only the fields that change. Ask the founder once for anything missing and save it here rather than typing it into a document.",
+    input: z.object({
+      clientId: id,
+      address: z.string().max(500).optional(),
+      signatoryName: z.string().max(120).optional(),
+      signatoryTitle: z.string().max(120).optional(),
+    }),
+    run: async ({ clientId, ...d }, actor) => {
+      if (!(await getClientById(clientId))) throw new DocumentRuleError("No client with that id. Use find.");
+      return saveClientDetails(clientId, d, actor, "claude");
     },
   }),
   tool({
@@ -170,7 +187,7 @@ export const TOOLS: AnyTool[] = [
   tool({
     name: "save_draft",
     title: "Create a draft or change sections",
-    description: "With documentId: replace the given sections (matched by key; new keys are added) and optionally the payee of an invoice. A finalised or sent document goes back to draft; its versions stay frozen. Without documentId: create a draft of a type, starting from the template's sections when none are given, linked to the project's client and deal. Write {{missing: what}} for any fact you do not have; it blocks finalising. Invoices are created with create_invoice_from_deal and receipts with create_receipt, not here.",
+    description: "With documentId: replace the given sections (matched by key; new keys are added) and optionally the payee of an invoice. A finalised or sent document goes back to draft; its versions stay frozen. Without documentId: create a draft of a type, starting from the template's sections when none are given, linked to the project's client and deal. Service agreements, care plans and change requests always start from every template section; sections you give replace those with the same key. A new change request on a deal is numbered for you (REF-CR1, REF-CR2...). Write {{missing: what}} for any fact you do not have; it blocks finalising. Invoices are created with create_invoice_from_deal and receipts with create_receipt, not here.",
     input: z.object({
       documentId: id.optional(),
       type: z.enum(DOC_TYPES).optional(),
@@ -196,15 +213,26 @@ export const TOOLS: AnyTool[] = [
       if (a.clientId && !(await getClientById(a.clientId))) throw new DocumentRuleError("No client with that id. Use find.");
       if (a.clientId && project?.Client?.[0] && project.Client[0] !== a.clientId) throw new DocumentRuleError("That project belongs to a different client");
       const deal = a.projectId ? await getDealByProject(a.projectId) : null;
+      let title = a.title;
+      if (a.type === "change_request" && deal && !title.includes("-CR")) {
+        const existing = (await listDocuments({ projectId: a.projectId, type: "change_request" })).map((d) => d.title);
+        title = `Change request ${nextChangeRef(deal.reference, existing)}: ${title}`;
+      }
+      // Agreements start from every template section; any given section replaces its default by key.
+      const defaults = DEFAULT_SECTIONS[a.type] ?? [];
+      const sections = !a.sections ? defaults
+        : MERGED_TYPES.has(a.type)
+          ? [...defaults.map((d) => a.sections!.find((s) => s.key === d.key) ?? d), ...a.sections.filter((s) => !defaults.some((d) => d.key === s.key))]
+          : a.sections;
       const doc = await createDocument(
         {
           type: a.type,
-          title: a.title,
+          title,
           clientId: a.clientId ?? project?.Client?.[0] ?? null,
           projectId: a.projectId ?? null,
           dealId: deal?.id ?? null,
           invoiceId: null,
-          sections: a.sections ?? DEFAULT_SECTIONS[a.type] ?? [],
+          sections,
         },
         actor,
         "claude",
@@ -234,11 +262,13 @@ export const TOOLS: AnyTool[] = [
     description: "Record what happened to a finalised document. Signed is not set here: a founder attaches the signed copy in the dashboard. Only when a founder says it happened.",
     input: z.object({ documentId: id, status: z.enum(["sent", "accepted", "declined", "void"]) }),
     run: async ({ documentId, status }, actor) => {
-      if (status === "accepted" || status === "declined") {
-        const doc = await getDocument(documentId);
-        if (doc?.type === "receipt") throw new DocumentRuleError("A receipt can only be marked sent or void");
-      }
-      return setDocumentStatus(documentId, status, actor, "claude");
+      const before = status === "accepted" || status === "declined" ? await getDocument(documentId) : null;
+      if (before?.type === "receipt") throw new DocumentRuleError("A receipt can only be marked sent or void");
+      const doc = await setDocumentStatus(documentId, status, actor, "claude");
+      if (status !== "accepted" || doc.type !== "change_request" || !doc.dealId) return doc;
+      const [latest] = await getEntityActivity("deal", doc.dealId, 1);
+      const deal = doc.projectId ? await getDealByProject(doc.projectId) : null;
+      return { ...doc, dealChange: latest?.summary ?? null, dealPriceTotal: deal?.priceTotal ?? null, dealLastLine: deal?.paymentSchedule.at(-1) ?? null };
     },
   }),
   tool({
