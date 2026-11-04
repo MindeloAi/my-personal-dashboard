@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { requireAdminPage } from "@/lib/auth";
 import { getClientById, getInvoices, getProjects, getClients, getLeads, getLedger, getSubscriptions } from "@/lib/db";
-import { getClientActivity, getDealsForClient, listAttachments, listDocuments } from "@/lib/documents-db";
+import { getClientActivity, getClientDetails, getDealsForClient, listAttachments, listDocuments } from "@/lib/documents-db";
 import { linksFor } from "@/lib/record-graph";
 import { round2 } from "@/lib/ledger";
 import { today } from "@/lib/subscriptions";
@@ -11,6 +11,7 @@ import type { UnpaidInvoice } from "@/lib/timeline";
 import { TimelineView } from "./timeline-view";
 import { ClientRecords } from "@/components/dashboard/client-records";
 import { ClientFile } from "./client-file";
+import { LegalDetails } from "./legal-details";
 
 export const dynamic = "force-dynamic";
 // Covers the slow Claude call made by the Server Action on this page.
@@ -24,7 +25,7 @@ export default async function ClientTimelinePage({ params }: { params: Promise<{
   const client = await getClientById(id);
   if (!client) notFound();
 
-  const [projects, invoices, timeline, clients, leads, ledger, subscriptions, deals, docs, files, activity] = await Promise.all([
+  const [projects, invoices, timeline, clients, leads, ledger, subscriptions, deals, docs, files, activity, details] = await Promise.all([
     getProjects(),
     getInvoices(),
     getClientTimeline(id),
@@ -36,6 +37,7 @@ export default async function ClientTimelinePage({ params }: { params: Promise<{
     listDocuments({ clientId: id }),
     listAttachments("client", [id]),
     getClientActivity(id),
+    getClientDetails(id),
   ]);
   const r = linksFor("client", id, { clients, leads, projects, invoices });
   const invoiceIds = new Set(r.invoices.map((i) => i.id));
@@ -62,6 +64,7 @@ export default async function ClientTimelinePage({ params }: { params: Promise<{
       linked={
         <>
           <ClientRecords clientId={id} graph={{ clients, leads, projects, invoices }} payments={ledger.payments} cutover={ledger.cutover} />
+          <LegalDetails clientId={id} details={details} />
           <ClientFile
             client={client}
             projects={r.projects}

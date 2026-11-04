@@ -12,9 +12,11 @@ import {
   deleteAttachment,
   finaliseDocument,
   saveDeal,
+  saveClientDetails,
   savePayeeAccount,
   setDocumentPayee,
   setDocumentStatus,
+  startCarePlan,
 } from "@/lib/documents-db";
 import { ATTACHABLE, DOC_STATUSES, FILE_KINDS, PAYEES } from "@/lib/documents";
 import { ensurePdf } from "@/lib/pdf/store";
@@ -164,6 +166,9 @@ export async function finishUploadAction(input: z.input<typeof UploadDone>): Pro
     revalidatePath("/", "layout");
     return { ok: true, data: undefined };
   } catch (e) {
+    // A refused attachment (e.g. its expense was deleted) rolls back,
+    // so the file already in Storage has no record. Remove it rather than orphan it.
+    if (e instanceof DocumentRuleError) await removeFile(a.path).catch((err) => console.error("Could not remove refused upload", a.path, err));
     return fail(e);
   }
 }
@@ -216,6 +221,41 @@ export async function setDocumentPayeeAction(id: string, payee: string): Promise
   if (!z.uuid().safeParse(id).success || !p.success) return { ok: false, error: "Unknown document or payee" };
   try {
     await setDocumentPayee(id, p.data, admin.email);
+    revalidatePath("/", "layout");
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+const ClientDetailsForm = z.object({
+  clientId: z.uuid(),
+  address: z.string().max(500),
+  signatoryName: z.string().max(200),
+  signatoryTitle: z.string().max(200),
+});
+
+/** Address and signatory printed on agreements, care plans and change requests. Empty clears a field. */
+export async function saveClientDetailsAction(input: z.input<typeof ClientDetailsForm>): Promise<Result> {
+  const admin = await requireAdmin();
+  const parsed = ClientDetailsForm.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form" };
+  const { clientId, ...d } = parsed.data;
+  try {
+    await saveClientDetails(clientId, d, admin.email);
+    revalidatePath(`/admin/clients/${clientId}`);
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Starts the monthly retainer for a signed care plan. */
+export async function startCarePlanAction(id: string): Promise<Result> {
+  const admin = await requireAdmin();
+  if (!z.uuid().safeParse(id).success) return { ok: false, error: "Unknown document" };
+  try {
+    await startCarePlan(id, admin.email);
     revalidatePath("/", "layout");
     return { ok: true, data: undefined };
   } catch (e) {

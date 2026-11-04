@@ -53,8 +53,8 @@ async function reset() {
 
 try {
   await reset();
-  check("exactly the agreed tools", TOOLS.map((t) => t.name).sort().join(",") ===
-    "create_client_and_project,create_invoice_from_deal,create_receipt,finalise_document,find,get_client_context,get_deal,get_document,list_documents,save_deal,save_draft,set_status");
+  check("exactly the agreed tools", TOOLS.length === 13 && TOOLS.map((t) => t.name).sort().join(",") ===
+    "create_client_and_project,create_invoice_from_deal,create_receipt,finalise_document,find,get_client_context,get_deal,get_document,list_documents,save_client_details,save_deal,save_draft,set_status");
   check("no em dashes in tool text", TOOLS.every((t) => !/\u2014/.test(t.title + t.description)));
   check("every tool input publishes as JSON Schema", TOOLS.every((t) => { try { z.toJSONSchema(t.input, { io: "input" }); return true; } catch { return false; } }));
   const cc = TOOLS.find((t) => t.name === "create_client_and_project")!.input;
@@ -120,7 +120,33 @@ try {
   await refused("save_draft", { type: "proposal", title: "x", clientId: other.clientId, projectId: made.projectId }, /different client/);
   check("money is capped", !TOOLS.find((t) => t.name === "save_deal")!.input.safeParse({ projectId: made.projectId, priceTotal: 1e9 + 1 }).success);
   check("no tool output carries bank details", !JSON.stringify(ctx).includes("account_number") && !JSON.stringify(inv).includes("accountNumber"));
-  check("list_documents filters", (await call("list_documents", { clientId: made.clientId, type: "invoice" })).length === 1);
+
+  const details = await call("save_client_details", { clientId: made.clientId, address: " 1 Main St, Port of Spain ", signatoryName: "Andrea Test", signatoryTitle: "Director" });
+  check("save_client_details saves and returns the details", details.address === "1 Main St, Port of Spain" && details.signatoryName === "Andrea Test" && details.signatoryTitle === "Director", JSON.stringify(details));
+  const ctx2 = await call("get_client_context", { clientId: made.clientId });
+  check("get_client_context shows the legal details", ctx2.client.address === "1 Main St, Port of Spain" && ctx2.client.signatoryName === "Andrea Test" && ctx2.client.signatoryTitle === "Director", JSON.stringify(ctx2.client));
+  check("save_client_details refuses a bad id", !TOOLS.find((t) => t.name === "save_client_details")!.input.safeParse({ clientId: "nope", address: "x" }).success);
+  const cr1 = await call("save_draft", { type: "change_request", title: "Gallery page", projectId: made.projectId,
+    sections: [{ key: "items", heading: "Items", body: "Gallery page | 800" }] });
+  check("a new change request starts from the template, given sections replacing by key",
+    cr1.draft.map((s: { key: string }) => s.key).join(",") === "summary,items,timeline,payment,approval" && cr1.draft[1].body === "Gallery page | 800", JSON.stringify(cr1.draft));
+  check("the first change request is numbered CR1", cr1.title === `Change request ${made.reference}-CR1: Gallery page`, cr1.title);
+  const cr2 = await call("save_draft", { type: "change_request", title: "Blog", projectId: made.projectId });
+  check("the second change request is numbered CR2", cr2.title === `Change request ${made.reference}-CR2: Blog` && cr2.draft.length === 5, cr2.title);
+  await call("save_draft", { documentId: cr1.id, sections: [{ key: "summary", heading: "What", body: "A gallery." }, { key: "timeline", heading: "Timeline", body: "One week." }] });
+  await call("finalise_document", { documentId: cr1.id });
+  await call("set_status", { documentId: cr1.id, status: "sent" });
+  const acc = await call("set_status", { documentId: cr1.id, status: "accepted" });
+  check("accepting a change request reports what it added to the deal", acc.status === "accepted" && acc.dealPriceTotal === 7300
+    && acc.dealLastLine?.amount === 4050 && acc.dealChange?.added === 800 && acc.dealChange?.line === "Payment 2", JSON.stringify({ c: acc.dealChange, p: acc.dealPriceTotal, l: acc.dealLastLine }));
+  await call("create_invoice_from_deal", { projectId: made.projectId, line: 2, payee: "zane" });
+  await call("save_draft", { documentId: cr2.id, sections: [{ key: "items", heading: "Items", body: "Blog | 300" }, { key: "summary", heading: "What", body: "A blog." }, { key: "timeline", heading: "Timeline", body: "One week." }] });
+  await call("finalise_document", { documentId: cr2.id });
+  await call("set_status", { documentId: cr2.id, status: "sent" });
+  const acc2 = await call("set_status", { documentId: cr2.id, status: "accepted" });
+  check("accepting after the final invoice reports the skip", acc2.status === "accepted" && acc2.dealPriceTotal === 7300
+    && acc2.dealChange?.skipped === `${cr2.title} accepted. Not added to the deal: the final invoice already exists. Invoice it separately.`, JSON.stringify(acc2.dealChange));
+  check("list_documents filters", (await call("list_documents", { clientId: made.clientId, type: "invoice" })).length === 2);
 } finally {
   await reset();
   await sql.end();

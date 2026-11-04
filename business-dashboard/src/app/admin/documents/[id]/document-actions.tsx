@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { selectCls } from "@/components/dashboard/clients-list";
-import { finaliseDocumentAction, setDocumentPayeeAction, setDocumentStatusAction } from "@/app/documents-actions";
+import { finaliseDocumentAction, setDocumentPayeeAction, setDocumentStatusAction, startCarePlanAction } from "@/app/documents-actions";
 import { DOC_STATUS_LABEL, PAYEES, PAYEE_LABEL, TRANSITIONS, type DocStatus, type Payee } from "@/lib/documents";
 
 /** Finalise, and the status moves allowed from here. Editing the text happens through Claude (Phase 2). */
@@ -57,5 +57,21 @@ export function PayeePicker({ id, payee }: { id: string; payee: Payee | null }) 
       {payee === null && <option value="" disabled>Not chosen</option>}
       {PAYEES.map((p) => <option key={p} value={p}>{PAYEE_LABEL[p]}</option>)}
     </select>
+  );
+}
+
+/** Starts the signed care plan's monthly retainer. */
+export function StartCarePlan({ id }: { id: string }) {
+  const [busy, start] = useTransition();
+  return (
+    <button type="button" disabled={busy}
+      className="min-h-11 sm:min-h-0 rounded-[4px] bg-[#1D4ED8] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+      onClick={() => start(async () => {
+        const r = await startCarePlanAction(id);
+        if (r.ok) toast.success("Started. The retainer is in Finance, Recurring.");
+        else toast.error(r.error);
+      })}>
+      {busy ? "Starting" : "Start care plan"}
+    </button>
   );
 }

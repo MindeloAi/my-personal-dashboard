@@ -21,6 +21,7 @@ export async function loadPdfData(documentId: string, version: number): Promise<
            -- A lead has no client record yet, so its own name and contact stand in.
            coalesce(c.name, l.name) as client_name, coalesce(c.company, l.business_name) as company,
            coalesce(c.email, l.email) as email, coalesce(c.phone, l.phone_whatsapp) as phone,
+           c.address, c.signatory_name, c.signatory_title,
            dl.reference, dl.price_total, dl.currency, dl.payment_schedule, dl.care_plan,
            i.invoice_number, i.issue_date, i.due_date, i.amount
       from documents d
@@ -58,7 +59,12 @@ export async function loadPdfData(documentId: string, version: number): Promise<
     reference: doc.reference ?? null,
     version,
     date,
-    client: doc.client_name != null ? { name: doc.client_name, company: doc.company, email: doc.email, phone: doc.phone } : null,
+    client: doc.client_name != null
+      ? {
+          name: doc.client_name, company: doc.company, email: doc.email, phone: doc.phone,
+          address: doc.address ?? null, signatoryName: doc.signatory_name ?? null, signatoryTitle: doc.signatory_title ?? null,
+        }
+      : null,
     projectName: doc.project_name ?? null,
     sections,
     deal: doc.reference
