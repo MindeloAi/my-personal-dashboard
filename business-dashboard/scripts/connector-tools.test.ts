@@ -111,6 +111,12 @@ try {
   await refused("save_draft", { type: "receipt", title: "x", projectId: made.projectId }, /create_receipt/);
   const rv = await call("finalise_document", { documentId: rct.id });
   check("finalising the receipt gives it an RCT number", rv.version === 1 && /^RCT-\d{4,}$/.test((await call("get_document", { documentId: rct.id })).receiptNumber));
+  check("get_client_context leaves out founder bonus shares", !JSON.stringify(ctx).includes("Bonus Share") && ctx.invoices.length === 1);
+  check("save_deal ignores a new reference on an existing deal", (await call("save_deal", { projectId: made.projectId, reference: "ZZ-2026-99" })).reference === made.reference);
+  const other = await call("create_client_and_project", { name: "TEST Other Co", projectName: "TEST Other Site" });
+  await refused("save_draft", { type: "proposal", title: "x", clientId: "00000000-0000-4000-8000-000000000000" }, /client/i);
+  await refused("save_draft", { type: "proposal", title: "x", clientId: other.clientId, projectId: made.projectId }, /different client/);
+  check("money is capped", !TOOLS.find((t) => t.name === "save_deal")!.input.safeParse({ projectId: made.projectId, priceTotal: 1e9 + 1 }).success);
   check("no tool output carries bank details", !JSON.stringify(ctx).includes("account_number") && !JSON.stringify(inv).includes("accountNumber"));
   check("list_documents filters", (await call("list_documents", { clientId: made.clientId, type: "invoice" })).length === 1);
 } finally {

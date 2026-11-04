@@ -23,7 +23,7 @@ import {
 } from "../documents-db";
 import { DOC_STATUSES, DOC_TYPES, PAYEES } from "../documents";
 import { DEFAULT_SECTIONS } from "../doc-templates";
-import { getProject } from "../db";
+import { getClientById, getProject } from "../db";
 import { ensurePdf } from "../pdf/store";
 
 export const DASHBOARD = "https://mindelo.site";
@@ -33,7 +33,7 @@ const pdfUrl = (id: string, version?: number) => `${docUrl(id)}/pdf${version ? `
 const id = z.uuid();
 // No .transform() anywhere in a tool's input: MCP publishes each input as JSON
 // Schema, and zod cannot express a transform there. Rounding happens in run().
-const money = z.number().nonnegative();
+const money = z.number().nonnegative().max(1e9);
 const cents = (n: number) => Math.round(n * 100) / 100;
 const Section = z.object({ key: z.string().trim().min(1), heading: z.string().trim().min(1), body: z.string() });
 const ScheduleLine = z.object({ label: z.string().trim().min(1), amount: money, trigger: z.string().trim().min(1) });
@@ -85,7 +85,7 @@ export const TOOLS: AnyTool[] = [
   tool({
     name: "save_deal",
     title: "Create or update a project's deal",
-    description: "Record what was offered on a project. Send only the fields that change; the rest are kept. A new deal needs a reference (CLIENT-YYYY-NN). Payment schedule amounts must add up to the price. Set payeeDefault only when a founder says who is being paid; never assume it.",
+    description: "Record what was offered on a project. Send only the fields that change; the rest are kept. A new deal needs a reference (CLIENT-YYYY-NN). The reference is set once, when the deal is created. Payment schedule amounts must add up to the price. Set payeeDefault only when a founder says who is being paid; never assume it.",
     input: z.object({
       projectId: id,
       reference: z.string().trim().optional(),
@@ -100,7 +100,7 @@ export const TOOLS: AnyTool[] = [
     }),
     run: async (a, actor) => {
       const current = await getDealByProject(a.projectId);
-      const reference = a.reference ?? current?.reference;
+      const reference = current?.reference ?? a.reference;
       if (!reference) throw new DocumentRuleError("This project has no deal yet. Send a reference like IB-2026-01.");
       const pick = <K extends keyof typeof a>(k: K, fallback: unknown) => (a[k] === undefined ? fallback : a[k]);
       return saveDeal(
@@ -193,6 +193,8 @@ export const TOOLS: AnyTool[] = [
       if (a.type === "receipt") throw new DocumentRuleError("Receipts come from a recorded payment: use create_receipt");
       const project = a.projectId ? await getProject(a.projectId) : null;
       if (a.projectId && !project) throw new DocumentRuleError("No project with that id");
+      if (a.clientId && !(await getClientById(a.clientId))) throw new DocumentRuleError("No client with that id. Use find.");
+      if (a.clientId && project?.Client?.[0] && project.Client[0] !== a.clientId) throw new DocumentRuleError("That project belongs to a different client");
       const deal = a.projectId ? await getDealByProject(a.projectId) : null;
       const doc = await createDocument(
         {

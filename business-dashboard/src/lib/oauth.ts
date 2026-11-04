@@ -40,5 +40,8 @@ export function pkceMatches(verifier: string, challenge: string): boolean {
 export function safeNext(next: unknown): string | null {
   if (typeof next !== "string" || !next.startsWith("/")) return null;
   const u = new URL(next, "https://x.invalid");
-  return u.origin === "https://x.invalid" ? u.pathname + u.search : null;
+  if (u.origin !== "https://x.invalid") return null;
+  const out = u.pathname + u.search;
+  // Dot segments can collapse "/..//evil.com" to "//evil.com", a protocol-relative URL.
+  return out.startsWith("//") ? null : out;
 }

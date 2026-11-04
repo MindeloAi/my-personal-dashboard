@@ -12,6 +12,15 @@ const nextConfig: NextConfig = {
     "/**": ["./src/assets/pdf/**/*"],
   },
 
+  // Sign-in, approval and admin pages must never be framed (clickjacking).
+  async headers() {
+    const headers = [
+      { key: "X-Frame-Options", value: "DENY" },
+      { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+    ];
+    return ["/oauth/:path*", "/login", "/admin/:path*"].map((source) => ({ source, headers }));
+  },
+
   async redirects() {
     // The marketing site was ten .html files served from the repo root, and
     // Netlify served both the pretty path and the underlying file with a 200.

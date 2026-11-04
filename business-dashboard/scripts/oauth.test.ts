@@ -41,5 +41,7 @@ assert.equal(safeNext(undefined), null);
 assert.equal(safeNext("/\t/evil.com"), null, "browsers drop tabs: //evil.com");
 assert.equal(safeNext("/\n/evil.com"), null);
 assert.equal(safeNext("/%2F%2Fevil.com"), "/%2F%2Fevil.com");
+for (const bad of ["/..//evil.com", "/.//evil.com", "/a/..//evil.com", "/%2e%2e//evil.com"])
+  assert.equal(safeNext(bad), null, `dot segments collapse to //: ${bad}`);
 
 console.log("All oauth checks pass");

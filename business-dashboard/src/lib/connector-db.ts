@@ -63,7 +63,8 @@ export async function getClientContext(clientId: string) {
       .filter((p) => p.Client?.[0] === clientId)
       .map((p) => ({ ...p, deal: deals.find((d) => d.projectId === p.id) ?? null })),
     documents: documents.map(({ draft: _draft, ...d }) => d), // eslint-disable-line @typescript-eslint/no-unused-vars
-    invoices: clientInvoices,
+    // Founder pay is out of the connector's reach, reads included.
+    invoices: clientInvoices.map(({ "Michael Bonus Share": _m, "Zane Bonus Share": _z, ...i }) => i), // eslint-disable-line @typescript-eslint/no-unused-vars
     payments,
     activity,
   };
