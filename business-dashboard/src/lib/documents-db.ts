@@ -721,6 +721,11 @@ export async function createReceiptForPayment(paymentId: string, actor: string, 
 
 export type ClientDetails = { address: string | null; signatoryName: string | null; signatoryTitle: string | null };
 
+export async function getClientDetails(clientId: string): Promise<ClientDetails | null> {
+  const [row] = await getSql()`select address, signatory_name, signatory_title from clients where id = ${clientId}`;
+  return row ? { address: row.address, signatoryName: row.signatory_name, signatoryTitle: row.signatory_title } : null;
+}
+
 /** Only the fields given change; an empty value clears one. */
 export async function saveClientDetails(
   clientId: string,

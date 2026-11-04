@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { requireAdminPage } from "@/lib/auth";
 import { getClientById, getProject } from "@/lib/db";
-import { getDocument, getEntityActivity, getPayeeAccounts, listAttachments } from "@/lib/documents-db";
+import { carePlanStart, getDocument, getEntityActivity, getPayeeAccounts, listAttachments } from "@/lib/documents-db";
+import { formatMoney } from "@/lib/doc-templates";
 import { DOC_STATUS_LABEL, DOC_TYPE_LABEL, PAYEE_LABEL, missingFacts } from "@/lib/documents";
 import { href } from "@/lib/record-graph";
 import { PageHeader } from "@/components/dashboard/explain";
 import { FilesPanel } from "@/components/dashboard/files-panel";
 import { ActivityList } from "@/components/dashboard/activity-list";
-import { DocumentActions, PayeePicker } from "./document-actions";
+import { DocumentActions, PayeePicker, StartCarePlan } from "./document-actions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // the finalise server action renders and stores a PDF
@@ -22,13 +23,18 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const doc = await getDocument(id);
   if (!doc) notFound();
   const isInvoice = doc.type === "invoice";
-  const [client, project, files, activity, accounts] = await Promise.all([
+  const isCare = doc.type === "care_plan";
+  const changeApplied = doc.type === "change_request" && (doc.status === "accepted" || doc.status === "signed") && !!doc.dealId;
+  const [client, project, files, activity, accounts, careStart, dealActivity] = await Promise.all([
     doc.clientId ? getClientById(doc.clientId) : null,
     doc.projectId ? getProject(doc.projectId) : null,
     listAttachments("document", [id]),
     getEntityActivity("document", id),
     isInvoice ? getPayeeAccounts() : [],
+    isCare && doc.status === "signed" && !doc.subscriptionId ? carePlanStart(id) : null,
+    changeApplied ? getEntityActivity("deal", doc.dealId!) : [],
   ]);
+  const addedToDeal = dealActivity.find((a) => a.summary.startsWith(`${doc.title} added `));
   const savedPayees = new Set(accounts.map((a) => a.payee));
 
   const asked = Number(sp.version);
@@ -68,6 +74,27 @@ export default async function DocumentPage({ params, searchParams }: { params: P
             <p>Paid to: {doc.payee ? PAYEE_LABEL[doc.payee] : "Not chosen"}</p>
           )}
         </div>
+      )}
+      {isCare && (
+        <div className="border border-[#DCE1E8] bg-white p-3 text-sm text-[#1B2533]">
+          {doc.subscriptionId ? (
+            <p>Care plan started. The retainer is in <Link className={link} href="/admin/finance/recurring">Finance, Recurring</Link>.</p>
+          ) : careStart?.ready ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p>
+                <strong>Start care plan</strong> for {careStart.clientName}: {formatMoney(careStart.amount)} a month.
+                <span className="block text-xs text-[#4A5568]">Care began {careStart.finalPaidOn}. First invoice {careStart.firstInvoice}.</span>
+              </p>
+              <StartCarePlan id={id} />
+            </div>
+          ) : careStart ? (
+            <p className="text-[#6B7789]">{careStart.reason}.</p>
+          ) : null}
+          <p className="mt-1 text-xs text-[#4A5568]">Appears once the care plan is signed. It needs the project&apos;s final payment recorded in Finance first.</p>
+        </div>
+      )}
+      {addedToDeal && (
+        <p className="border border-[#DCE1E8] bg-white p-3 text-sm text-[#1B2533]">Added to the deal: {addedToDeal.summary}.</p>
       )}
       {doc.type === "receipt" && (
         <p className="border border-[#DCE1E8] bg-white p-3 text-xs text-[#4A5568]">
