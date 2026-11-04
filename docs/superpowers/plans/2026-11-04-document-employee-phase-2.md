@@ -2611,6 +2611,142 @@ Grep the three files for em dashes (`—`) and remove any. Confirm `git -C C:/Us
 
 ---
 
+### Task 3b: Fixes from the Tasks 0-3 review
+
+Added 4 November after review. All in `src/lib/doc-templates.ts`, `src/lib/documents.ts`, `src/lib/documents-db.ts`, with tests in `scripts/doc-templates.test.ts`, `scripts/documents.test.ts` and `scripts/documents-db.test.ts`. Test first for each.
+
+1. **A voided invoice document must not let the same payment line be invoiced again while its invoice is still live.** In `createInvoiceFromDeal`, the duplicate check becomes:
+   ```sql
+   select d.id from documents d left join invoices i on i.id = d.invoice_id
+    where d.deal_id = ${deal.id} and d.type = 'invoice' and d.title = ${title}
+      and (d.status <> 'void' or (i.status is not null and i.status <> 'Void'))
+   ```
+   Test: finalise line 1, void its document, `createInvoiceFromDeal` line 1 again → refused /already/.
+2. **Payment lines need different labels.** `scheduleProblem` in `documents.ts` returns "Every payment needs a different label" when two labels match (trimmed, case-insensitive). Test in `scripts/documents.test.ts`. Add a `// ponytail:` comment on the duplicate check: renaming a line after invoicing it lets it be invoiced again; upgrade path is matching on `invoices.notes`.
+3. **An item line with no amount is refused.** In `parseItems`, validate the stripped amount text with `/^\d+(\.\d{1,2})?$/` before `Number()`. `"Hosting |"` and `"Design | 0x10"` go to `bad`. Tests in `doc-templates.test.ts`.
+4. **An invoice document needs an Items section** to finalise (`checkTemplate`): "An invoice needs an Items section".
+5. **An invoice with no status** (old imports) is refused on finalise: "Set the invoice's status in Finance first". Only `Draft` is moved to `Sent`.
+6. Tests: a Void invoice is refused; re-finalising v2 of an invoice document whose invoice is already Sent does not log a second "sent"; a quote with a bad item line is refused.
+
+Commit: `fix(documents): review findings on invoices from deals and item lines`.
+
+---
+
+### Task 14: Receipts we issue to clients
+
+Added 4 November at Michael and Zane's request. A receipt is a document of type `receipt` built from **one recorded payment** (the `payments` table, migration 011), so it can never disagree with Finance. Claude can draft and finalise one on request; the dashboard has a "Make receipt" button per payment.
+
+**Files:**
+- Create: `scripts/migrations/025_receipts_and_expense_files.up.sql` / `.down.sql`; append to `scripts/schema.sql`
+- Modify: `src/lib/documents.ts`, `src/lib/documents-db.ts`, `src/lib/connector-db.ts`, `src/lib/pdf/document-pdf.tsx`, `src/lib/pdf/store.ts`, `src/lib/connector/tools.ts`, `src/app/documents-actions.ts`, `src/app/admin/finance/invoices/[id]/page.tsx`
+- Tests: `scripts/documents-db.test.ts`, `scripts/pdf.test.tsx`, `scripts/connector-tools.test.ts`
+
+- [ ] **Step 1: Migration 025** (also carries Task 15's schema change)
+
+`025_receipts_and_expense_files.up.sql`:
+
+```sql
+-- 025_receipts_and_expense_files.up.sql
+--
+-- Receipts: a document of type 'receipt' for one recorded payment. It carries
+-- the payment and its own number (RCT-0001…), given when it is first finalised
+-- and never changed. One live receipt per payment.
+-- Expense files: receipts we are given for our own expenses attach to the
+-- expense, like any other file.
+--
+-- Contains a plpgsql body, so run-migration.mjs executes it as one statement.
+
+alter table documents drop constraint if exists documents_type_check;
+alter table documents add constraint documents_type_check
+  check (type in ('proposal','quote','service_agreement','care_plan','change_request','invoice','sop','receipt'));
+alter table documents drop constraint if exists documents_invoice_only_on_invoices;
+alter table documents add constraint documents_invoice_only_on_invoices check (type in ('invoice','receipt') or invoice_id is null);
+
+alter table documents add column if not exists payment_id uuid references payments(id) on delete set null;
+alter table documents add column if not exists receipt_number text unique;
+alter table documents add constraint documents_payment_only_on_receipts check (type = 'receipt' or (payment_id is null and receipt_number is null));
+create unique index if not exists documents_one_live_receipt on documents (payment_id) where type = 'receipt' and status <> 'void';
+
+-- As in 024, plus the payment link and the receipt number, which never changes once given.
+create or replace function documents_final_states() returns trigger
+language plpgsql as $$
+begin
+  if old.receipt_number is not null and new.receipt_number is distinct from old.receipt_number then
+    raise exception 'receipt % already has its number', old.receipt_number;
+  end if;
+  if old.status in ('signed','void') and new.status is distinct from old.status then
+    raise exception 'a % document cannot change status', old.status;
+  end if;
+  if old.status in ('signed','void') and (
+       (new.draft, new.title, new.type, new.payee) is distinct from (old.draft, old.title, old.type, old.payee)
+       or (new.client_id  is not null and new.client_id  is distinct from old.client_id)
+       or (new.project_id is not null and new.project_id is distinct from old.project_id)
+       or (new.deal_id    is not null and new.deal_id    is distinct from old.deal_id)
+       or (new.invoice_id is not null and new.invoice_id is distinct from old.invoice_id)
+       or (new.payment_id is not null and new.payment_id is distinct from old.payment_id)) then
+    raise exception 'a % document cannot be changed', old.status;
+  end if;
+  return new;
+end $$;
+
+-- Expense files (Task 15)
+alter table attachments drop constraint if exists attachments_entity_type_check;
+alter table attachments add constraint attachments_entity_type_check
+  check (entity_type in ('client','project','invoice','document','expense'));
+alter table activity drop constraint if exists activity_entity_type_check;
+alter table activity add constraint activity_entity_type_check
+  check (entity_type in ('client','project','deal','document','invoice','attachment','expense'));
+```
+
+Check the real constraint names first (`docker exec docs-pg psql -U postgres -c "\d documents"` and `\d attachments`, `\d activity`); Postgres names inline checks `<table>_<column>_check`. The down file restores 024's function, drops the index, constraints and columns, and restores the old check lists (it fails if receipts or expense files exist; say so in a comment). Apply up/down/up on `docs-pg`.
+
+- [ ] **Step 2: Rules and data (test first)**
+
+- `documents.ts`: add `"receipt"` to `DOC_TYPES` and `DOC_TYPE_LABEL` ("Receipt"); `TRANSITIONS` already cover it.
+- `documents-db.ts`:
+  - `Doc` gains `paymentId: string | null` and `receiptNumber: string | null`.
+  - `createReceiptForPayment(paymentId, actor, via)`: in one transaction, load the payment with its invoice and project (`select p.*, i.invoice_number, i.project_id, coalesce(i.client_id, pr.client_id) as client_id, d.id as deal_id from payments p join invoices i … left join projects pr … left join deals d on d.project_id = i.project_id`), refuse if a live receipt exists ("A receipt for this payment already exists (document …)"), insert a `receipt` document titled `Receipt: ${invoice_number ?? "invoice"} ${paid_at}` with `invoice_id`, `payment_id`, client, project, deal, and one section `{ key: "notes", heading: "Notes", body: "Thank you for your payment." }`; log it.
+  - In `finaliseDocument`, for a `receipt`: refuse if `payment_id` is null ("The payment for this receipt was deleted"); if `receipt_number` is null, take `pg_advisory_xact_lock(hashtext('documents.receipt_number'))`, compute `RCT-` + the next number (max of existing `^RCT-([0-9]+)$` + 1, zero-padded to 4 like invoices in migration 019), and set it in the same transaction.
+- `connector-db.ts` `getClientContext` gains `payments`: `select id, invoice_id, amount, paid_at, method from payments where invoice_id in (<this client's invoice ids>) order by paid_at desc`. Never `received_by` or `note` (internal).
+- Tests in `documents-db.test.ts`: receipt for a payment (insert the payment with SQL in the test: set both bonus shares on the invoice first if the payment trigger requires it, see migration 011); second receipt refused; finalise gives `RCT-0001` then a second payment's receipt gives `RCT-0002`; receipt number cannot be changed by SQL; voiding then re-creating is allowed; payment rows are never written by any documents-db function.
+
+- [ ] **Step 3: PDF**
+
+- `PdfData` gains `receipt: { number: string | null; paidAt: string; method: string | null; amount: number; invoiceNumber: string | null; invoiceTotal: number; paidToDate: number } | null`.
+- `loadPdfData` fills it for receipts: `paidToDate` = sum of payments on that invoice with `(paid_at, created_at) <= ` this payment's. Receipt number from `documents.receipt_number`.
+- Layout for `type === "receipt"`: header kind "RECEIPT" with the receipt number; "RECEIVED FROM" block (client); a table: "Payment towards {invoiceNumber}" | amount; under it "Paid on {paidAt}{method ? ` by ${method}` : ""}"; then "Invoice total", "Paid to date", "Balance" (invoiceTotal − paidToDate, shown as "Paid in full" when 0); notes; a closing line "Received with thanks." No bank details on receipts.
+- Add a `receipt` fixture to `scripts/pdf.test.tsx` and look at it with the Read tool.
+
+- [ ] **Step 4: Dashboard and connector**
+
+- `documents-actions.ts`: `createReceiptAction(paymentId)` → `requireAdmin`, uuid check, `createReceiptForPayment`, `revalidatePath`, returns the document id.
+- Invoice page payments table: per payment, a link "Receipt RCT-…" to the existing live receipt, or a "Make receipt" button (client component) that creates it and routes to `/admin/documents/<id>`.
+- `tools.ts`: new tool `create_receipt` `{ paymentId }`: "Draft a receipt for one recorded payment (ids are in get_client_context's payments). Payments themselves are recorded in the dashboard, never here. Finalise it to give it its RCT number and PDF." Update the "exactly the agreed tools" check in `connector-tools.test.ts` and add a create_receipt call.
+
+- [ ] **Step 5: Run every test, tsc, eslint on touched files; commit**
+
+`feat(documents): receipts for recorded payments, RCT numbers and PDF`
+
+---
+
+### Task 15: Receipts on expenses
+
+Added 4 November at Michael's request. Our own expense receipts attach to the expense (schema change is in migration 025, Task 14).
+
+**Files:**
+- Modify: `src/lib/documents.ts` (`ATTACHABLE` gains `"expense"`), `src/lib/record-graph.ts` (`href.expense`)
+- Create: `src/app/admin/finance/expenses/[id]/page.tsx`
+- Modify: `src/components/dashboard/expenses-list.tsx` (expense name links to its page; a paperclip marker on rows that have a file)
+
+- [ ] **Step 1:** `ATTACHABLE` gains `"expense"`. Read `finishUploadAction` and `startUploadAction` in `documents-actions.ts`: make sure an `expense` upload works (path prefix check) and add an existence check for the expense (`select 1 from expenses where id = …`) so a file cannot be attached to a made-up id. Note that `logActivity`'s `clientOf` returns null for `expense`, which is right.
+- [ ] **Step 2:** `/admin/finance/expenses/[id]/page.tsx`: `requireAdminPage`, uuid → `notFound`, load the expense (find the loader in `db.ts`), show name, category, amount, date, paid from / paid personally by, reimbursed state, notes (read-only, like the invoice page), then `<FilesPanel entityType="expense" entityId={id} files={…} defaultKind="proof_of_payment" />` under the heading "Receipts", and the expense's activity. A link back to Expenses.
+- [ ] **Step 3:** In `expenses-list.tsx`, the expense name links to its page (`href.expense`); rows whose expense has at least one file show a small paperclip icon (lucide `Paperclip`, `aria-label="Has a receipt"`). Load the set of expense ids with files in `expenses/page.tsx` via `listAttachments("expense", ids)` and pass it down.
+- [ ] **Step 4:** tsc, eslint, existing tests; commit `feat(expenses): attach receipts to expenses`.
+
+Order: 3b after Batch C; 14 and 15 after Task 12; the `/doc` skill (Task 13) last, and it covers receipts ("Make a receipt when a founder says a client paid; payments are recorded in the dashboard first").
+
+---
+
 ## After all tasks: hand-off to Michael (not done by any subagent)
 
 Report what was built, what was checked (test outputs, the four PDFs looked at, the smoke test), what was not (a real OAuth round trip from claude.ai and real Storage only happen in production), and these decisions taken by default, for him to confirm or change:
@@ -2622,7 +2758,7 @@ Report what was built, what was checked (test outputs, the four PDFs looked at, 
 
 Go-live, in order, all done by Michael:
 1. Phase 1 first (migrations 022 then 023, service role key), if not already live.
-2. `node --env-file=.env.local scripts/run-migration.mjs scripts/migrations/024_documents_phase_2.up.sql --dry-run`, then without `--dry-run`. Needs `DIRECT_URL` in `.env.local`.
+2. `node --env-file=.env.local scripts/run-migration.mjs scripts/migrations/024_documents_phase_2.up.sql --dry-run`, then without `--dry-run`; then the same for `025_receipts_and_expense_files.up.sql`. Needs `DIRECT_URL` in `.env.local`.
 3. Merge (deploys). No new environment variables.
 4. Dashboard → Bank details: fill in Michael, Zane and the company account.
 5. Claude app: Settings → Connectors → Add custom connector → `https://mindelo.site/api/mcp`, sign in, Allow. Create a Project "Mindelo documents" and paste `project-instructions.md`.
