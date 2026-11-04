@@ -8,7 +8,10 @@
 import postgres from "postgres";
 import {
   addAttachment,
+  carePlanStart,
   createInvoiceFromDeal,
+  saveClientDetails,
+  startCarePlan,
   createDocument,
   createReceiptForPayment,
   deleteAttachment,
@@ -29,6 +32,8 @@ import {
   DocumentRuleError,
 } from "../src/lib/documents-db";
 import { closeDb } from "../src/lib/db";
+import { getClientContext } from "../src/lib/connector-db";
+import { DEFAULT_SECTIONS } from "../src/lib/doc-templates";
 import { loadPdfData } from "../src/lib/pdf/store";
 
 const url = process.env.DATABASE_URL ?? "";
@@ -60,6 +65,7 @@ async function reset() {
     await tx`alter table document_versions disable trigger document_versions_frozen`;
     await tx`delete from activity`;
     await tx`delete from attachments`;
+    await tx`delete from subscriptions where name like 'TEST %'`;
     await tx`delete from document_versions`;
     await tx`delete from documents`;
     await tx`delete from deals`;
@@ -315,6 +321,98 @@ try {
     const ld = await createDocument({ type: "quote", title: "Q", clientId: null, projectId: String(lp.id), dealId: null, invoiceId: null, sections: [] }, ME);
     const pdf = await loadPdfData(ld.id, 0);
     check("a lead's quote is prepared for the lead", pdf?.client?.name === "TEST Lena" && pdf?.client?.company === "TEST Lena Ltd" && pdf?.client?.email === "lena@example.com", JSON.stringify(pdf?.client));
+  }
+
+  // Phase 3: legal details, change requests, care plans
+  {
+    const fill = (t: "service_agreement" | "care_plan" | "change_request") =>
+      DEFAULT_SECTIONS[t]!.map((s) => ({ ...s, body: s.body.replace(/\{\{\s*missing:[^}]*\}\}/g, "filled") }));
+    const [c3] = await sql`insert into clients (name, company) values ('TEST Kai', 'TEST Kai Ltd') returning id`;
+    const [p3] = await sql`insert into projects (name, client_id) values ('TEST Kai site', ${c3.id}) returning id`;
+    const cid = String(c3.id);
+    const pid = String(p3.id);
+
+    // Legal details
+    const sa = await createDocument({ type: "service_agreement", title: "TEST SA", clientId: cid, projectId: pid, dealId: null, invoiceId: null, sections: fill("service_agreement") }, ME);
+    await rejects("an agreement without legal details is refused", () => finaliseDocument(sa.id, ME), /Legal details/);
+    let det = await saveClientDetails(cid, { address: " 1 Main Street, Port of Spain ", signatoryName: "Kai Lee", signatoryTitle: "Director" }, ME);
+    check("legal details saved and trimmed", det.address === "1 Main Street, Port of Spain" && det.signatoryName === "Kai Lee" && det.signatoryTitle === "Director", JSON.stringify(det));
+    det = await saveClientDetails(cid, { signatoryTitle: "Owner" }, ME);
+    check("partial update keeps the other fields", det.address === "1 Main Street, Port of Spain" && det.signatoryName === "Kai Lee" && det.signatoryTitle === "Owner", JSON.stringify(det));
+    det = await saveClientDetails(cid, { signatoryTitle: "  " }, ME);
+    check("an empty value clears the field", det.signatoryTitle === null && det.signatoryName === "Kai Lee", JSON.stringify(det));
+    await rejects("legal details for a missing client are refused", () =>
+      saveClientDetails("00000000-0000-4000-8000-000000000000", { address: "x" }, ME), /no longer exists/);
+    check("legal details logged on the client", (await getEntityActivity("client", cid)).some((a) => a.summary === "Legal details updated"));
+    const ctx = await getClientContext(cid);
+    check("client context carries the legal details", ctx?.client.address === "1 Main Street, Port of Spain" && ctx.client.signatoryName === "Kai Lee" && ctx.client.signatoryTitle === null, JSON.stringify(ctx?.client));
+    check("an agreement finalises once legal details exist", (await finaliseDocument(sa.id, ME)).version === 1);
+
+    // Change requests
+    const kdeal = await saveDeal({
+      projectId: pid, reference: "KL-2026-01", scope: ["Site"], priceTotal: 5000,
+      paymentSchedule: [{ label: "Payment 1", amount: 2500, trigger: "On acceptance" }, { label: "Payment 2", amount: 2500, trigger: "On handover" }],
+      carePlan: null, deadline: null, goals: null, notes: null, payeeDefault: null,
+    }, ME);
+    const crSections = (items: string) => fill("change_request").map((s) => (s.key === "items" ? { ...s, body: items } : s));
+    const bad = await createDocument({ type: "change_request", title: "TEST CR bad", clientId: cid, projectId: pid, dealId: kdeal.id, invoiceId: null, sections: crSections("Gallery |") }, ME);
+    await rejects("a change request with bad items is refused", () => finaliseDocument(bad.id, ME), /description \| amount/);
+    const cr = await createDocument({ type: "change_request", title: "KL-2026-01-CR1", clientId: cid, projectId: pid, dealId: kdeal.id, invoiceId: null, sections: crSections("Gallery | 800") }, ME);
+    await finaliseDocument(cr.id, ME);
+    await setDocumentStatus(cr.id, "sent", ME);
+    await setDocumentStatus(cr.id, "accepted", ME);
+    let d = await getDealByProject(pid);
+    check("accepted change adds to the price and the last payment", d?.priceTotal === 5800 && d.paymentSchedule[0].amount === 2500 && d.paymentSchedule[1].amount === 3300, JSON.stringify(d));
+    check("the change is logged on the deal", (await getEntityActivity("deal", kdeal.id)).some((a) => a.summary === "KL-2026-01-CR1 added TT$800.00 to Payment 2"));
+    await addAttachment({ entityType: "document", entityId: cr.id, storagePath: `document/${cr.id}/s`, filename: "cr.pdf", contentType: "application/pdf", size: 5, kind: "signed_copy" }, ME);
+    d = await getDealByProject(pid);
+    check("signing an accepted change does not count it twice", (await getDocument(cr.id))?.status === "signed" && d?.priceTotal === 5800 && d.paymentSchedule[1].amount === 3300, JSON.stringify(d));
+
+    await createInvoiceFromDeal({ projectId: pid, line: 2, payee: "michael", dueDate: null }, ME);
+    const cr2 = await createDocument({ type: "change_request", title: "KL-2026-01-CR2", clientId: cid, projectId: pid, dealId: kdeal.id, invoiceId: null, sections: crSections("Blog | 300") }, ME);
+    await finaliseDocument(cr2.id, ME);
+    await setDocumentStatus(cr2.id, "sent", ME);
+    await rejects("a change after the final invoice exists is refused", () => setDocumentStatus(cr2.id, "accepted", ME), /The final invoice already exists\. Invoice this change separately\./);
+    d = await getDealByProject(pid);
+    check("the refused change leaves the document and deal alone", (await getDocument(cr2.id))?.status === "sent" && d?.priceTotal === 5800, JSON.stringify(d));
+
+    // Care plans
+    check("carePlanStart: not a care plan", !((await carePlanStart(sa.id)) as { ready: boolean }).ready);
+    const cp = await createDocument({ type: "care_plan", title: "TEST Care plan", clientId: cid, projectId: pid, dealId: kdeal.id, invoiceId: null, sections: fill("care_plan") }, ME);
+    const why = async (id: string) => { const r = await carePlanStart(id); return r.ready ? "ready" : r.reason; };
+    check("carePlanStart: not signed yet", /not signed/i.test(await why(cp.id)), await why(cp.id));
+    await rejects("a care plan without a monthly amount is refused", () => finaliseDocument(cp.id, ME), /monthly amount on the deal/);
+    await saveDeal({ ...d!, projectId: pid, carePlan: { monthlyAmount: 500, minimumMonths: 3, noticeDays: 30, inclusions: [], exclusions: [] } }, ME);
+    await finaliseDocument(cp.id, ME);
+    await setDocumentStatus(cp.id, "sent", ME);
+    await addAttachment({ entityType: "document", entityId: cp.id, storagePath: `document/${cp.id}/s`, filename: "cp.pdf", contentType: "application/pdf", size: 5, kind: "signed_copy" }, ME);
+    check("carePlanStart: final payment missing", (await why(cp.id)) === "The project's final payment isn't recorded yet", await why(cp.id));
+    await rejects("startCarePlan refuses before the final payment", () => startCarePlan(cp.id, ME), /final payment/);
+    const [nodeal] = await sql`insert into documents (type, title, client_id, project_id, status, created_by, updated_by)
+                               values ('care_plan', 'TEST cp no deal', ${cid}, ${pid}, 'signed', ${ME}, ${ME}) returning id`;
+    check("carePlanStart: no deal", /deal/i.test(await why(String(nodeal.id))), await why(String(nodeal.id)));
+
+    const [fi] = await sql`
+      insert into invoices (project_id, amount, invoice_type, status, invoice_number, michael_bonus_share, zane_bonus_share)
+      values (${pid}, 3300, 'final', 'Sent', 'INV-9100', 0.5, 0.5) returning id`;
+    await sql`insert into payments (invoice_id, amount, paid_at, received_by) values (${fi.id}, 1000, '2026-10-25', 'business')`;
+    await sql`insert into payments (invoice_id, amount, paid_at, received_by) values (${fi.id}, 2300, '2026-10-31', 'business')`;
+    await sql`update invoices set status = 'Paid' where id = ${fi.id} and status <> 'Paid'`; // test setup only
+    const ready = await carePlanStart(cp.id);
+    // Payments before 22 Oct 2026 are archived, so 31 Oct stands in for the month-end clamp.
+    check("carePlanStart: ready one month after the last payment", ready.ready && ready.amount === 500 && ready.finalPaidOn === "2026-10-31"
+      && ready.firstInvoice === "2026-11-30" && ready.clientName === "TEST Kai Ltd", JSON.stringify(ready));
+    const subId = await startCarePlan(cp.id, ME);
+    const subs = await sql`select * from subscriptions where client_id = ${cid}`;
+    const s = subs[0];
+    check("startCarePlan creates one active monthly retainer", subs.length === 1 && String(s.id) === subId && s.name === "TEST Kai Ltd care plan"
+      && Number(s.amount) === 500 && s.frequency === "monthly" && s.status === "Active" && String(s.project_id) === pid
+      && new Date(s.start_date).toISOString().slice(0, 10) === "2026-11-30" && s.notes === "Care began 2026-10-31. From TEST Care plan.", JSON.stringify(s));
+    const [linked] = await sql`select subscription_id from documents where id = ${cp.id}`;
+    check("the care plan links to its retainer", String(linked.subscription_id) === subId);
+    check("care start logged on the document", (await getEntityActivity("document", cp.id)).some((a) => a.action === "care_started" && a.summary === "Care plan started: first invoice 2026-11-30"));
+    check("carePlanStart: already started", /already started/i.test(await why(cp.id)), await why(cp.id));
+    await rejects("a second start is refused", () => startCarePlan(cp.id, ME), /already started/);
   }
 
   check("DocumentRuleError is exported", typeof DocumentRuleError === "function");

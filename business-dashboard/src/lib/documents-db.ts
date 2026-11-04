@@ -19,7 +19,7 @@ import {
   type Section,
   PAYEE_LABEL,
 } from "./documents";
-import { INVOICE_DUE_DAYS, addDays, invoiceTypeFor, itemsProblem } from "./doc-templates";
+import { INVOICE_DUE_DAYS, addDays, applyChange, firstCareInvoice, formatMoney, invoiceTypeFor, itemsProblem, parseItems } from "./doc-templates";
 import { today } from "./subscriptions";
 
 /** A rule was broken (bad status move, missing fact, schedule mismatch). Safe to show to a founder. */
@@ -77,6 +77,8 @@ export type Doc = {
   /** Receipts only: the recorded payment it is for, and its RCT number once first finalised. */
   paymentId: string | null;
   receiptNumber: string | null;
+  /** Care plans only: the retainer it started (migration 026). */
+  subscriptionId: string | null;
   payee: Payee | null;
   title: string;
   status: DocStatus;
@@ -145,6 +147,7 @@ function toDoc(r: Row): Doc {
     invoiceId: str(r.invoice_id),
     paymentId: str(r.payment_id),
     receiptNumber: r.receipt_number ?? null,
+    subscriptionId: str(r.subscription_id),
     payee: r.payee ?? null,
     title: r.title,
     status: r.status,
@@ -361,9 +364,18 @@ export async function saveDraftSections(id: string, changes: Section[], actor: s
 /** Rules a template adds on top of "nothing missing". Runs inside the finalise transaction. */
 async function checkTemplate(tx: Db, doc: Doc): Promise<void> {
   const items = doc.draft.find((s) => s.key === "items");
-  if (doc.type === "quote" && items) {
-    const p = itemsProblem(items.body, null);
+  if ((doc.type === "quote" && items) || doc.type === "change_request") {
+    const p = itemsProblem(items?.body ?? "", null);
     if (p) throw new DocumentRuleError(p);
+  }
+  if (doc.type === "service_agreement" || doc.type === "care_plan") {
+    const [c] = doc.clientId ? await tx`select address, signatory_name from clients where id = ${doc.clientId}` : [];
+    if (!c?.address || !c.signatory_name)
+      throw new DocumentRuleError("Add the client's address and signatory (client page, Legal details) first");
+  }
+  if (doc.type === "care_plan") {
+    const [d] = doc.dealId ? await tx`select care_plan from deals where id = ${doc.dealId}` : [];
+    if (!(Number(d?.care_plan?.monthlyAmount) > 0)) throw new DocumentRuleError("Set the care plan's monthly amount on the deal first");
   }
   if (doc.type !== "invoice") return;
   if (!items) throw new DocumentRuleError("An invoice needs an Items section");
@@ -426,6 +438,45 @@ export async function finaliseDocument(id: string, actor: string, via: Via = "da
   });
 }
 
+/**
+ * The live invoice document for a payment line, if any. A voided document still
+ * holds its line while its invoice is live.
+ * ponytail: matched on the line's label, so renaming a line after invoicing it lets it be
+ * invoiced again; upgrade path is matching on invoices.notes.
+ */
+async function lineInvoice(tx: Db, dealId: string, label: string): Promise<string | null> {
+  const [dupe] = await tx`
+    select d.id from documents d left join invoices i on i.id = d.invoice_id
+     where d.deal_id = ${dealId} and d.type = 'invoice' and d.title = ${`Invoice: ${label}`}
+       and (d.status <> 'void' or (i.status is not null and i.status <> 'Void'))`;
+  return dupe ? String(dupe.id) : null;
+}
+
+/**
+ * A change request becoming accepted (or signed, whichever comes first) adds its
+ * items to the deal's price and last payment. Throws to roll the status change back.
+ */
+async function applyAcceptedChange(tx: Db, doc: Doc, actor: string, via: Via): Promise<void> {
+  if (doc.type !== "change_request" || doc.status === "accepted" || doc.status === "signed" || !doc.dealId) return;
+  const [row] = await tx`select * from deals where id = ${doc.dealId} for update`;
+  if (!row) return;
+  const deal = toDeal(row);
+  const last = deal.paymentSchedule.at(-1);
+  if (last && (await lineInvoice(tx, deal.id, last.label)))
+    throw new DocumentRuleError("The final invoice already exists. Invoice this change separately.");
+  const { items } = parseItems(doc.draft.find((s) => s.key === "items")?.body ?? "");
+  const amount = items.reduce((s, i) => s + Math.round(i.amount * 100), 0) / 100;
+  const next = applyChange(deal.priceTotal, deal.paymentSchedule, amount);
+  await tx`
+    update deals set price_total = ${next.price}, payment_schedule = ${tx.json(next.schedule)},
+           updated_by = ${actor}, updated_via = ${via}, updated = now()
+     where id = ${deal.id}`;
+  await logActivity(tx, {
+    entityType: "deal", entityId: deal.id, action: "updated",
+    summary: `${doc.title} added ${formatMoney(amount)} to ${last ? last.label : "the price"}`, actor, via,
+  });
+}
+
 /** Sent, accepted, declined or void. Draft and finalised only happen through editing and finalising; signed only by attaching the signed copy. */
 export async function setDocumentStatus(id: string, to: DocStatus, actor: string, via: Via = "dashboard"): Promise<Doc> {
   if (to === "draft" || to === "finalised") throw new DocumentRuleError("Edit or finalise the document instead");
@@ -434,6 +485,7 @@ export async function setDocumentStatus(id: string, to: DocStatus, actor: string
   return sql.begin(async (tx) => {
     const doc = await lockDoc(tx, id);
     if (!canMove(doc.status, to)) throw new DocumentRuleError(`A document cannot go from ${doc.status} to ${to}`);
+    if (to === "accepted") await applyAcceptedChange(tx, doc, actor, via);
     const [row] = await tx`
       update documents set status = ${to}, updated_by = ${actor}, updated_via = ${via}, updated = now() where id = ${id} returning *`;
     await logActivity(tx, { entityType: "document", entityId: id, action: to, summary: `${doc.title} marked ${to}`, actor, via });
@@ -510,6 +562,7 @@ export async function addAttachment(
     if (a.entityType === "document" && a.kind === "signed_copy") {
       const doc = await lockDoc(tx, a.entityId);
       if (canMove(doc.status, "signed")) {
+        await applyAcceptedChange(tx, doc, actor, via);
         await tx`update documents set status = 'signed', updated_by = ${actor}, updated_via = ${via}, updated = now() where id = ${doc.id}`;
         await logActivity(tx, { entityType: "document", entityId: doc.id, action: "signed", summary: `${doc.title} signed (copy attached)`, actor, via });
       }
@@ -600,14 +653,8 @@ export async function createInvoiceFromDeal(
     const line = deal.paymentSchedule[input.line - 1];
     if (!line) throw new DocumentRuleError(`The deal has no payment line ${input.line} (it has ${deal.paymentSchedule.length})`);
     const title = `Invoice: ${line.label}`;
-    // A voided document still holds its line while its invoice is live.
-    // ponytail: matched on the line's label, so renaming a line after invoicing it lets it be
-    // invoiced again; upgrade path is matching on invoices.notes.
-    const [dupe] = await tx`
-      select d.id from documents d left join invoices i on i.id = d.invoice_id
-       where d.deal_id = ${deal.id} and d.type = 'invoice' and d.title = ${title}
-         and (d.status <> 'void' or (i.status is not null and i.status <> 'Void'))`;
-    if (dupe) throw new DocumentRuleError(`${title} already exists (document ${dupe.id})`);
+    const dupe = await lineInvoice(tx, deal.id, line.label);
+    if (dupe) throw new DocumentRuleError(`${title} already exists (document ${dupe})`);
 
     const issued = today();
     const [inv] = await tx`
@@ -668,4 +715,97 @@ export async function createReceiptForPayment(paymentId: string, actor: string, 
       throw new DocumentRuleError("A receipt for this payment already exists");
     throw e;
   }
+}
+
+// ─── Client legal details (migration 026) ────────────────────────────────────
+
+export type ClientDetails = { address: string | null; signatoryName: string | null; signatoryTitle: string | null };
+
+/** Only the fields given change; an empty value clears one. */
+export async function saveClientDetails(
+  clientId: string,
+  d: { address?: string | null; signatoryName?: string | null; signatoryTitle?: string | null },
+  actor: string,
+  via: Via = "dashboard",
+): Promise<ClientDetails> {
+  const clean = (v: string | null | undefined) => v?.trim() || null;
+  const cols: Record<string, string | null> = {};
+  if (d.address !== undefined) cols.address = clean(d.address);
+  if (d.signatoryName !== undefined) cols.signatory_name = clean(d.signatoryName);
+  if (d.signatoryTitle !== undefined) cols.signatory_title = clean(d.signatoryTitle);
+  const sql = getSql();
+  return sql.begin(async (tx) => {
+    const [row] = Object.keys(cols).length
+      ? await tx`update clients set ${tx(cols)} where id = ${clientId} returning address, signatory_name, signatory_title`
+      : await tx`select address, signatory_name, signatory_title from clients where id = ${clientId}`;
+    if (!row) throw new DocumentRuleError("That client no longer exists");
+    await logActivity(tx, { entityType: "client", entityId: clientId, action: "updated", summary: "Legal details updated", actor, via });
+    return { address: row.address, signatoryName: row.signatory_name, signatoryTitle: row.signatory_title };
+  });
+}
+
+// ─── Care plan to retainer ──────────────────────────────────────────────────
+
+export type CarePlanStart =
+  | { ready: true; amount: number; finalPaidOn: string; firstInvoice: string; clientName: string }
+  | { ready: false; reason: string };
+
+/** Whether a signed care plan can start its retainer, and with what. Never writes. */
+async function careStartFor(tx: Db, doc: Doc): Promise<CarePlanStart & { clientId?: string; projectId?: string }> {
+  const no = (reason: string) => ({ ready: false as const, reason });
+  if (doc.type !== "care_plan") return no("This is not a care plan");
+  if (doc.status !== "signed") return no("The care plan is not signed yet");
+  if (doc.subscriptionId) return no("The care plan has already started");
+  const [deal] = doc.dealId ? await tx`select project_id, care_plan from deals where id = ${doc.dealId}` : [];
+  if (!deal) return no("The care plan is not linked to a deal");
+  const amount = Number(deal.care_plan?.monthlyAmount);
+  if (!(amount > 0)) return no("The deal has no care plan monthly amount");
+  const projectId = doc.projectId ?? str(deal.project_id);
+  if (!projectId) return no("The care plan is not linked to a project");
+  const [c] = await tx`
+    select c.id, coalesce(nullif(c.company, ''), c.name) as name
+      from projects p join clients c on c.id = coalesce(${doc.clientId}::uuid, p.client_id) where p.id = ${projectId}`;
+  if (!c) return no("The care plan has no client");
+  // The final invoice, or for a one-payment project its one_off invoice; its last payment date.
+  const [paid] = await tx`
+    select to_char(max(pay.paid_at), 'YYYY-MM-DD') as paid_on
+      from invoices i join payments pay on pay.invoice_id = i.id
+     where i.project_id = ${projectId} and i.status = 'Paid'
+       and i.invoice_type = case when exists (
+             select 1 from invoices where project_id = ${projectId} and invoice_type = 'final' and status is distinct from 'Void')
+           then 'final' else 'one_off' end`;
+  if (!paid?.paid_on) return no("The project's final payment isn't recorded yet");
+  return {
+    ready: true, amount, finalPaidOn: paid.paid_on, firstInvoice: firstCareInvoice(paid.paid_on), clientName: c.name,
+    clientId: String(c.id), projectId,
+  };
+}
+
+export async function carePlanStart(documentId: string): Promise<CarePlanStart> {
+  const sql = getSql();
+  const [row] = await sql`select * from documents where id = ${documentId}`;
+  if (!row) return { ready: false, reason: "That document no longer exists" };
+  const { clientId: _c, projectId: _p, ...start } = await careStartFor(sql, toDoc(row)); // eslint-disable-line @typescript-eslint/no-unused-vars
+  return start as CarePlanStart;
+}
+
+/** One founder click: the signed care plan's monthly retainer. Returns the subscription id. */
+export async function startCarePlan(documentId: string, actor: string, via: Via = "dashboard"): Promise<string> {
+  const sql = getSql();
+  return sql.begin(async (tx) => {
+    const doc = await lockDoc(tx, documentId);
+    const s = await careStartFor(tx, doc);
+    if (!s.ready) throw new DocumentRuleError(s.reason);
+    const [sub] = await tx`
+      insert into subscriptions (name, client_id, project_id, amount, frequency, status, start_date, notes)
+      values (${`${s.clientName} care plan`}, ${s.clientId!}, ${s.projectId!}, ${s.amount}, 'monthly', 'Active', ${s.firstInvoice},
+              ${`Care began ${s.finalPaidOn}. From ${doc.title}.`})
+      returning id`;
+    const subscriptionId = String(sub.id);
+    await tx`update documents set subscription_id = ${subscriptionId}, updated_by = ${actor}, updated_via = ${via}, updated = now() where id = ${doc.id}`;
+    await logActivity(tx, {
+      entityType: "document", entityId: doc.id, action: "care_started", summary: `Care plan started: first invoice ${s.firstInvoice}`, actor, via,
+    });
+    return subscriptionId;
+  });
 }
