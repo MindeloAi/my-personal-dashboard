@@ -85,3 +85,12 @@ export async function revokeAllForUser(userId: string): Promise<number> {
   const rows = await sql`update oauth_tokens set revoked_at = now() where user_id = ${userId} and revoked_at is null returning 1`;
   return rows.length;
 }
+
+/** How many Claude apps (OAuth clients) one founder has connected right now. */
+export async function liveConnections(userId: string): Promise<number> {
+  const sql = getSql();
+  const [r] = await sql`
+    select count(distinct client_id)::int as n from oauth_tokens
+     where user_id = ${userId} and kind = 'refresh' and revoked_at is null and expires_at > now()`;
+  return r.n;
+}

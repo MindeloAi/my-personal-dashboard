@@ -1,7 +1,7 @@
 // oauth-db.test.ts — codes and tokens, against the THROWAWAY local database only.
 //   DATABASE_URL=postgres://postgres:pg@localhost:55433/postgres bun scripts/oauth-db.test.ts
 import postgres from "postgres";
-import { issueCode, redeemCode, refreshTokens, revokeAllForUser, verifyAccessToken } from "../src/lib/oauth-db";
+import { issueCode, liveConnections, redeemCode, refreshTokens, revokeAllForUser, verifyAccessToken } from "../src/lib/oauth-db";
 import { closeDb } from "../src/lib/db";
 
 const url = process.env.DATABASE_URL ?? "";
@@ -96,7 +96,9 @@ try {
   // Disconnect Claude
   const a1 = await fresh();
   const a2 = await fresh();
+  check("two sign-ins from one app count as one connection", (await liveConnections(USER)) === 1);
   check("revokeAllForUser counts the live tokens it revoked", (await revokeAllForUser(USER)) >= 4);
+  check("after disconnect there are no connections", (await liveConnections(USER)) === 0);
   check("after disconnect no access token works", (await verifyAccessToken(a1!.accessToken)) === null && (await verifyAccessToken(a2!.accessToken)) === null);
   check("after disconnect no refresh token works", (await refreshTokens({ refreshToken: a1!.refreshToken, clientId: CLIENT })) === null);
 

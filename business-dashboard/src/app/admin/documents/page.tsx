@@ -32,7 +32,13 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-3">
-      <PageHeader title="Documents" purpose="Every proposal, quote, agreement, care plan, change request, invoice document and SOP, with its status and version." />
+      <PageHeader
+        title="Documents"
+        purpose={<>
+          Every proposal, quote, agreement, care plan, change request, invoice document and SOP, with its status and version.
+          Documents are drafted by talking to Claude, with /doc in Claude Code or in the Claude app; <Link className="font-medium text-[#1D4ED8] hover:underline" href="/admin/settings/claude">connect Claude here</Link>.
+        </>}
+      />
       <Explain
         shows="One row per document. Drafts can still change; a finalised version is frozen."
         read="Open a document to see its versions, status history and files. Names open the client or project."
