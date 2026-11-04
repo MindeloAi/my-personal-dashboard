@@ -1,7 +1,7 @@
 // Authorization codes and tokens for the Claude connector (migration 024).
 // Only SHA-256 hashes are stored. Every token check re-reads `profiles`, so
 // removing a founder's profile ends Claude's access at the next call.
-import { getSql } from "./db";
+import { ADMIN_EMAILS, getSql } from "./db";
 import { ACCESS_TTL_S, CODE_TTL_S, REFRESH_TTL_S, hashSecret, newSecret, pkceMatches, redirectAllowed } from "./oauth";
 
 export type Tokens = { accessToken: string; refreshToken: string; expiresIn: number };
@@ -55,7 +55,7 @@ export async function refreshTokens(a: { refreshToken: string; clientId: string 
     update oauth_tokens set revoked_at = now()
      where token_hash = ${hashSecret(a.refreshToken)} and kind = 'refresh' and client_id = ${a.clientId}
        and revoked_at is null and expires_at > now()
-       and exists (select 1 from profiles p where p.id = oauth_tokens.user_id and p.role = 'admin')
+       and exists (select 1 from profiles p where p.id = oauth_tokens.user_id and p.role = 'admin' and lower(p.email) = any(${ADMIN_EMAILS}))
      returning user_id`;
   if (!row) {
     await sql`
@@ -72,7 +72,7 @@ export async function verifyAccessToken(token: string): Promise<{ userId: string
   const sql = getSql();
   const [row] = await sql`
     select t.user_id, t.client_id, t.expires_at, p.email
-      from oauth_tokens t join profiles p on p.id = t.user_id and p.role = 'admin'
+      from oauth_tokens t join profiles p on p.id = t.user_id and p.role = 'admin' and lower(p.email) = any(${ADMIN_EMAILS})
      where t.token_hash = ${hashSecret(token)} and t.kind = 'access' and t.revoked_at is null and t.expires_at > now()`;
   return row
     ? { userId: String(row.user_id), email: String(row.email), clientId: String(row.client_id), expiresAt: new Date(row.expires_at).getTime() }

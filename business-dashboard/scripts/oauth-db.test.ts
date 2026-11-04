@@ -32,7 +32,7 @@ try {
   // Production has profiles (migration 005, tied to auth.users). The throwaway DB may not.
   await sql`create table if not exists profiles (id uuid primary key, email text not null, role text not null default 'admin')`;
   await reset();
-  await sql`insert into profiles (id, email, role) values (${USER}, 'founder@example.com', 'admin')`;
+  await sql`insert into profiles (id, email, role) values (${USER}, 'admin@mindelo.site', 'admin')`;
 
   const code = await issueCode({ userId: USER, clientId: CLIENT, redirectUri: REDIRECT, codeChallenge: CHALLENGE });
   check("wrong verifier gets nothing", (await redeemCode({ code, clientId: CLIENT, redirectUri: REDIRECT, verifier: "b".repeat(43) })) === null);
@@ -47,7 +47,7 @@ try {
   check("a code works once", (await redeemCode({ code: code3, clientId: CLIENT, redirectUri: REDIRECT, verifier: VERIFIER })) === null);
 
   const who = await verifyAccessToken(t!.accessToken);
-  check("the access token names the founder", who?.email === "founder@example.com" && who.userId === USER && who.clientId === CLIENT);
+  check("the access token names the founder", who?.email === "admin@mindelo.site" && who.userId === USER && who.clientId === CLIENT);
   check("a refresh token is not an access token", (await verifyAccessToken(t!.refreshToken)) === null);
   check("garbage is not a token", (await verifyAccessToken("nope")) === null);
 
@@ -103,6 +103,13 @@ try {
   check("after disconnect no refresh token works", (await refreshTokens({ refreshToken: a1!.refreshToken, clientId: CLIENT })) === null);
 
   const t3 = await fresh();
+  // An admin profile whose address is not on ADMIN_EMAILS gets nothing.
+  await sql`update profiles set email = 'zaneadams@mindelo.site' where id = ${USER}`;
+  check("an admin off the email list has no access", (await verifyAccessToken(t3!.accessToken)) === null);
+  const off = await fresh();
+  check("an admin off the email list cannot refresh", (await refreshTokens({ refreshToken: off!.refreshToken, clientId: CLIENT })) === null);
+  await sql`update profiles set email = 'Admin@Mindelo.site' where id = ${USER}`;
+  check("the email list ignores case", (await verifyAccessToken(t3!.accessToken)) !== null);
   await sql`delete from profiles where id = ${USER}`;
   check("a token stops working when the profile goes", (await verifyAccessToken(t3!.accessToken)) === null);
   check("refresh stops working when the profile goes", (await refreshTokens({ refreshToken: t3!.refreshToken, clientId: CLIENT })) === null);

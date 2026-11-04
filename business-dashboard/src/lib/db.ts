@@ -1297,10 +1297,17 @@ export async function claimTask(
 
 export type AdminProfile = { id: string; email: string };
 
+/**
+ * The only addresses that can be an admin, on top of the `profiles` row. A second
+ * lock in code: an account wrongly added to `profiles`, or signup switched back on
+ * in Supabase, still gets nothing. Lower case.
+ */
+export const ADMIN_EMAILS = ["admin@mindelo.site"];
+
 export async function getAdminProfile(userId: string): Promise<AdminProfile | null> {
   const sql = getSql();
   const [row] = await sql`
-    select id, email from profiles where id = ${userId} and role = 'admin'
+    select id, email from profiles where id = ${userId} and role = 'admin' and lower(email) = any(${ADMIN_EMAILS})
   `;
   return row ? { id: String(row.id), email: String(row.email) } : null;
 }
