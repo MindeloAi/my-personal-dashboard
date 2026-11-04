@@ -12,6 +12,7 @@ import { ActivityList } from "@/components/dashboard/activity-list";
 import { DocumentActions, PayeePicker } from "./document-actions";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // the finalise server action renders and stores a PDF
 const link = "font-medium text-[#1D4ED8] hover:underline";
 
 export default async function DocumentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ version?: string }> }) {
@@ -41,7 +42,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       <PageHeader
         title={doc.title}
         purpose={`${DOC_TYPE_LABEL[doc.type]} · ${DOC_STATUS_LABEL[doc.status]} · ${doc.currentVersion ? `latest version v${doc.currentVersion}` : "never finalised"}`}
-        action={<DocumentActions id={id} status={doc.status} missing={missing} />}
+        action={<DocumentActions id={id} type={doc.type} status={doc.status} missing={missing} />}
       />
       <p className="flex flex-wrap gap-x-4 text-xs text-[#4A5568]">
         {client && <span>Client <Link className={link} href={href.client(client.id)}>{client.Company || client.Name}</Link></span>}
@@ -71,7 +72,13 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       {doc.type === "receipt" && (
         <p className="border border-[#DCE1E8] bg-white p-3 text-xs text-[#4A5568]">
           {doc.receiptNumber ? `Receipt ${doc.receiptNumber}. ` : ""}This receipt shows one payment recorded in Finance, so its amount and date always match it. Finalise it to give it its RCT number and PDF, then send the PDF to the client.
-          {!doc.paymentId && <span className="text-[#B23A0A]"> The payment it was for has been deleted, so it cannot be finalised.</span>}
+          {!doc.paymentId && (
+            <span className="text-[#B23A0A]">
+              {doc.status === "draft"
+                ? " The payment it was for has been deleted, so it cannot be finalised."
+                : " The payment this receipt was for has been deleted. The finalised PDF still stands; void it if the payment was recorded in error."}
+            </span>
+          )}
         </p>
       )}
       {doc.status === "draft" && missing.length > 0 && (

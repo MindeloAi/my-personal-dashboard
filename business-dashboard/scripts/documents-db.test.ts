@@ -279,6 +279,22 @@ try {
     const paymentsAfter = await sql`select id, invoice_id, amount, paid_at, received_by, method, note from payments order by id`;
     check("no documents-db function wrote a payment", JSON.stringify(paymentsAfter) === JSON.stringify(paymentsBefore));
     await rejects("no receipt for a payment that does not exist", () => createReceiptForPayment("00000000-0000-4000-8000-000000000000", ME), /No recorded payment/);
+    // A receipt whose invoice has no amount cannot be finalised (set up by blanking the amount after the payment).
+    const [ni] = await sql`
+      insert into invoices (project_id, amount, status, invoice_number, michael_bonus_share, zane_bonus_share)
+      values (${projectId}, 500, 'Sent', 'INV-9002', 0.5, 0.5) returning id`;
+    const [pn] = await sql`insert into payments (invoice_id, amount, paid_at, received_by) values (${ni.id}, 100, '2026-11-03', 'business') returning id`;
+    const rn = await createReceiptForPayment(String(pn.id), ME);
+    // Test setup only: the lock trigger stops the app blanking an invoice's amount once it has payments.
+    await sql.begin(async (tx) => {
+      await tx`alter table invoices disable trigger invoices_lock_after_payment`;
+      await tx`update invoices set amount = null where id = ${ni.id}`;
+      await tx`alter table invoices enable trigger invoices_lock_after_payment`;
+    });
+    await rejects("a receipt for an invoice with no amount is refused", () => finaliseDocument(rn.id, ME), /The invoice has no amount/);
+    // A receipt whose payment was deleted cannot produce PDF figures.
+    await sql`delete from payments where id = ${pn.id}`;
+    await rejects("PDF data for a receipt whose payment was deleted throws", () => loadPdfData(rn.id, 0), /deleted/);
   }
 
   // Receipts on expenses (Task 15)

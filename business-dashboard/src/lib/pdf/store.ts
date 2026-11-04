@@ -48,6 +48,7 @@ export async function loadPdfData(documentId: string, version: number): Promise<
                  where q.invoice_id = p.invoice_id and (q.paid_at, q.created_at) <= (p.paid_at, p.created_at)) as paid_to_date
           from payments p where p.id = ${doc.payment_id}`
     : [];
+  if (doc.type === "receipt" && !pay) throw new Error("The payment for this receipt was deleted");
   return {
     type: doc.type,
     title,

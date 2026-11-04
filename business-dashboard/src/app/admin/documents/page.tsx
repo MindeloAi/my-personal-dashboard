@@ -35,7 +35,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
       <PageHeader
         title="Documents"
         purpose={<>
-          Every proposal, quote, agreement, care plan, change request, invoice document and SOP, with its status and version.
+          Every proposal, quote, agreement, care plan, change request, invoice document, receipt and SOP, with its status and version.
           Documents are drafted by talking to Claude, with /doc in Claude Code or in the Claude app; <Link className="font-medium text-[#1D4ED8] hover:underline" href="/admin/settings/claude">connect Claude here</Link>.
         </>}
       />

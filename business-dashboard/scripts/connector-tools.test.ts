@@ -111,6 +111,8 @@ try {
   await refused("save_draft", { type: "receipt", title: "x", projectId: made.projectId }, /create_receipt/);
   const rv = await call("finalise_document", { documentId: rct.id });
   check("finalising the receipt gives it an RCT number", rv.version === 1 && /^RCT-\d{4,}$/.test((await call("get_document", { documentId: rct.id })).receiptNumber));
+  await refused("set_status", { documentId: rct.id, status: "accepted" }, /only be marked sent or void/);
+  await refused("set_status", { documentId: rct.id, status: "declined" }, /only be marked sent or void/);
   check("get_client_context leaves out founder bonus shares", !JSON.stringify(ctx).includes("Bonus Share") && ctx.invoices.length === 1);
   check("save_deal ignores a new reference on an existing deal", (await call("save_deal", { projectId: made.projectId, reference: "ZZ-2026-99" })).reference === made.reference);
   const other = await call("create_client_and_project", { name: "TEST Other Co", projectName: "TEST Other Site" });

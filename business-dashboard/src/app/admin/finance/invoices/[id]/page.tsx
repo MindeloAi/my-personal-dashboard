@@ -15,6 +15,7 @@ import { ActivityList } from "@/components/dashboard/activity-list";
 import { MakeReceipt } from "./make-receipt";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // the Make receipt server action renders a PDF
 
 const th = "border-b border-[#DCE1E8] px-3 py-2 text-left text-xs font-semibold text-[#4A5568]";
 const td = "border-b border-[#EEF1F5] px-3 py-2";

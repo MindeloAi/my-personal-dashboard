@@ -383,6 +383,8 @@ async function checkTemplate(tx: Db, doc: Doc): Promise<void> {
 /** A receipt gets the next RCT number the first time it is finalised, and keeps it (migration 025). */
 async function numberReceipt(tx: Db, doc: Doc): Promise<void> {
   if (!doc.paymentId) throw new DocumentRuleError("The payment for this receipt was deleted");
+  const [inv] = doc.invoiceId ? await tx`select amount from invoices where id = ${doc.invoiceId}` : [];
+  if (!inv || inv.amount == null) throw new DocumentRuleError("The invoice has no amount. Set it in Finance first");
   if (doc.receiptNumber) return;
   await tx`select pg_advisory_xact_lock(hashtext('documents.receipt_number'))`;
   const [n] = await tx`
@@ -478,7 +480,7 @@ export async function getAttachment(id: string): Promise<Attachment | null> {
   return row ? toAttachment(row) : null;
 }
 
-/** Expenses are not checked by a foreign key (attachments point at many tables), so check here. */
+/** No foreign key checks an attachment's target (it can point at many tables), so check here. Only expenses are checked so far. */
 export async function attachableExists(entityType: Attachable, entityId: string, tx: Db = getSql()): Promise<boolean> {
   if (entityType !== "expense") return true;
   const [row] = await tx`select 1 from expenses where id = ${entityId}`;

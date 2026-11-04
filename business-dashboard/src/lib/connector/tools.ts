@@ -233,7 +233,13 @@ export const TOOLS: AnyTool[] = [
     title: "Mark sent, accepted, declined or void",
     description: "Record what happened to a finalised document. Signed is not set here: a founder attaches the signed copy in the dashboard. Only when a founder says it happened.",
     input: z.object({ documentId: id, status: z.enum(["sent", "accepted", "declined", "void"]) }),
-    run: ({ documentId, status }, actor) => setDocumentStatus(documentId, status, actor, "claude"),
+    run: async ({ documentId, status }, actor) => {
+      if (status === "accepted" || status === "declined") {
+        const doc = await getDocument(documentId);
+        if (doc?.type === "receipt") throw new DocumentRuleError("A receipt can only be marked sent or void");
+      }
+      return setDocumentStatus(documentId, status, actor, "claude");
+    },
   }),
   tool({
     name: "create_invoice_from_deal",

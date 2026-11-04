@@ -7,7 +7,7 @@ import { finaliseDocumentAction, setDocumentPayeeAction, setDocumentStatusAction
 import { DOC_STATUS_LABEL, PAYEES, PAYEE_LABEL, TRANSITIONS, type DocStatus, type Payee } from "@/lib/documents";
 
 /** Finalise, and the status moves allowed from here. Editing the text happens through Claude (Phase 2). */
-export function DocumentActions({ id, status, missing }: { id: string; status: DocStatus; missing: string[] }) {
+export function DocumentActions({ id, type, status, missing }: { id: string; type: string; status: DocStatus; missing: string[] }) {
   const [busy, start] = useTransition();
   const run = (fn: () => Promise<{ ok: true; data?: { pdfError?: string } } | { ok: false; error: string }>, done: string) =>
     start(async () => {
@@ -17,7 +17,8 @@ export function DocumentActions({ id, status, missing }: { id: string; status: D
       else toast.success(done);
     });
   // Signed happens by attaching the signed copy in Files, never by a button.
-  const moves = TRANSITIONS[status].filter((s) => s !== "draft" && s !== "finalised" && s !== "signed");
+  const moves = TRANSITIONS[status].filter((s) => s !== "draft" && s !== "finalised" && s !== "signed")
+    .filter((s) => type !== "receipt" || s === "sent" || s === "void"); // a receipt is neither accepted nor declined
   const btn = "min-h-11 sm:min-h-0 rounded-[4px] px-3 py-2 text-xs font-semibold disabled:opacity-50";
 
   return (
