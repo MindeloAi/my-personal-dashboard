@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
-import { createClient, getAdmin } from "@/lib/auth";
+import { createClient, getPendingAdmin } from "@/lib/auth";
 import { dashboardFont } from "@/lib/dashboard-font";
+import { STEP_PATH } from "@/lib/mfa";
 import { safeNext } from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
-// Sign in with Supabase Auth. Email and password only, no magic links, no OAuth.
+// Sign in with Supabase Auth: email and password here, then an authenticator code
+// (/login/code, or /login/setup the first time). No magic links, no OAuth.
 //
 // There is no signup, no password reset and no invite flow here, on purpose. The
 // three founder accounts are seeded by scripts/seed-admins.mjs and public signup is
@@ -30,11 +32,14 @@ async function signIn(formData: FormData) {
 
   // A valid account is not enough: without an admin profile the admin pages
   // would bounce straight back here. Sign out so the form isn't stuck in a loop.
-  if (!(await getAdmin())) {
+  const pending = await getPendingAdmin();
+  if (!pending) {
     await supabase.auth.signOut();
     redirect(`/login?error=unauthorised${keep}`);
   }
 
+  // Then the authenticator code, or setting one up the first time.
+  if (pending.step !== "done") redirect(`${STEP_PATH[pending.step]}${next ? `?next=${encodeURIComponent(next)}` : ""}`);
   redirect(next ?? "/admin/overview");
 }
 
@@ -47,9 +52,10 @@ export default async function LoginPage({
   const error = sp.error;
   const next = safeNext(sp.next);
 
-  // Already signed in and authorised: skip the form.
-  const admin = await getAdmin();
-  if (admin) redirect(next ?? "/admin/overview");
+  // Already signed in: skip the form, or carry on to the code step.
+  const pending = await getPendingAdmin();
+  if (pending?.step === "done") redirect(next ?? "/admin/overview");
+  if (pending) redirect(`${STEP_PATH[pending.step]}${next ? `?next=${encodeURIComponent(next)}` : ""}`);
 
   return (
     <div className={`${dashboardFont.className} min-h-screen bg-[#F3F5F8] text-[#1B2533] flex items-center justify-center p-6`}>
