@@ -50,7 +50,12 @@ export default async function DocumentPage({ params, searchParams }: { params: P
       )}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_16rem]">
         <article className="border border-[#DCE1E8] bg-white p-4 sm:p-6">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#5A6678]">{shown ? `Version ${shown.version}, finalised ${shown.finalisedAt.slice(0, 10)}` : "Draft"}</p>
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#5A6678]">{shown ? `Version ${shown.version}, finalised ${shown.finalisedAt.slice(0, 10)}` : "Draft"}</p>
+            {!shown && doc.status === "draft" && doc.draft.length > 0 && (
+              <a href={`/admin/documents/${doc.id}/pdf`} target="_blank" rel="noreferrer" className="text-xs text-[#1D4ED8] hover:underline">Preview PDF</a>
+            )}
+          </div>
           {sections.length === 0 && <p className="text-sm text-[#6B7789]">Empty. Ask Claude to draft it.</p>}
           {sections.map((s) => (
             <section key={s.key} className="mb-4">
@@ -67,6 +72,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
               <li key={v.id}>
                 <Link className={link} href={`${href.document(id)}?version=${v.version}`}>v{v.version}</Link>
                 <span className="text-xs text-[#5A6678]"> · {v.finalisedAt.slice(0, 10)} · {v.finalisedBy.split("@")[0]}</span>
+                {" "}<a href={`/admin/documents/${doc.id}/pdf?version=${v.version}`} target="_blank" rel="noreferrer" className="text-xs text-[#1D4ED8] hover:underline">PDF</a>
               </li>
             ))}
             {doc.versions.length === 0 && <li className="text-[#6B7789]">None yet</li>}

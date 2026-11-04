@@ -44,3 +44,9 @@ export async function removeFile(path: string): Promise<void> {
   const { error } = await storage().remove([path]);
   if (error) throw new Error(`Could not delete the file: ${error.message}`);
 }
+
+/** Server-side upload (PDFs we render). Never overwrites: a frozen version's file is written once. */
+export async function uploadBytes(path: string, bytes: Uint8Array, contentType: string): Promise<void> {
+  const { error } = await storage().upload(path, bytes, { contentType, upsert: false });
+  if (error) throw new Error(`Could not store the file: ${error.message}`);
+}

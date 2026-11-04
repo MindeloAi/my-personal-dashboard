@@ -13,6 +13,7 @@ import {
   setDocumentStatus,
 } from "@/lib/documents-db";
 import { ATTACHABLE, DOC_STATUSES, FILE_KINDS, PAYEES } from "@/lib/documents";
+import { ensurePdf } from "@/lib/pdf/store";
 import { MAX_FILE_BYTES, exists, removeFile, signedUpload } from "@/lib/storage";
 
 type Result<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
@@ -69,13 +70,19 @@ export async function saveDealAction(input: z.input<typeof DealForm>): Promise<R
   }
 }
 
-export async function finaliseDocumentAction(id: string): Promise<Result<{ version: number }>> {
+export async function finaliseDocumentAction(id: string): Promise<Result<{ version: number; pdfError?: string }>> {
   const admin = await requireAdmin();
   if (!z.uuid().safeParse(id).success) return { ok: false, error: "Unknown document" };
   try {
     const v = await finaliseDocument(id, admin.email);
     revalidatePath("/", "layout");
-    return { ok: true, data: { version: v.version } };
+    try {
+      await ensurePdf(id, v.version);
+      return { ok: true, data: { version: v.version } };
+    } catch (e) {
+      console.error("[finalise] PDF", e);
+      return { ok: true, data: { version: v.version, pdfError: "Finalised, but the PDF could not be made yet. Open it again from the version list." } };
+    }
   } catch (e) {
     return fail(e);
   }

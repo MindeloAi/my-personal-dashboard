@@ -8,11 +8,12 @@ import { DOC_STATUS_LABEL, TRANSITIONS, type DocStatus } from "@/lib/documents";
 /** Finalise, and the status moves allowed from here. Editing the text happens through Claude (Phase 2). */
 export function DocumentActions({ id, status, missing }: { id: string; status: DocStatus; missing: string[] }) {
   const [busy, start] = useTransition();
-  const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>, done: string) =>
+  const run = (fn: () => Promise<{ ok: true; data?: { pdfError?: string } } | { ok: false; error: string }>, done: string) =>
     start(async () => {
       const r = await fn();
-      if (r.ok) toast.success(done);
-      else toast.error(r.error);
+      if (!r.ok) toast.error(r.error);
+      else if (r.data?.pdfError) toast.warning(r.data.pdfError);
+      else toast.success(done);
     });
   // Signed happens by attaching the signed copy in Files, never by a button.
   const moves = TRANSITIONS[status].filter((s) => s !== "draft" && s !== "finalised" && s !== "signed");

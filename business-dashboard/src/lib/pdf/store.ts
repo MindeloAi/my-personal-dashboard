@@ -1,0 +1,81 @@
+// Gathers what a document's PDF shows, renders it, and keeps the file.
+//
+// A finalised version is rendered once and stored at document/<id>/v<N>.pdf, so
+// it reprints identically even after the deal, client or bank details change.
+// If that first render failed (e.g. Storage was down), the next request renders
+// it from the frozen sections plus today's linked data, and stores that.
+import { getSql } from "../db";
+import { getPayeeAccount, setVersionPdf } from "../documents-db";
+import type { Section } from "../documents";
+import { uploadBytes } from "../storage";
+import { renderDocumentPdf, type PdfData } from "./document-pdf";
+
+/** `version` 0 = the current draft. Null when the document or version does not exist. */
+export async function loadPdfData(documentId: string, version: number): Promise<PdfData | null> {
+  const sql = getSql();
+  const [doc] = await sql`
+    select d.*, p.name as project_name,
+           c.name as client_name, c.company, c.email, c.phone,
+           dl.reference, dl.price_total, dl.currency, dl.payment_schedule, dl.care_plan,
+           i.invoice_number, i.issue_date, i.due_date, i.amount
+      from documents d
+      left join projects p on p.id = d.project_id
+      left join clients c on c.id = coalesce(d.client_id, p.client_id)
+      left join deals dl on dl.id = d.deal_id
+      left join invoices i on i.id = d.invoice_id
+     where d.id = ${documentId}`;
+  if (!doc) return null;
+  let title = doc.title as string;
+  let sections = doc.draft as Section[];
+  let date = new Date().toISOString().slice(0, 10);
+  if (version > 0) {
+    const [v] = await sql`select * from document_versions where document_id = ${documentId} and version = ${version}`;
+    if (!v) return null;
+    title = v.title;
+    sections = v.sections;
+    date = new Date(v.finalised_at).toISOString().slice(0, 10);
+  }
+  const bank = doc.type === "invoice" && doc.payee ? await getPayeeAccount(doc.payee) : null;
+  const day = (x: unknown) => (x ? String(x instanceof Date ? x.toISOString() : x).slice(0, 10) : null);
+  return {
+    type: doc.type,
+    title,
+    reference: doc.reference ?? null,
+    version,
+    date,
+    client: doc.client_name != null ? { name: doc.client_name, company: doc.company, email: doc.email, phone: doc.phone } : null,
+    projectName: doc.project_name ?? null,
+    sections,
+    deal: doc.reference
+      ? {
+          priceTotal: doc.price_total == null ? null : Number(doc.price_total),
+          currency: doc.currency,
+          paymentSchedule: (doc.payment_schedule ?? []).map((l: { label: string; amount: unknown; trigger: string }) => ({ ...l, amount: Number(l.amount) })),
+          carePlan: doc.care_plan,
+        }
+      : null,
+    invoice: doc.invoice_id
+      ? { number: doc.invoice_number, issueDate: day(doc.issue_date), dueDate: day(doc.due_date), amount: Number(doc.amount ?? 0) }
+      : null,
+    bank: bank && { accountName: bank.accountName, bankName: bank.bankName, branch: bank.branch, accountNumber: bank.accountNumber, accountType: bank.accountType },
+  };
+}
+
+/** The Storage path of a finalised version's PDF, rendering and storing it first if needed. */
+export async function ensurePdf(documentId: string, version: number): Promise<string> {
+  const sql = getSql();
+  const [v] = await sql`select pdf_path from document_versions where document_id = ${documentId} and version = ${version}`;
+  if (!v) throw new Error(`Document ${documentId} has no version ${version}`);
+  if (v.pdf_path) return v.pdf_path;
+  const data = await loadPdfData(documentId, version);
+  if (!data) throw new Error(`Document ${documentId} has no version ${version}`);
+  const path = `document/${documentId}/v${version}.pdf`;
+  try {
+    await uploadBytes(path, await renderDocumentPdf(data), "application/pdf");
+  } catch (e) {
+    // A previous attempt stored the file but failed before recording it. Same frozen version, so keep that file.
+    if (!/already exists/i.test(String((e as Error).message))) throw e;
+  }
+  await setVersionPdf(documentId, version, path);
+  return path;
+}
