@@ -8,6 +8,7 @@
 import postgres from "postgres";
 import {
   addAttachment,
+  createInvoiceFromDeal,
   createDocument,
   deleteAttachment,
   finaliseDocument,
@@ -15,11 +16,15 @@ import {
   getDealByProject,
   getDocument,
   getEntityActivity,
+  getPayeeAccounts,
   listAttachments,
   listDocuments,
   saveDeal,
   saveDraftSections,
+  savePayeeAccount,
+  setDocumentPayee,
   setDocumentStatus,
+  setVersionPdf,
   DocumentRuleError,
 } from "../src/lib/documents-db";
 import { closeDb } from "../src/lib/db";
@@ -56,6 +61,8 @@ async function reset() {
     await tx`delete from document_versions`;
     await tx`delete from documents`;
     await tx`delete from deals`;
+    await tx`delete from invoices where project_id in (select id from projects where name like 'TEST %')`;
+    await tx`delete from payee_accounts`;
     await tx`delete from projects where name like 'TEST %'`;
     await tx`delete from clients where name like 'TEST %'`;
     await tx`alter table activity enable trigger activity_append_only`;
@@ -151,6 +158,8 @@ try {
     sql`update documents set title = 'x' where id = ${doc.id}`, /cannot be changed/);
   await rejects("a signed document cannot be moved to another project", () =>
     sql`update documents set project_id = ${second.id} where id = ${doc.id}`, /cannot be changed/);
+  await rejects("a signed document's payee cannot change", () =>
+    sql`update documents set payee = 'zane' where id = ${doc.id}`, /cannot be changed/);
   {
     // Deleting a linked record still works: ON DELETE SET NULL may clear the link.
     const [p] = await sql`insert into projects (name, client_id) values ('TEST Gone', ${clientId}) returning id`;
@@ -169,8 +178,37 @@ try {
   }, ME);
   check("attaching a file logs against the owning record", (await getEntityActivity("project", projectId)).length >= 1);
 
+  // Invoices from the deal (Task 3, phase 2)
+  const inv = await createInvoiceFromDeal({ projectId, line: 1, payee: "michael", dueDate: null }, ME);
+  const [invRow] = await sql`select amount, status, invoice_type, issue_date, due_date, invoice_number from invoices where id = ${inv.invoiceId}`;
+  check("invoice drafted from schedule line 1", Number(invRow.amount) === 3250 && invRow.status === "Draft" && invRow.invoice_type === "deposit" && invRow.invoice_number === null);
+  const daysToDue = (new Date(invRow.due_date).getTime() - new Date(invRow.issue_date).getTime()) / 86_400_000;
+  check("due 14 days after issue", daysToDue === 14, String(daysToDue));
+  check("invoice document carries the payee and the link", inv.document.type === "invoice" && inv.document.payee === "michael" && inv.document.invoiceId === inv.invoiceId && inv.document.title === "Invoice: Payment 1");
+  await rejects("the same schedule line cannot be invoiced twice", () =>
+    createInvoiceFromDeal({ projectId, line: 1, payee: "michael", dueDate: null }, ME), /already/);
+  await rejects("a line that does not exist is refused", () =>
+    createInvoiceFromDeal({ projectId, line: 9, payee: "zane", dueDate: null }, ME), /line 9/);
+  await rejects("finalising without bank details is refused", () => finaliseDocument(inv.document.id, ME), /Bank details/);
+  await savePayeeAccount({ payee: "michael", accountName: "TEST Account", bankName: "TEST Bank", branch: null, accountNumber: "000", accountType: null }, ME);
+  check("bank details saved", (await getPayeeAccounts()).length === 1);
+  const invV1 = await finaliseDocument(inv.document.id, ME);
+  const [sentRow] = await sql`select status, invoice_number from invoices where id = ${inv.invoiceId}`;
+  check("finalising the invoice document issues the invoice", invV1.version === 1 && sentRow.status === "Sent" && /^INV-\d{4,}$/.test(sentRow.invoice_number), JSON.stringify(sentRow));
+  check("issuing is logged on the invoice", (await getEntityActivity("invoice", inv.invoiceId)).some((a) => a.action === "sent"));
+  await rejects("payee cannot change once finalised", () => setDocumentPayee(inv.document.id, "zane", ME), /draft/);
+
+  const inv2 = await createInvoiceFromDeal({ projectId, line: 2, payee: "zane", dueDate: "2027-01-31" }, ME);
+  await setDocumentPayee(inv2.document.id, "michael", ME);
+  check("payee can change on a draft", (await getDocument(inv2.document.id))?.payee === "michael");
+  await saveDraftSections(inv2.document.id, [{ key: "items", heading: "Items", body: "Handover | 1" }], ME);
+  await rejects("items that do not add up to the invoice are refused", () => finaliseDocument(inv2.document.id, ME), /add up/);
+
+  check("setVersionPdf records the path once", (await setVersionPdf(inv.document.id, 1, "document/x/v1.pdf")) === true);
+  check("a second setVersionPdf is a no-op", (await setVersionPdf(inv.document.id, 1, "document/x/other.pdf")) === false);
+
   // Lists and activity
-  check("listDocuments by client", (await listDocuments({ clientId })).length === 2);
+  check("listDocuments by client", (await listDocuments({ clientId })).length === 4);
   const feed = await getClientActivity(clientId);
   check("activity recorded against the client", feed.length >= 6 && feed.every((a) => a.actor === ME));
   await rejects("activity is append-only", () => sql`delete from activity`, /append-only/);
