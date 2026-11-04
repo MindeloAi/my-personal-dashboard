@@ -13,7 +13,8 @@
     "db:import": "node --env-file=.env.local scripts/import-supabase.mjs",
     "db:verify": "bun --env-file=.env.local scripts/verify-migration.mjs",
     "test:subscriptions": "bun scripts/subscriptions.test.mjs",
-    "test:documents": "bun scripts/documents.test.ts"
+    "test:documents": "bun scripts/documents.test.ts",
+    "test:documents-db": "bun scripts/documents-db.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.2.0",
