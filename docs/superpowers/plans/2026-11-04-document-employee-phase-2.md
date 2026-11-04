@@ -2633,6 +2633,43 @@ Commit: `fix(documents): review findings on invoices from deals and item lines`.
 
 ---
 
+### Task 9b: Fixes from the Tasks 4, 8, 9 security review
+
+Added 4 November after review. Test first for each; files `src/lib/oauth.ts`, `src/lib/oauth-db.ts`, `src/lib/connector-db.ts` and their test scripts.
+
+1. **`safeNext` open redirect** (`/\t/evil.com` resolves to evil.com in browsers). Replace with:
+   ```ts
+   export function safeNext(next: unknown): string | null {
+     if (typeof next !== "string" || !next.startsWith("/")) return null;
+     const u = new URL(next, "https://x.invalid");
+     return u.origin === "https://x.invalid" ? u.pathname + u.search : null;
+   }
+   ```
+   Tests: `/\t/evil.com` and `/\n/evil.com` → null; `/%2F%2Fevil.com` stays `/%2F%2Fevil.com`; existing assertions still pass.
+2. **Claude callbacks match exactly**: `CLAUDE_CALLBACKS.includes(u.href)` (so `?x=1` is refused). Loopback also accepts `u.hostname === "[::1]"`. Tests for both plus `https://claude.ai@evil.com/api/mcp/auth_callback` → false.
+3. **Refresh-token reuse revokes the family.** In `refreshTokens`, when the rotate update matches nothing, revoke every live token of the same user and client if the presented token is a known, already-revoked refresh token:
+   ```ts
+   if (!row) {
+     await sql`
+       update oauth_tokens t set revoked_at = now()
+         from oauth_tokens old
+        where old.token_hash = ${hashSecret(a.refreshToken)} and old.kind = 'refresh' and old.revoked_at is not null
+          and t.user_id = old.user_id and t.client_id = old.client_id and t.revoked_at is null`;
+     return null;
+   }
+   ```
+   Test: after rotating, replay the old refresh token; then the new refresh token and the new access token are both refused.
+4. **Refresh re-checks the profile**: add `and exists (select 1 from profiles p where p.id = oauth_tokens.user_id and p.role = 'admin')` to the rotate update.
+5. **Expired rows are cleaned up**: `issueTokens` deletes `oauth_tokens` with `expires_at < now() - interval '1 day'`; `issueCode` does the same for `oauth_codes`.
+6. **`issueCode` validates its input** (defence in depth): throws unless `redirectAllowed(redirectUri)` and `codeChallenge` matches `^[A-Za-z0-9_-]{43}$`.
+7. **Disconnect Claude.** `revokeAllForUser(userId)` in `oauth-db.ts` (`update oauth_tokens set revoked_at = now() where user_id = … and revoked_at is null`), a server action `disconnectClaudeAction()` (`requireAdmin`, revokes the caller's own tokens), and a page `/admin/settings/claude` with the how-to note ("Claude reaches the dashboard through the Mindelo connector. Connect it in the Claude app under Settings, Connectors, with https://mindelo.site/api/mcp, or in Claude Code with `claude mcp add`. Lost a phone? Disconnect here, then connect again."), the count of live connections, and a "Disconnect Claude" button with a confirm. Sidebar: "Claude" under Sales after Bank details. The Documents page note links here. (The page and button are built in Task 10, which already touches the OAuth UI; the db function and test go here.)
+8. **connector-db**: the duplicate check looks in both `clients` and `leads` whatever `asLead` is, and says which exists ("Andrea already exists as a lead. Use find to open it."); `email` and `phone` are trimmed (empty → null); wrap `sql.begin` in the same `try/catch` as `saveDeal` so a `deals_reference_key` 23505 becomes `DocumentRuleError("Two records were created at once. Try again.")`.
+9. Test: four concurrent `redeemCode` calls on one code give exactly one winner.
+
+Commit: `fix(connector): review findings on OAuth redirects, refresh reuse and duplicates`.
+
+---
+
 ### Task 14: Receipts we issue to clients
 
 Added 4 November at Michael and Zane's request. A receipt is a document of type `receipt` built from **one recorded payment** (the `payments` table, migration 011), so it can never disagree with Finance. Claude can draft and finalise one on request; the dashboard has a "Make receipt" button per payment.
