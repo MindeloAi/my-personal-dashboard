@@ -1302,7 +1302,7 @@ export type AdminProfile = { id: string; email: string };
  * lock in code: an account wrongly added to `profiles`, or signup switched back on
  * in Supabase, still gets nothing. Lower case.
  */
-export const ADMIN_EMAILS = ["admin@mindelo.site"];
+export const ADMIN_EMAILS = ["admin@mindelo.site", "michaeltaylorwalker@mindelo.site", "zaneadams@mindelo.site"];
 
 export async function getAdminProfile(userId: string): Promise<AdminProfile | null> {
   const sql = getSql();

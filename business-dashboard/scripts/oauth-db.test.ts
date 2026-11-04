@@ -104,7 +104,7 @@ try {
 
   const t3 = await fresh();
   // An admin profile whose address is not on ADMIN_EMAILS gets nothing.
-  await sql`update profiles set email = 'zaneadams@mindelo.site' where id = ${USER}`;
+  await sql`update profiles set email = 'someone@gmail.com' where id = ${USER}`;
   check("an admin off the email list has no access", (await verifyAccessToken(t3!.accessToken)) === null);
   const off = await fresh();
   check("an admin off the email list cannot refresh", (await refreshTokens({ refreshToken: off!.refreshToken, clientId: CLIENT })) === null);
