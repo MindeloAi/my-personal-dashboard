@@ -2670,6 +2670,22 @@ Commit: `fix(connector): review findings on OAuth redirects, refresh reuse and d
 
 ---
 
+### Task 7b: Fixes from the Tasks 5-7 review (done with Task 14, same files)
+
+1. **Long unbroken words** (URLs) overprint the amount column: `Font.registerHyphenationCallback((word) => (word.length > 35 ? word.match(/.{1,30}/g) ?? [word] : [word]));`. Add an overflow fixture (long URL in an item, a schedule label and prose) to `pdf.test.tsx` and look at it.
+2. Drop `wrap={false}` from the Investment block View (rows keep theirs); `minPresenceAhead={80}` on its heading. Fixture: a 30-line schedule, check page 2 reads cleanly.
+3. A quote with items and a deal without a schedule does not print the deal table (care plan line stays): `showDeal = … && (parsed.length === 0 || d.deal.paymentSchedule.length > 0)`.
+4. `PdfData.invoice.amount` is `number | null`; `loadPdfData` keeps null so the items sum shows in a preview.
+5. PDF route: `version > 2147483647` → 400.
+6. The logo is read lazily (`getLogo()`), so a missing asset cannot break module load of every documents action.
+7. `uploadBytes` returns `false` on a 409 (`statusCode === "409"`) instead of throwing; `ensurePdf` drops the message regex.
+8. PDF dates use Trinidad time: `new Intl.DateTimeFormat("en-CA", { timeZone: "America/Port_of_Spain" }).format(date)`, matching `activity-list.tsx`.
+9. The route reads `title, pdf_path` from `document_versions` once instead of calling `loadPdfData` just for the filename.
+
+Commit: `fix(documents): review findings on PDF layout, dates and storage`.
+
+---
+
 ### Task 14: Receipts we issue to clients
 
 Added 4 November at Michael and Zane's request. A receipt is a document of type `receipt` built from **one recorded payment** (the `payments` table, migration 011), so it can never disagree with Finance. Claude can draft and finalise one on request; the dashboard has a "Make receipt" button per payment.
