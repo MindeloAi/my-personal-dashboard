@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient, getAdmin } from "@/lib/auth";
 import { dashboardFont } from "@/lib/dashboard-font";
+import { safeNext } from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,37 +14,42 @@ export const dynamic = "force-dynamic";
 async function signIn(formData: FormData) {
   "use server";
 
+  // Where to go afterwards (the Claude consent page sends founders here with ?next=).
+  const next = safeNext(String(formData.get("next") ?? ""));
+  const keep = next ? `&next=${encodeURIComponent(next)}` : "";
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  if (!email || !password) redirect("/login?error=missing");
+  if (!email || !password) redirect(`/login?error=missing${keep}`);
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   // One message for a wrong password and for an address that has no account.
   // Distinguishing them would let anyone enumerate who has access.
-  if (error) redirect("/login?error=invalid");
+  if (error) redirect(`/login?error=invalid${keep}`);
 
   // A valid account is not enough: without an admin profile the admin pages
   // would bounce straight back here. Sign out so the form isn't stuck in a loop.
   if (!(await getAdmin())) {
     await supabase.auth.signOut();
-    redirect("/login?error=unauthorised");
+    redirect(`/login?error=unauthorised${keep}`);
   }
 
-  redirect("/admin/overview");
+  redirect(next ?? "/admin/overview");
 }
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  const { error } = await searchParams;
+  const sp = await searchParams;
+  const error = sp.error;
+  const next = safeNext(sp.next);
 
   // Already signed in and authorised: skip the form.
   const admin = await getAdmin();
-  if (admin) redirect("/admin/overview");
+  if (admin) redirect(next ?? "/admin/overview");
 
   return (
     <div className={`${dashboardFont.className} min-h-screen bg-[#F3F5F8] text-[#1B2533] flex items-center justify-center p-6`}>
@@ -55,6 +61,8 @@ export default async function LoginPage({
           <p className="text-lg font-semibold text-[#1B2533]">Mindelo Dashboard</p>
           <p className="text-xs text-[#5A6678]">Sign in to continue.</p>
         </div>
+
+        <input type="hidden" name="next" value={next ?? ""} />
 
         {error === "invalid" && (
           <p className="text-xs text-[#B23A0A]">

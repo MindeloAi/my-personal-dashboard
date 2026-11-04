@@ -1,7 +1,7 @@
 // Checks how records link to each other. No database.
 //   bun scripts/record-graph.test.ts
 import assert from "node:assert/strict";
-import { linksFor, type Graph } from "../src/lib/record-graph";
+import { href, linksFor, type Graph } from "../src/lib/record-graph";
 import type { Client, Project, Invoice, Lead } from "../src/lib/db";
 
 const g: Graph = {
@@ -39,5 +39,10 @@ assert.deepEqual([invoice.client?.id, invoice.lead?.id, invoice.projects.length]
 
 const early = linksFor("lead", "l2", g);
 assert.deepEqual([early.client, early.projects.map((p) => p.id)], [undefined, ["p2"]], "a lead's project shows before it has a client");
+
+assert.equal(href.project("p1"), "/admin/projects/p1", "projects have their own page");
+assert.equal(href.invoice("i1"), "/admin/finance/invoices/i1", "invoices have their own page");
+assert.equal(href.document("d1"), "/admin/documents/d1");
+assert.equal(href.client("c 1"), "/admin/clients/c%201", "ids are encoded");
 
 console.log("record-graph: all checks pass");

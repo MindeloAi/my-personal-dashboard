@@ -5,7 +5,7 @@
  */
 
 /** Page title plus one sentence on what the page is for. */
-export function PageHeader({ title, purpose, action }: { title: string; purpose: string; action?: React.ReactNode }) {
+export function PageHeader({ title, purpose, action }: { title: string; purpose: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div>

@@ -297,3 +297,274 @@ revoke all on all sequences in schema public from anon, authenticated;
 -- Not mirrored here: its trigger functions and seed rows are not idempotent.
 -- After this file, apply scripts/migrations/011_founder_ledger.up.sql then 012 with
 -- scripts/run-migration.mjs.
+
+-- ─── Documents, deals, attachments, activity (migration 022) ──────────────
+create or replace function schedule_total(j jsonb) returns numeric
+language sql immutable as $$
+  select coalesce(sum((x->>'amount')::numeric), 0) from jsonb_array_elements(j) x
+$$;
+
+create table if not exists deals (
+  id               uuid primary key default gen_random_uuid(),
+  project_id       uuid unique references projects(id) on delete set null,
+  reference        text not null unique check (reference ~ '^[A-Z0-9]{2,8}-[0-9]{4}-[0-9]{2}$'),
+  scope            text[] not null default '{}',
+  price_total      numeric(12,2) check (price_total is null or price_total >= 0),
+  currency         text not null default 'TTD',
+  payment_schedule jsonb not null default '[]' check (jsonb_typeof(payment_schedule) = 'array'),
+  care_plan        jsonb check (care_plan is null or jsonb_typeof(care_plan) = 'object'),
+  deadline         date,
+  goals            text,
+  notes            text,
+  payee_default    text check (payee_default in ('michael','zane','company')),
+  created_by       text not null,
+  updated_by       text not null,
+  updated_via      text not null default 'dashboard' check (updated_via in ('dashboard','claude')),
+  created          timestamptz not null default now(),
+  updated          timestamptz not null default now(),
+  constraint deals_schedule_adds_up check (
+    jsonb_array_length(payment_schedule) = 0
+    or (price_total is not null and schedule_total(payment_schedule) = price_total)
+  )
+);
+
+create table if not exists documents (
+  id              uuid primary key default gen_random_uuid(),
+  type            text not null check (type in ('proposal','quote','service_agreement','care_plan','change_request','invoice','sop')),
+  client_id       uuid references clients(id) on delete set null,
+  project_id      uuid references projects(id) on delete set null,
+  deal_id         uuid references deals(id) on delete set null,
+  invoice_id      uuid references invoices(id) on delete set null,
+  title           text not null check (length(trim(title)) > 0),
+  status          text not null default 'draft'
+                  check (status in ('draft','finalised','sent','accepted','signed','declined','void')),
+  draft           jsonb not null default '[]' check (jsonb_typeof(draft) = 'array'),
+  current_version integer not null default 0 check (current_version >= 0),
+  created_by      text not null,
+  updated_by      text not null,
+  updated_via     text not null default 'dashboard' check (updated_via in ('dashboard','claude')),
+  created         timestamptz not null default now(),
+  updated         timestamptz not null default now(),
+  constraint documents_invoice_only_on_invoices check (type = 'invoice' or invoice_id is null)
+);
+
+create table if not exists document_versions (
+  id           uuid primary key default gen_random_uuid(),
+  document_id  uuid not null references documents(id),
+  version      integer not null check (version >= 1),
+  title        text not null,
+  sections     jsonb not null check (jsonb_typeof(sections) = 'array'),
+  pdf_path     text,
+  finalised_by text not null,
+  finalised_at timestamptz not null default now(),
+  unique (document_id, version)
+);
+
+create table if not exists attachments (
+  id           uuid primary key default gen_random_uuid(),
+  entity_type  text not null check (entity_type in ('client','project','invoice','document')),
+  entity_id    uuid not null,
+  storage_path text not null unique,
+  filename     text not null,
+  content_type text not null,
+  size         bigint not null check (size > 0),
+  kind         text not null default 'other' check (kind in ('signed_copy','proof_of_payment','asset','other')),
+  uploaded_by  text not null,
+  created      timestamptz not null default now()
+);
+
+create table if not exists activity (
+  id          uuid primary key default gen_random_uuid(),
+  entity_type text not null check (entity_type in ('client','project','deal','document','invoice','attachment')),
+  entity_id   uuid not null,
+  client_id   uuid references clients(id) on delete set null,
+  action      text not null,
+  summary     text not null,
+  actor       text not null,
+  via         text not null default 'dashboard' check (via in ('dashboard','claude')),
+  created     timestamptz not null default now()
+);
+
+create index if not exists documents_client_idx on documents (client_id, updated desc);
+create index if not exists documents_project_idx on documents (project_id, updated desc);
+create index if not exists attachments_entity_idx on attachments (entity_type, entity_id, created desc);
+create index if not exists activity_client_idx on activity (client_id, created desc);
+create index if not exists activity_entity_idx on activity (entity_type, entity_id, created desc);
+
+-- A finalised version is frozen. The one allowed change is filling in its PDF
+-- path once, after the PDF has been rendered (Phase 2).
+create or replace function document_versions_frozen() returns trigger
+language plpgsql as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'document versions cannot be deleted';
+  end if;
+  if new.document_id is distinct from old.document_id
+     or new.version is distinct from old.version
+     or new.title is distinct from old.title
+     or new.sections is distinct from old.sections
+     or new.finalised_by is distinct from old.finalised_by
+     or new.finalised_at is distinct from old.finalised_at
+     or (old.pdf_path is not null and new.pdf_path is distinct from old.pdf_path) then
+    raise exception 'document versions cannot be changed';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists document_versions_frozen on document_versions;
+create trigger document_versions_frozen before update or delete on document_versions
+  for each row execute function document_versions_frozen();
+
+-- Signed and void are final.
+create or replace function documents_final_states() returns trigger
+language plpgsql as $$
+begin
+  if old.status in ('signed','void') and new.status is distinct from old.status then
+    raise exception 'a % document cannot change status', old.status;
+  end if;
+  -- A link may be cleared (ON DELETE SET NULL when the client, project, deal
+  -- or invoice is deleted) but never pointed at a different record.
+  if old.status in ('signed','void') and (
+       (new.draft, new.title, new.type) is distinct from (old.draft, old.title, old.type)
+       or (new.client_id  is not null and new.client_id  is distinct from old.client_id)
+       or (new.project_id is not null and new.project_id is distinct from old.project_id)
+       or (new.deal_id    is not null and new.deal_id    is distinct from old.deal_id)
+       or (new.invoice_id is not null and new.invoice_id is distinct from old.invoice_id)) then
+    raise exception 'a % document cannot be changed', old.status;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists documents_final_states on documents;
+create trigger documents_final_states before update on documents
+  for each row execute function documents_final_states();
+
+-- The activity log is append-only.
+create or replace function activity_append_only() returns trigger
+language plpgsql as $$
+begin
+  raise exception 'activity is append-only';
+end $$;
+
+drop trigger if exists activity_append_only on activity;
+create trigger activity_append_only before update or delete on activity
+  for each row execute function activity_append_only();
+
+-- Same lockdown as every other table: RLS on with zero policies.
+alter table deals             enable row level security;
+alter table documents         enable row level security;
+alter table document_versions enable row level security;
+alter table attachments       enable row level security;
+alter table activity          enable row level security;
+revoke all on table deals             from anon, authenticated;
+revoke all on table documents         from anon, authenticated;
+revoke all on table document_versions from anon, authenticated;
+revoke all on table attachments       from anon, authenticated;
+revoke all on table activity          from anon, authenticated;
+
+-- ─── 024: payees, invoice payee, connector OAuth ───
+
+create table if not exists payee_accounts (
+  payee          text primary key check (payee in ('michael','zane','company')),
+  account_name   text not null check (length(trim(account_name)) > 0),
+  bank_name      text not null check (length(trim(bank_name)) > 0),
+  branch         text,
+  account_number text not null check (length(trim(account_number)) > 0),
+  account_type   text,
+  updated_by     text not null,
+  updated        timestamptz not null default now()
+);
+
+alter table documents add column if not exists payee text check (payee in ('michael','zane','company'));
+
+-- As in 022, plus the payee: a signed or void invoice keeps who was paid.
+create or replace function documents_final_states() returns trigger
+language plpgsql as $$
+begin
+  if old.status in ('signed','void') and new.status is distinct from old.status then
+    raise exception 'a % document cannot change status', old.status;
+  end if;
+  -- A link may be cleared (ON DELETE SET NULL when the client, project, deal
+  -- or invoice is deleted) but never pointed at a different record.
+  if old.status in ('signed','void') and (
+       (new.draft, new.title, new.type, new.payee) is distinct from (old.draft, old.title, old.type, old.payee)
+       or (new.client_id  is not null and new.client_id  is distinct from old.client_id)
+       or (new.project_id is not null and new.project_id is distinct from old.project_id)
+       or (new.deal_id    is not null and new.deal_id    is distinct from old.deal_id)
+       or (new.invoice_id is not null and new.invoice_id is distinct from old.invoice_id)) then
+    raise exception 'a % document cannot be changed', old.status;
+  end if;
+  return new;
+end $$;
+
+create table if not exists oauth_codes (
+  code_hash      text primary key,
+  user_id        uuid not null,
+  client_id      text not null,
+  redirect_uri   text not null,
+  code_challenge text not null,
+  expires_at     timestamptz not null,
+  used_at        timestamptz
+);
+
+create table if not exists oauth_tokens (
+  token_hash text primary key,
+  kind       text not null check (kind in ('access','refresh')),
+  user_id    uuid not null,
+  client_id  text not null,
+  expires_at timestamptz not null,
+  revoked_at timestamptz,
+  created    timestamptz not null default now()
+);
+create index if not exists oauth_tokens_user_idx on oauth_tokens (user_id);
+
+alter table payee_accounts enable row level security;
+alter table oauth_codes    enable row level security;
+alter table oauth_tokens   enable row level security;
+revoke all on table payee_accounts from anon, authenticated;
+revoke all on table oauth_codes    from anon, authenticated;
+revoke all on table oauth_tokens   from anon, authenticated;
+
+-- ─── 025: receipts for payments, files on expenses ───
+
+alter table documents drop constraint if exists documents_type_check;
+alter table documents add constraint documents_type_check
+  check (type in ('proposal','quote','service_agreement','care_plan','change_request','invoice','sop','receipt'));
+alter table documents drop constraint if exists documents_invoice_only_on_invoices;
+alter table documents add constraint documents_invoice_only_on_invoices check (type in ('invoice','receipt') or invoice_id is null);
+
+alter table documents add column if not exists payment_id uuid references payments(id) on delete set null;
+alter table documents add column if not exists receipt_number text unique;
+alter table documents drop constraint if exists documents_payment_only_on_receipts;
+alter table documents add constraint documents_payment_only_on_receipts check (type = 'receipt' or (payment_id is null and receipt_number is null));
+create unique index if not exists documents_one_live_receipt on documents (payment_id) where type = 'receipt' and status <> 'void';
+
+-- As in 024, plus the payment link and the receipt number, which never changes once given.
+create or replace function documents_final_states() returns trigger
+language plpgsql as $$
+begin
+  if old.receipt_number is not null and new.receipt_number is distinct from old.receipt_number then
+    raise exception 'receipt % already has its number', old.receipt_number;
+  end if;
+  if old.status in ('signed','void') and new.status is distinct from old.status then
+    raise exception 'a % document cannot change status', old.status;
+  end if;
+  if old.status in ('signed','void') and (
+       (new.draft, new.title, new.type, new.payee) is distinct from (old.draft, old.title, old.type, old.payee)
+       or (new.client_id  is not null and new.client_id  is distinct from old.client_id)
+       or (new.project_id is not null and new.project_id is distinct from old.project_id)
+       or (new.deal_id    is not null and new.deal_id    is distinct from old.deal_id)
+       or (new.invoice_id is not null and new.invoice_id is distinct from old.invoice_id)
+       or (new.payment_id is not null and new.payment_id is distinct from old.payment_id)) then
+    raise exception 'a % document cannot be changed', old.status;
+  end if;
+  return new;
+end $$;
+
+-- Expense files (Task 15)
+alter table attachments drop constraint if exists attachments_entity_type_check;
+alter table attachments add constraint attachments_entity_type_check
+  check (entity_type in ('client','project','invoice','document','expense'));
+alter table activity drop constraint if exists activity_entity_type_check;
+alter table activity add constraint activity_entity_type_check
+  check (entity_type in ('client','project','deal','document','invoice','attachment','expense'));
